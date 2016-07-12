@@ -3,3 +3,6 @@ DMFT installation instructions:
   1. Edit `configure.py' to fit your environment (optional)
   
   2. Execute `setup.py'
+
+  3. Check...
+  
