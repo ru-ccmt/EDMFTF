@@ -1,5 +1,5 @@
-To install DMFT software you need to take a look 
-in to "configure.py" file and inpt as much parameters as
-you know following execusion  of setup.py .
+DMFT installation instructions:
 
-Blind  setup.py execution might also work.
+  1. Edit `configure.py' to fit your environment (optional)
+  
+  2. Execute `setup.py'
