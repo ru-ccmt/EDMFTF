@@ -1,3 +1,4 @@
+! Next job
 subroutine init(deffn,errfn,e,vru,emm,fl,jspin,kpot,ipr,th,ph,irlotot)
 
   USE param
