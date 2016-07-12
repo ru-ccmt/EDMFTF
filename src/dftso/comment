@@ -1,0 +1,88 @@
+SRC_lapwso April 2002
+
+Derived from WIEN2k/SRC_lapwso
+
+Spin-orbit coupling might be switched off on selected atoms, where it
+is expected to be insignificant. s-o can be switched on in final 
+calculation, if needed.
+
+hmsec was rewritten in order to speed up the calculation.
+
+It is possible to include orbital potential Vorb. It has definite
+advantages, comparing to inclusion Vorb in LAPW1, providing the interest 
+is in orbital momentum and related effects:
+
+a/ Real version of LAPW1 for systems with inversion center may be used.
+b/ Nondiagonal <spin up|Vorb|spin down> terms are included.
+c/ Vorb may be radially dependent (not yet implemented).
+
+Because Vorb is expressed in local coordinate system of an atom, while
+Vs-o in WIEN2k/SRC_lapwso is calculated in global co-ordinate system, it
+was necessary to add subroutines
+that allow to calculate matrix elements of Vorb in the local system
+(abclm1.f90, lomain1.f90, rlomain1.f90, symop.f90)
+Another new subroutine is garadorb.f90 that calculates radial integrals
+connected with Vorb.
+
+Nonspherical potential was added for relativistic local orbitals.
+
+Execution command is:
+
+x lapwso -up -orb     for systems with inversion center (real LAPW1 eigenvect.)
+x lapwso -up -orb -c  for systems without inversion center 
+                      (complex LAPW1 eigenvect.)
+if -orb is not present, calculation is identical to that with WIEN2k/lapwso.
+
+Alternatively the program may be executed by
+
+lapwso lapwso.def,
+
+where in comparison with standard WIEN2k lapwso.def contains three additional
+lines:
+
+11,'case.vorbdn'     ,'unknown','formatted',0
+12,'case.vorbup'     ,'unknown','formatted',0
+13,'case.vorbdnup'     ,'unknown','formatted',0
+
+
+ Input data:
+
+   1st line
+   vect                 format(A5)     as in WIEN97 package
+
+   2nd line
+   llmax,ipr,kpot       free format    as in WIEN97 package, but
+                                       icmplx missing
+
+   3rd line
+   EMIN, EMAX           free format    defines energy output window
+                                       for LAPWSO output, allows to
+                                       include only significant
+                                       eigenvectors and thus shorten
+                                       vector files
+
+   4th line             
+   Mx,My,Mz             free format    direction of magnetization
+                                       expressed in units of the
+                                       lattice vectors (as atom coord.
+                                       in struct file)
+
+   5th line
+   nrelcase             free format   number of atoms for which the RLO
+                                      (relativistic p1/2 local orbital) will
+                                      be included
+
+   6th line             free format   repeated nrelcase times 
+   ity,ERLO(ity),dERLO(ity)
+                        free format   index of atom with RLO,
+                                       energy and energy increment for RLO
+                                      (the same as for LO in LAPW1 input)
+
+  7th line              free format  
+  noff                                  number of atoms for which
+                                        the spin-orbit coupling is
+                                        switched off
+  8th line              free format  
+  iatoff(noff) 
+                                        indexes of atoms for
+                                        which s-o is switched off

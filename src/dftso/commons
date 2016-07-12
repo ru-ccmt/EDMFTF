@@ -1,0 +1,90 @@
+!rschmid
+!  Common declarations for local orbitals
+!rschmid
+
+
+!
+!        ALO(l,i,isi)    - local orbital coefficient Alm for atom i
+!        BLO(l,i,isi)    - local orbital coefficient Blm for atom i
+!        CLO(l,i,isi)    - local orbital coefficient Clm for atom i
+!        DPELO(l,i,isi)  - derivative of the energy derivative ul_dot(r,E)
+!                      of the local orbital radial-function ul(r,E) with  
+!                      respect to r
+!                      (evaluated at r = muffin tin radius of atom i)
+!        DPLO(l,i,isi)   - derivative of the local orbital radial-function
+!                      ul(r,E) with respect to radius r
+!                      (evaluated at r = muffin tin radius of atom i)
+!        ELO(l,i,isi)    - local orbital expansion energy El for atom i   
+!        PEILO(l,i,isi)  - the norm of the energy derivative ul_dot(r,E)  
+!                      of the local orbital radial function ul(r,E1)
+!                      integrated over the muffin tin sphere
+!        PELO(l,i,isi)   - ul_dot(r,E)
+!                      (evaluated at r = muffin tin radius of atom i)
+!        PLO(l,i,isi)    - local orbital radial-function ul(r,E)   
+!                      (evaluated at r = muffin tin radius of atom i)
+!        PI12LO(l,i,isi) - the sum of the local orbital radial functions
+!                      ul(r,E1) and ul(r,E2) integrated over the muffin
+!                      tin sphere (for atom i)
+!        PE12LO(l,i,isi) - the sum of the derivative of ul(r,E1) with
+!                      respect to r and ul(r,E2) integrated over the
+!                      muffin tin sphere (for atom i)
+!
+      double precision alo(0:lomax,nloat,nato,2)
+      real*8           blo(0:lomax,nloat,nato,2)
+      double precision clo(0:lomax,nloat,nato,2)
+      real*8           dplo(0:lomax,nato,2)
+      double precision dpelo(0:lomax,nato,2)
+      real*8           elo(0:lomax,nloat,nato,2)
+      double precision peilo(0:lomax,nato,2), pelo(0:lomax,nato,2)
+      double precision plo(0:lomax,nato,2)
+      double precision pi12lo(0:lomax,nato,2),pe12lo(0:lomax,nato,2)
+
+      common  /loabc/    alo, blo, clo, elo, plo, dplo, pelo, &
+                        dpelo, peilo, pi12lo, pe12lo
+      save    /loabc/
+
+!rschmid
+!    Declarations for fully relativistic local orbitals
+!rschmid
+      double precision alor(0:lomax,nato,2), blor(0:lomax,nato,2)
+      double precision clor(0:lomax,nato,2), dplor(0:lomax,nato,2)
+      double precision dpelor(0:lomax,nato,2), elor(0:lomax,nato,2)
+      double precision peilor(0:lomax,nato,2), pelor(0:lomax,nato,2)
+      double precision plor(0:lomax,nato,2)
+      double precision pi2lor(0:lomax,nato,2),pe2lor(0:lomax,nato,2)
+      double precision elor2(0:lomax,nato,2)
+
+      common  /loabcr/    alor, blor, clor, elor, plor, dplor, pelor, &
+                        dpelor, peilor, pi2lor, pe2lor,elor2
+
+!rschmid     
+!        loor(l,i) - selects which local orbitals should be used for
+!                    atom i
+!        nlo       - total number of used local orbitals
+!rschmid
+     
+      integer    nlo,nlov,nlon,ilo
+      logical    loor(0:lomax,nato),lapw(0:lmx-1,nato)
+           
+
+      common /lolog/   nlo(nato),nlov(nato),nlon(nato),loor,lapw, &
+                      ilo(0:lomax,nato)
+
+!rschmid
+!
+!       loorext(l,i) - selects which orbitals with relativistic radial
+!                      functions should be included in 2nd diagonalisation
+!rschmid
+
+      integer      nrlo,nrlov,nrlon,nnrlo
+      logical      loorext(0:lomax,nato)
+      common /rlolog/   nrlo(nato),nrlov(nato),nrlon(nato),loorext, &
+                       nnrlo
+
+      integer           extl (nato, lomax )
+      integer           nlr  (nato)
+      real*8            extei(nato, lomax )
+      real*8            extde(nato, lomax )
+      character*4       extem(nato, lomax )
+      
+      common /rpars/    extei, extde, extl, nlr, extem

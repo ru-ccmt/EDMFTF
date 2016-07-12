@@ -1,0 +1,14 @@
+      SUBROUTINE BESS(F,DF,N,BKX,BKY,BKZ,RI,LMAX,LMX)
+      IMPLICIT REAL*8(A-H,O-Z)
+      DIMENSION F(LMX,N),BKX(N),BKY(N),BKZ(N)
+      DIMENSION DF(LMX,N)
+      DO 1 I=1,N
+      XM=DSQRT(BKX(I)**2+BKY(I)**2+BKZ(I)**2)
+      XA=RI*XM
+      CALL SPHBES(LMAX,XA,F(1,I))
+      CALL DVBES1(F(1,I),DF(1,I),XA,RI,LMX)
+      DO 2 J=1,LMX
+    2 DF(J,I)=XM*DF(J,I)
+    1 CONTINUE
+      RETURN
+      END

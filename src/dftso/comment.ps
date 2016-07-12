@@ -1,0 +1,394 @@
+%!PS-Adobe-3.0
+%%Creator: A2ps version 4.3
+%%CreationDate: Wed Apr  3 12:52:53 2002
+%%Pages: (atend)
+%%DocumentFonts: Courier Courier-Bold Helvetica Helvetica-Bold
+%%EndComments
+% Copyright (c) 1993, 1994, Miguel Santana, M.Santana@frgu.bull.fr
+
+/$a2psdict 100 dict def
+$a2psdict begin
+
+% General macros.
+/xdef {exch def} bind def
+/getfont {exch findfont exch scalefont} bind def
+
+% Create Courier backspace font
+/backspacefont {
+    /Courier findfont dup length dict begin
+	{ % forall
+	    1 index /FID eq { pop pop } { def } ifelse
+	} forall
+	currentdict /UniqueID known { % if
+	    /UniqueID UniqueID 16#800000 xor def
+	} if
+	CharStrings length 1 add dict begin
+	    CharStrings { def } forall
+	    /backspace { -600 0 0 0 0 0 setcachedevice } bind def
+	    currentdict
+	end
+	/CharStrings exch def
+	/Encoding Encoding 256 array copy def
+	Encoding 8 /backspace put
+	currentdict
+    end
+    definefont pop
+} bind def
+
+% FUNCTIONS
+
+% Function filename: Initialize file printing.
+/fn
+{ /filenm xdef
+  /filenmwidth filenm stringwidth pop def
+  /filenmfont
+       filenmwidth fns gt
+       {
+	       filenmfontname
+	       fnfs fns mul filenmwidth div
+	     getfont
+       }
+       { sfnf }
+     ifelse
+  def
+} bind def
+
+% Function header: prints page header. no page
+% is passed as argument.
+/hp
+  { x sd get  y sd get hs sub 1 add  moveto
+    df setfont
+    gsave
+      x sd get y sd get moveto
+      0 hs 2 div neg rmoveto 
+      hs setlinewidth
+      0.95 setgray
+      pw 0 rlineto stroke
+    grestore
+    gsave
+      dfs hm rmoveto
+      d show				% date/hour
+    grestore
+    gsave
+      pnum cvs pop				% page pop up
+        pw (Page 999) stringwidth pop sub
+        hm
+	  rmoveto
+      (Page ) show pnum show		% page number
+    grestore
+    empty pnum copy pop
+    gsave
+      filenmfont setfont
+         fns filenm stringwidth pop sub 2 div dw add
+          bm 2 mul 
+        add 
+        hm
+      rmoveto
+        filenm show			% file name
+      grestore
+    } bind def
+
+% Function border: prints border page
+/border 
+{ x sd get y sd get moveto
+  gsave				% print four sides
+    0.7 setlinewidth		% of the square
+    pw 0 rlineto
+    0 ph neg rlineto
+    pw neg 0 rlineto
+    closepath stroke
+  grestore
+} bind def
+
+% Function hborder: completes border of the header.
+/hborder 
+{ gsave
+	0.7 setlinewidth
+	0 hs neg rmoveto
+	pw 0 rlineto
+	stroke
+  grestore
+} bind def
+
+% Function sheetnumber: prints the sheet number.
+/sn
+    { snx sny moveto
+      df setfont
+      pnum cvs
+	  dup stringwidth pop (0) stringwidth pop sub neg 0 rmoveto show
+      empty pnum copy pop
+    } bind def
+
+% Function loginprint: prints the login id of the requestor.
+/lgp
+    { lx ly moveto
+      df setfont
+      dup stringwidth pop neg 0 rmoveto show
+    } bind def
+
+% Function currentdate: prints the current date.
+/cd
+    { dx dy moveto
+      df setfont
+      (Printed: ) show
+      td show
+    } bind def
+
+% Function filename_footer: prints the file name at bottom of page.
+/fnf
+    { fnx fny moveto
+      df setfont
+      filenm center show
+    } bind def
+
+% Function center: centers text.
+/center
+    { dup stringwidth pop
+      2 div neg 0 rmoveto
+    } bind def
+
+% Function s: print a source line
+/s  { show
+      /y0 y0 bfs sub def
+      x0 y0 moveto
+    } bind def
+
+% Functions b and st: change to bold or standard font
+/b  { show
+      bdf setfont
+    } bind def
+/st { show
+      bf setfont
+    } bind def
+
+% Strings used to make easy printing numbers
+/pnum 12 string def
+/empty 12 string def
+
+% Global initializations
+
+/CourierBack backspacefont
+/filenmfontname /Helvetica-Bold def
+/inch {72 mul} bind def
+
+%
+% Meaning of some variables and functions (coded names)
+%
+%	twp:		twinpages?
+%	sd:		sheet side
+%	l:		line counter
+%	c:		column counter
+%	d:		date
+%	td:		current date (for today)
+%	lg:		login name
+%	fn:		filename printing function
+%	sn:		sheetnumber printing function
+%	cd:		current date printing function
+%	fnf:		filename footer printing function
+%	lgp:		login printing function
+%	hp:		header printing function
+%	y:		y coordinate for the logical page
+%	x:		x coordinate for the logical page
+%	sny:		y coordinate for the sheet number
+%	snx:		x coordinate for the sheet number
+%	dy:		y coordinate for the date
+%	dx:		x coordinate for the date
+%	ly:		y coordinate for the login
+%	lx:		x coordinate for the login
+%	scx:		x coordinate for the sheet center
+%	fny:		y coordinate for the filename (footer)
+%	fnx:		x coordinate for the filename (footer)
+%	fnfs:		filename font size
+%	bfs:		body font size
+%	dfs:		date font size
+%	bfs:		body font size
+%	df:		date font
+%	bf:		body font
+%	bdf:		bold font
+%	sfnf:		standard filename font
+%	dw:		date width
+%	pw:		page width
+%	sw:		sheet width
+%	ph:		page height
+%	sh:		sheet height
+%	hm:		header margin
+%	tm:		top margin
+%	bm:		body margin
+%	rm:		right margin
+%	lm:		left margin
+%	hs:		header size
+%	fns:		filename size
+
+% Initialize page description variables.
+/x0 0 def
+/y0 0 def
+/sh 11.64 inch def
+/sw 8.27 inch def
+/margin 1.4 inch def
+/rm margin 3 div def
+/lm margin 2 mul 3 div def
+/d () def
+/td (Apr  3 2002 12:52) def
+/lg (Printed by novakp from sun175) def
+%%EndProlog
+
+/docsave save def
+%%Page: 1 1
+/pagesave save def
+/twp true def
+/fnfs 11 def
+/dfs fnfs 0.8 mul def
+/df /Helvetica dfs getfont def
+/dw df setfont td stringwidth pop def
+/sfnf filenmfontname fnfs getfont def
+/hm fnfs 0.25 mul def
+/hs 0.22 inch def
+/bfs 6.8 def
+/bdf /Courier-Bold bfs getfont def
+/bm bfs 0.7 mul def
+/bf /CourierBack bfs getfont def
+/l 69 def
+/c 89 def
+/pw
+   bf setfont (0) stringwidth pop c mul bm dup add add
+   def
+/ph
+   bfs l mul bm dup add add hs add
+   def
+/fns
+      pw
+      fnfs 4 mul dw add (Page 999) stringwidth pop add
+    sub
+  def
+/tm margin twp {3} {2} ifelse div def
+/sd 0 def
+/y [ rm ph add bm add
+          dup ] def
+/sny dfs dfs add def
+/snx sh tm dfs add sub def
+/dy sny def
+/dx tm dfs add def
+/x [ tm			% left page
+          dup 2 mul pw add	% right page
+        ] def
+/scx sh 2 div def
+/fny dy def
+/fnx scx def
+/ly fnfs 2 div y sd get add def
+/lx snx def
+/d (Apr  3 2002 12:52) def
+( comment ) fn
+sw 0 translate
+90 rotate
+1 hp
+border
+hborder
+/x0 x 0 get bm add def
+/y0 y 0 get bm bfs add hs add sub def
+x0 y0 moveto
+bf setfont
+( SRC_lapwso_orb April 2002) s
+( ) s
+( Derived from WIEN2k/SRC_lapwso) s
+( ) s
+( Spin-orbit coupling might be switched off on selected atoms, where it) s
+( is expected to be insignificant. s-o can be switched on in final ) s
+( calculation, if needed.) s
+( ) s
+( hmsec was rewritten in order to speed up the calculation.) s
+( ) s
+( It is possible to include orbital potential Vorb. It has definite) s
+( advantages, comparing to inclusion Vorb in LAPW1, providing the interest ) s
+( is in orbital momentum and related effects:) s
+( ) s
+( a/ Real version of LAPW1 for systems with inversion center may be used.) s
+( b/ Nondiagonal <spin up|Vorb|spin down> terms are included.) s
+( c/ Vorb may be radially dependent \(not yet implemented\).) s
+( ) s
+( Because Vorb is expressed in local coordinate system of an atom, while) s
+( Vs-o in WIEN2k/SRC_lapwso is calculated in global co-ordinate system, it) s
+( was necessary to add subroutines) s
+( that allow to calculate matrix elements of Vorb in the local system) s
+( \(abclm1.f90, lomain1.f90, rlomain1.f90, symop.f90\)) s
+( Another new subroutine is garadorb.f90 that calculates radial integrals) s
+( connected with Vorb.) s
+( ) s
+( ) s
+( Execution command is:) s
+( ) s
+( x lapwso -up -orb     for systems with inversion center \(real LAPW1 eigenvect.\)) s
+( x lapwso -up -orb -c  for systems without inversion center ) s
+(                       \(complex LAPW1 eigenvect.\)) s
+( if -orb is not present, calculation is identical to that with WIEN2k/lapwso.) s
+( ) s
+( Alternatively the program may be executed by) s
+( ) s
+( lapwso lapwso.def,) s
+( ) s
+( where in comparison with standard WIEN2k lapwso.def contains three additional) s
+( lines:) s
+( ) s
+( 11,'case.vorbdn'     ,'unknown','formatted',0) s
+( 12,'case.vorbup'     ,'unknown','formatted',0) s
+( 13,'case.vorbdnup'     ,'unknown','formatted',0) s
+( ) s
+( ) s
+(  Input data:) s
+( ) s
+(    1st line) s
+(    vect                 format\(A5\)     as in WIEN97 package) s
+( ) s
+(    2nd line) s
+(    llmax,ipr,kpot       free format    as in WIEN97 package, but) s
+(                                        icmplx missing) s
+( ) s
+(    3rd line) s
+(    EMIN, EMAX           free format    defines energy output window) s
+(                                        for LAPWSO output, allows to) s
+(                                        include only significant) s
+(                                        eigenvectors and thus shorten) s
+(                                        vector files) s
+( ) s
+(    4th line             ) s
+(    Mx,My,Mz             free format    direction of magnetization) s
+(                                        expressed in units of the) s
+(                                        lattice vectors \(as atom coord.) s
+(                                        in struct file\)) s
+( ) s
+(    5th line) s
+/sd 1 def
+2 hp
+border
+hborder
+/x0 x 1 get bm add def
+/y0 y 1 get bm bfs add hs add sub def
+x0 y0 moveto
+bf setfont
+(    nrelcase             free format   number of atoms for which the RLO) s
+(                                       \(relativistic p1/2 local orbital\) will) s
+(                                       be included) s
+( ) s
+(    6th line             free format   repeated nrelcase times ) s
+(    ity,ERLO\(ity\),dERLO\(ity\)) s
+(                         free format   index of atom with RLO,) s
+(                                        energy and energy increment for RLO) s
+(                                       \(the same as for LO in LAPW1 input\)) s
+( ) s
+(   7th line              free format  ) s
+(   noff                                  number of atoms for which) s
+(                                         the spin-orbit coupling is) s
+(                                         switched off) s
+(   8th line              free format  ) s
+(   iatoff\(noff\) ) s
+(                                         indexes of atoms for) s
+(                                         which s-o is switched off) s
+/sd 0 def
+1 sn
+fnf
+lg lgp
+pagesave restore
+showpage
+
+%%Trailer
+%%Pages: 1
+docsave restore end
