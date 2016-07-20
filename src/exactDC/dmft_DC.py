@@ -224,8 +224,14 @@ def ComputeExactDC(nocc,lmbda,epsilon,icase,fh_info,projector='../projectorw.dat
             rs_1 = rs_1.flatten()
             
             (epx,Vx) = yw_excor.exchangelda(rs_1,lmbda*renorm_lambda)
+            epx *= 1./epsilon
+            Vx *= 1./epsilon
+            
             rsi = array([1/rsx if rsx>0 else 1e30 for rsx in rs_1])
             (epc,Vc) = yw_excor.corrlda(rsi, lmbda*renorm_lambda)
+            epc *= 1./epsilon
+            Vc *= 1./epsilon
+            ##(epc,Vc) = yw_excor.corrlda_2(rsi,lmbda*renorm_lambda,epsilon)
             
             Vxr = Vx.reshape(shape(rho_angle2))
             Vcr = Vc.reshape(shape(rho_angle2))
@@ -249,12 +255,12 @@ def ComputeExactDC(nocc,lmbda,epsilon,icase,fh_info,projector='../projectorw.dat
                 
             #print 'VxcI=', VxcI[:,ir]
 
-        Exc = integrate.romb(ul2[:]*ExcI[:],dx=r[1]-r[0])*Ry2eV /epsilon
+        Exc = integrate.romb(ul2[:]*ExcI[:],dx=r[1]-r[0])*Ry2eV
         PhiDC = EHartree+Exc
         Vedc = zeros(len(Vhartree))
         for ii in range(len(deg)):
-            Vx = integrate.romb(ul2[:]*VxI[ii,:],dx=r[1]-r[0])*Ry2eV /epsilon
-            Vc = integrate.romb(ul2[:]*VcI[ii,:],dx=r[1]-r[0])*Ry2eV /epsilon
+            Vx = integrate.romb(ul2[:]*VxI[ii,:],dx=r[1]-r[0])*Ry2eV
+            Vc = integrate.romb(ul2[:]*VcI[ii,:],dx=r[1]-r[0])*Ry2eV
             Vxc = Vx+Vc
             Vdc = Vhartree[ii]+Vxc
             Vedc[ii]=Vdc

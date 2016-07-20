@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 class Config:
-  prefix      = "./install"    # Installation path
+  prefix      = "../bin"    # Installation path
 
   compiler    = "GNU"          # Compiler
   cxx         = "g++-5"        # C++ compiler

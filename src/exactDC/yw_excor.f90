@@ -1,7 +1,8 @@
 !*****************************************************************!
 ! This module implements exchange and LDA-correlation
-! functional in case of yukawa screened interaction
-!    2*exp(-lambda*r)/r
+!  functional for Coulomb interaction screened by
+!  yukawa form or dielectric form:
+!    2*exp(-lambda*r)/(eps*r)
 ! Here units are implemented in Rydbergs.
 ! The relevant subroutines are:
 !
@@ -12,6 +13,13 @@
 !   subroutine CorrLDA(Ec, Vc, rsi, lambda, N)
 !      needs:
 !         real*8 :: Ec(N_, Vc(N), rsi(N), lambda  ! rsi=rs
+!
+!  subroutine CorrLDA_2(Ec, Vc, rs, lambda, eps, N)
+!      needs:
+!          rs(N), lambda, eps
+!      returns:
+!          Ec(N), Vc(N)
+!
 !*****************************************************************!
 subroutine ExchangeLDA(Ex, Vx, rs_1, lambda, N)
   IMPLICIT NONE
@@ -198,85 +206,129 @@ subroutine CorrLDA(Ec, Vc, rsi, lambda, N)
   CALL EcVc_reduce(rsi,lambda,A,C,N)
   Vc(:) = Vc(:)/A(:)+Ec(:)/C(:)
   Ec(:) = Ec(:)/A(:)
-  
 end subroutine CorrLDA
 
-! program exc
-!   IMPLICIT NONE
-!   REAL*8 :: rs(4), A(4), C(4), rs_1(4)
-!   REAL*8 :: lambda, Ec, Vc
-!   INTEGER:: i
-!   REAL*8 :: rx, Ec1, Vc1, Ec2, Vc2, dr
-!   REAL*8 :: Ecs(4), Vcs(4), Ecs1(4), Vcs1(4), Ecs2(4), Vcs2(4)
-!   REAL*8 :: A0(4), C0(4), A1(4), C1(4), A2(4), C2(4), dA(4), dE(4), E0(4), Ex(4), Vx(4)
-!   rs=(/1.5,2.5,3.5,4.5/)
+
+
+subroutine EcVc_reduce_di_2(rs,eps,fn,qn,N)
+  IMPLICIT NONE
+  INTEGER, intent(in):: N
+  REAL*8, intent(in) :: rs(N)
+  REAL*8, intent(in) :: eps
+  REAL*8, intent(out):: fn(N), qn(N)
+  ! locals
+  INTEGER:: i
+  REAL*8 :: a, b, d, eps_a, eps_d, eps_abd, b2r_9, r_da_dr, r_db_dr, r_dd_dr
+  REAL*8 :: ca(3), cb(3), cd(4)
+  ! The coefficients a, b, d depend on rs, and here is their more precise fit:
+  ca = (/1.74596971, -0.0892907,   0.00658866/)
+  cb = (/ 1.63289109,  1.15291480, 0.149402/)
+  cd = (/3.64370598, 0.03636027, -0.03886317, 0.00693599/)
+
+  do i=1,N
+     a = ca(1) + rs(i) * ca(2) + rs(i)**2 * ca(3)
+     b = 0.001*(cb(1)*sqrt(rs(i))+cb(2)*rs(i))/(1+ (cb(3)*rs(i))**9)
+     d = cd(1) + rs(i) * cd(2) + rs(i)**2 * cd(3) + rs(i)**3 * cd(4)
+     eps_a = eps**a
+     eps_d = eps**d
+     eps_abd = eps_a+b*eps_d
+     b2r_9 = (cb(3)*rs(i))**9
+     fn(i) = (1.+b)/eps_abd
+     r_da_dr = rs(i) * ca(2) + 2*rs(i)**2 * ca(3)
+     r_dd_dr = rs(i) * cd(2) + 2*rs(i)**2 * cd(3) + 3*rs(i)**3 * cd(4)
+     r_db_dr = 0.001*(cb(1)*sqrt(rs(i))*(0.5 - 17./2.*b2r_9)+cb(2)*rs(i)*(1-b2r_9*8))/(1+ b2r_9)**2
+     qn(i) = -1./3.*(r_db_dr*(eps_a-eps_d)-(eps_a*r_da_dr + b*eps_d*r_dd_dr)*(1+b)*log(eps))/eps_abd**2
+  enddo
+  ! Ec = Ev * fn
+  ! Vc = Vc * fn + Ec * qn
+end subroutine EcVc_reduce_di_2
+
+subroutine EcVc_reduce_yw_2(rs,lambda,fn,qn,N)
+  IMPLICIT NONE
+  INTEGER, intent(in):: N
+  REAL*8, intent(in) :: rs(N)
+  REAL*8, intent(in) :: lambda
+  REAL*8, intent(out):: fn(N), qn(N)
+  ! locals
+  INTEGER:: i, m
+  REAL*8 :: lmrs, dlms, te, das
+  REAL*8 :: C(6,5)
+  REAL*8 :: an(5)
+  C = Reshape((/0.09285467, -0.47775779, 0.56979491, -0.3400053, 0.09811778, -0.01084068,&
+            -2.71279489e-01, -6.09031829e-01, 4.13668946e-01, -1.37495480e-01, 1.91211856e-02, -5.07505731e-04,&
+             0.07712942,-0.19993112,0.32952836,-0.21156433,0.06355575,-0.00726003,&
+             -0.01562657,0.04090609,-0.05576869,0.03415515,-0.01021151,0.00117334,&
+             7.84146655e-04,-2.02700552e-03,2.70487819e-03,-1.67140617e-03,5.12525527e-04,-6.01123272e-05/),(/6,5/))
+  do m=1,5
+     an(m) = lambda * (c(1,m) + lambda * (c(2,m) + lambda * (c(3,m) + lambda * (c(4,m) + lambda * (c(5,m) + c(6,m) * lambda)))))
+  enddo
+  !print *, an
+
+  do i=1,N
+     te = exp(an(1)+rs(i)*(an(2)+rs(i)*(an(3)+rs(i)*(an(4)+an(5)*rs(i)))))
+     lmrs = 0.008 - 0.00112 * rs(i)**2
+     dlms = -2*0.00112*rs(i)
+     fn(i) = te*(1-lmrs) + lmrs
+     das = rs(i)*(an(2) + rs(i)*(2*an(3) + rs(i)*(3*an(4) + 4*an(5)*rs(i) )))
+     qn(i) = -1./3.*te*(1-lmrs)*das - 1./3.*rs(i)*(1-te)*dlms
+  enddo
+  ! Ec = Ev * fn
+  ! Vc = Vc * fn + Ec * qn
+end subroutine EcVc_reduce_yw_2
+
+
+subroutine CorrLDA_2(Ec, Vc, rs, lambda, eps, N)
+  IMPLICIT NONE
+  INTEGER, intent(in):: N
+  REAL*8, intent(in) :: rs(N)
+  REAL*8, intent(in) :: lambda, eps
+  REAL*8, intent(out):: Ec(N), Vc(N)
+  !locals
+  INTEGER :: i
+  REAL*8 :: fn_l(N), qn_l(N), fn_e(N), qn_e(N), fn(N), qn(N)
+  
+  do i=1,N
+     CALL CorLDA(Ec(i),Vc(i),rs(i))
+  enddo
+  CALL EcVc_reduce_yw_2(rs,lambda,fn_l,qn_l,N)
+  CALL EcVc_reduce_di_2(rs,eps,fn_e,qn_e,N)
+  fn(:) = fn_l(:)*fn_e(:)
+  qn(:) = qn_l(:)*fn_e(:)+fn_l(:)*qn_e(:)
+  
+  Vc(:) = Vc(:)*fn(:) + Ec(:)*qn(:)
+  Ec(:) = Ec(:)*fn(:)
+end subroutine CorrLDA_2
+
+!program exc
+!  IMPLICIT NONE
+!  REAL*8 :: lambda, eps
+!  INTEGER:: i
+!  REAL*8 :: rx,  dr
+!  REAL*8 :: Ecs(4), Vcs(4), Ecs1(4), Vcs1(4), Ecs2(4), Vcs2(4)
+!  REAL*8 :: A0(4), C0(4), A1(4), C1(4), A2(4), C2(4), dA(4), dE(4), E0(4), Ex(4), Vx(4)
+!  REAL*8 :: Ec(9), Vc(9), Ec1(9), Ec2(9), Vc1(9), Vc2(9)
+!  REAL*8 :: fn(9), qn(9)
+!  REAL*8 :: rs(9)
+!  rs=(/0.5,1.,2.,3.,4.,5.,6.,7.,8./)
+!  lambda=0.5
+!  eps=1.5
+!  
+!  dr=0.0001
+!  
+!  !CALL EcVc_reduce(rs,lambda,A,C,size(rs,1))
+!  CALL EcVc_reduce_yw_2(rs,lambda,fn,qn,size(rs,1))
+!  CALL EcVc_reduce_di_2(rs,eps,fn,qn,size(rs,1))
+!  print *, fn
+!  print *, qn
+!  
+!
+!  CALL CorrLDA_2(Ec,Vc,rs,lambda,eps,size(rs,1))
+!  CALL CorrLDA_2(Ec1,Vc1,rs+dr,lambda,eps,size(rs,1))
+!  CALL CorrLDA_2(Ec2,Vc2,rs-dr,lambda,eps,size(rs,1))
 !   
-!   lambda=1.5
-! 
-!   dr=0.001
-!   
-!   CALL EcVc_reduce(rs,lambda,A,C,4)
-!   print *, A
-!   print *, C
-!   
-!   do i=1,4
-!      rx=rs(i)
-!      CALL CorLDA(Ec,Vc,rx)
-! 
-!      CALL CorLDA(Ec1,Vc1,rx+dr)
-!      CALL CorLDA(Ec2,Vc2,rx-dr)
-!      
-!      Vc1 = Ec - 1./3.*rx*(Ec1-Ec2)/(2*dr)
-!      
-!      print *, 'rx=', rx, 'Vc=', Vc, 'Ec=', Ec, 'Vapprox=', Vc1
-!   enddo
-! 
-!   CALL  CorrLDA(Ecs1, Vcs1, rs, 0.d0, 4)
-!   print *, 'Vc0=', Vcs1
-!   print *, 'Ec0=', Ecs1
-!   
-!   CALL  CorrLDA(Ecs, Vcs, rs, lambda, 4)
-!   print *, 'Vc=', Vcs
-!   print *, 'Ec=', Ecs
-! 
-!   print *, 'Vc_ratio=', Vcs/Vcs1
-!   
-!   !CALL  CorrLDA(Ecs1, Vcs1, rs+dr, lambda, 4)
-!   !CALL  CorrLDA(Ecs2, Vcs2, rs-dr, lambda, 4)
-!   !Vcs1 = Ecs - 1./3.*rs*(Ecs1-Ecs2)/(2*dr)
-!   !print *, 'Vapprox=', Vcs1
-! 
-! 
-! 
-!   !CALL EcVc_reduce(rs,lambda,A0,C0,4)
-!   !CALL EcVc_reduce(rs+dr,lambda,A1,C1,4)
-!   !CALL EcVc_reduce(rs-dr,lambda,A2,C2,4)
-!   !
-!   !dA = (1/A1(:)-1/A2(:))/(2*dr)
-!   !print *, 'dA=', dA
-!   !print *, 'dA=', -3./(C0*rs)
-! 
-!   
-!   !CALL  CorrLDA(Ecs1, Vcs1, rs+dr, lambda, 4)
-!   !CALL  CorrLDA(Ecs2, Vcs2, rs-dr, lambda, 4)
-!   !dE = (Ecs1-Ecs2)/(2*dr)
-!   !print *, 'dE/dr=', dE
-!   !
-!   !do i=1,4
-!   !   CALL CorLDA(Ec,Vc,rs(i))
-!   !   CALL CorLDA(Ec1,Vc1,rs(i)+dr)
-!   !   CALL CorLDA(Ec2,Vc2,rs(i)-dr)
-!   !   dE(i) = (Ec1-Ec2)/(2*dr)
-!   !   E0(i)=Ec
-!   !enddo
-!   !CALL EcVc_reduce(rs,lambda,A0,C0,4)
-!   !dE(:) = dE(:)/A0(:)-3*E0(:)/(C0*rs)
-!   !print *, 'dE/dr=', dE
-! 
-! 
-!   rs_1=1./rs
-!   CALL ExchangeLDA(Ex, Vx, rs_1, lambda, 4)
-!   print *, 'Ex=', Ex
-!   print *, 'Vx=', Vx
-!   
-! end program exc
+!  do i=1,size(rs,1)
+!     rx=rs(i)
+!     Vc1(i) = Ec(i) - 1./3.*rx*(Ec1(i)-Ec2(i))/(2*dr)
+!     print *, 'rx=', rx, 'Vc=', Vc(i), 'Ec=', Ec(i), 'Vapprox=', Vc1(i)
+!  enddo
+!end program exc
