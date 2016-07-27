@@ -67,9 +67,10 @@ def GetDielectricFunctions(UJ_icase, projector_file='projectorw.dat', options_Nk
         Ag = Ag_[icase]
         Bg = Bg_[icase]
         l = ls_[icase]
-        lmbda = 0.000001
         epsilon=1.
         if UJ_icase[icase][0]>0:
+            lmbda=1e-6
+            if len(UJ_icase[icase])>2: lmbda=UJ_icase[icase][2]
             (Uunscr,Junscr) = GetCoulombUJ([lmbda,epsilon],Rx,Ag,Bg,l,Nk,0.0,0.0)  # First compute the unscreened interaction
             epsilon = Uunscr/UJ_icase[icase][0]                          # dielectric constant is the ration between the unscreened and screened interaction
         

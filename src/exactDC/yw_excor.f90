@@ -35,10 +35,13 @@ subroutine ExchangeLDA(Ex, Vx, rs_1, lambda, N)
   !
   kf_rs = (9*pi/4.)**(1./3.)
   c0 = (3./(2.*pi))*(9.*pi/4.)**(1./3.)
-  xs(:) = rs_1(:)*(kf_rs/lambda)       ! kf/(rs*lambda)
-  if (lambda.ne.0) then
+  if (abs(lambda).gt.1e-10) then
+     !print *, 'lambda too small'
+     xs(:) = rs_1(:)*(kf_rs/lambda)       ! kf/(rs*lambda)
      CALL fexchange(xs,Ex,dEx,N)
   else
+     !print *, 'lambda zero', lambda, abs(lambda).gt.1e-10
+     xs(:) = rs_1(:)*kf_rs                ! kf/(rs*lambda)
      Ex(:)=1.0
      dEx(:)=0.0
   endif
@@ -252,6 +255,40 @@ subroutine EcVc_reduce_yw_2(rs,lambda,fn,qn,N)
   ! locals
   INTEGER:: i, m
   REAL*8 :: lmrs, dlms, te, das
+  REAL*8 :: C(7,6)
+  REAL*8 :: an(6)
+  C = Reshape((/0.15805009, -0.77391602, 1.23971169, -1.04865383, 0.47809619, -0.11057964, 0.01016968,&
+               -0.306851, -0.77296572, 0.8791705, -0.69185034, 0.33779654, -0.08858483, 0.00935635,&
+               0.13215843, -0.2776552, 0.45727548, -0.31469164, 0.10787374, -0.01661214, 0.0007591,&
+               -0.03086548, 0.0549528, -0.07252823, 0.04177618, -0.01084882, 0.00062192, 0.0001177,&
+               0.00273230889, -0.00357007233, 0.00425309814, -0.00198811211, 0.000233761378, 0.000106803015, -2.50612307e-05,&
+               -9.28530649e-05, 8.09009085e-05, -9.43747991e-05, 3.89520548e-05, -3.10149723e-07, -4.23041605e-06, 8.02291467e-07/),(/7,6/))
+  do m=1,6
+     an(m) = lambda * (c(1,m) + lambda * (c(2,m) + lambda * (c(3,m) + lambda * (c(4,m) + lambda * (c(5,m) + lambda * (c(6,m) + lambda*c(7,m)))))))
+  enddo
+  !print *, an
+
+  do i=1,N
+     te = exp(an(1)+rs(i)*(an(2)+rs(i)*(an(3)+rs(i)*(an(4)+rs(i)*(an(5)+rs(i)*an(6))))))
+     lmrs = 0.008 - 0.00112 * rs(i)**2
+     dlms = -2*0.00112*rs(i)
+     fn(i) = te*(1-lmrs) + lmrs
+     das = rs(i)*(an(2) + rs(i)*(2*an(3) + rs(i)*(3*an(4) + rs(i)*(4*an(5) + rs(i)*5*an(6)))))
+     qn(i) = -1./3.*te*(1-lmrs)*das - 1./3.*rs(i)*(1-te)*dlms
+  enddo
+  ! Ec = Ev * fn
+  ! Vc = Vc * fn + Ec * qn
+end subroutine EcVc_reduce_yw_2
+
+subroutine EcVc_reduce_yw_2_bad(rs,lambda,fn,qn,N)
+  IMPLICIT NONE
+  INTEGER, intent(in):: N
+  REAL*8, intent(in) :: rs(N)
+  REAL*8, intent(in) :: lambda
+  REAL*8, intent(out):: fn(N), qn(N)
+  ! locals
+  INTEGER:: i, m
+  REAL*8 :: lmrs, dlms, te, das
   REAL*8 :: C(6,5)
   REAL*8 :: an(5)
   C = Reshape((/0.09285467, -0.47775779, 0.56979491, -0.3400053, 0.09811778, -0.01084068,&
@@ -274,8 +311,7 @@ subroutine EcVc_reduce_yw_2(rs,lambda,fn,qn,N)
   enddo
   ! Ec = Ev * fn
   ! Vc = Vc * fn + Ec * qn
-end subroutine EcVc_reduce_yw_2
-
+end subroutine EcVc_reduce_yw_2_bad
 
 subroutine CorrLDA_2(Ec, Vc, rs, lambda, eps, N)
   IMPLICIT NONE
@@ -317,9 +353,9 @@ end subroutine CorrLDA_2
 !  
 !  !CALL EcVc_reduce(rs,lambda,A,C,size(rs,1))
 !  CALL EcVc_reduce_yw_2(rs,lambda,fn,qn,size(rs,1))
-!  CALL EcVc_reduce_di_2(rs,eps,fn,qn,size(rs,1))
 !  print *, fn
 !  print *, qn
+!  CALL EcVc_reduce_di_2(rs,eps,fn,qn,size(rs,1))
 !  
 !
 !  CALL CorrLDA_2(Ec,Vc,rs,lambda,eps,size(rs,1))
@@ -331,4 +367,5 @@ end subroutine CorrLDA_2
 !     Vc1(i) = Ec(i) - 1./3.*rx*(Ec1(i)-Ec2(i))/(2*dr)
 !     print *, 'rx=', rx, 'Vc=', Vc(i), 'Ec=', Ec(i), 'Vapprox=', Vc1(i)
 !  enddo
+!
 !end program exc
