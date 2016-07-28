@@ -856,6 +856,7 @@ if __name__ == '__main__':
     istep0=0
     nl_imp = None
     (RelaxingStructure, mix_method) = fstc.AreWeRelaxingStructure2(w2k.case)
+    print >> fh_info, 'Relaxing Structure=', RelaxingStructure
     
     while icycle < p['finish']:
 
@@ -956,10 +957,10 @@ if __name__ == '__main__':
             print >> fh_info, '#<saverage>: ', cmd
             subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
 
-        if fstc.AreWeRelaxingStructure(w2k.case):
+        (RelaxingStructure, mix_method) = fstc.AreWeRelaxingStructure2(w2k.case)
+        if RelaxingStructure:
             fstc.TOTtoFOR(w2k.case)
             p['max_lda_iterations']=1000
-            RelaxingStructure=True
             print >> fh_info, 'Mixing method corresponds to structural optimization.'
             print >> fh_info, ' changing TOT to FOR in case.in2 files'
             print >> fh_info, ' increasing max_lda_iterations to ', p['max_lda_iterations']
@@ -1038,7 +1039,7 @@ if __name__ == '__main__':
         icycle += 1   # END CHARGE LOOP
         if RelaxingStructure: # When dmft/impurity loop restarts, we should relax again
             fstc.RelaxAgain(w2k.case, mix_method)
-            shutil.copy2(w2k.case+'struct',w2k.case+'struct.'+str(icycle-1))
+            shutil.copy2(w2k.case+'.struct',w2k.case+'.struct.'+str(icycle-1))
         
         if (p['max_lda_iterations']>=10): 
             toclean = glob.glob('*.broyd*')
