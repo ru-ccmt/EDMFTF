@@ -63,6 +63,7 @@ class Gsl(framework.Framework):
     - s : specify the path and library if you have it
     - d : download and install the GSL library.
     - q : quit to download and install manually the GSL.
+    - i : ignore are proceed
                    """
                    answer = raw_input(">[q] ")
                    if answer == "d":
@@ -72,6 +73,8 @@ class Gsl(framework.Framework):
                        ret = self.check_gsl()
                        if ret!=0:
                            sys.exit()
+                   elif answer == "i":
+                       pass
                    else:
                        sys.exit()
                 else:
