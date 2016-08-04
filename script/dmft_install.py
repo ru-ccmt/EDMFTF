@@ -45,7 +45,7 @@ class Dmft_install(framework.Framework):
     def write_makeinc(self):
         """ Writes make.inc and Makefile.in files for DMFT installation """
         sdir = os.getcwd()
-        print 'Writing make.inc and Makefile.in to ... ', sdir , '\n'
+        print 'Writing Makefile.in to ... ', sdir , ' and '+sdir+'/.. \n'
         sys.stdout.flush()
 
         makeinc = """
@@ -72,7 +72,7 @@ WFOPT  = """+self.config.fflags+""" """+self.config.ldflags+""" $(FFTINC)
 WLIBS   = $(FFTLIB)  $(LALIB)
 F2PL =
 
-F2PY_LAPACK = --link-lapack_opt
+F2PY_LAPACK = """+self.config.f2pylapack+"""
 
 #------------- PARALLEL VERSION --------------------------------------------
 Fmpi_define =  """+self.config.mpi_define+"""
@@ -88,7 +88,7 @@ PLIBS = $(LLIBS) $(GSLLIB)
 
 #
 CMP = f2py """+self.config.f2pyflag+"""  # fortran to python converter
-CMPLIBS  = """+self.config.f2pylib+""" --link-lapack_opt
+CMPLIBS  = """+self.config.f2pylib+""" """+self.config.f2pylapack+"""
 CMPLIBS2 = --f90flags=' $(OPENMP) ' $(CMPLIBS)
 #
 
@@ -96,8 +96,7 @@ CMPLIBS2 = --f90flags=' $(OPENMP) ' $(CMPLIBS)
 """
 
         writefile('make.inc',makeinc)
-        comm = 'mv Makefile.in Makefile.in.`date +%s`; cp -r make.inc Makefile.in '
-        #writefile('Makefile.in',makeinc)
+        comm = 'mv ../Makefile.in Makefile.in.`date +%s`; cp -r make.inc ../Makefile.in '
         sys.stdout.flush()
         (output, error, retz) = shellcmd(comm)
         if(retz != 0):
@@ -109,16 +108,12 @@ CMPLIBS2 = --f90flags=' $(OPENMP) ' $(CMPLIBS)
     def down_install(self):
         """ Download and install DMFT """
         savecwd = os.getcwd()
-        
-        if not os.path.isdir(os.path.join(os.getcwd(),'log')):
-            os.mkdir(os.path.join(os.getcwd(),'log'))
+        #logdir = os.path.join(savecwd,'log')
+        #if not os.path.isdir(logdir): os.mkdir(logdir)
         versions = self.versions
         
-        #os.chdir(os.path.join(os.getcwd(),'scr'))
-        
-        rep_name = savecwd
+        rep_name = savecwd+'/..'
         os.chdir(rep_name)
-        #self.write_makeinc()
         
         print 'You are ready to compile the DMFT code..... '
         print '..... If you want to compile the code manually, enter ./src  and type "make". You can also type "make clean" to clean.'
@@ -132,8 +127,8 @@ CMPLIBS2 = --f90flags=' $(OPENMP) ' $(CMPLIBS)
         
         if retz:
             print '\n\nDMFT: error building DMFT'
-            print 'stderr:\n','*'*50,'\n',error,'\n','*'*50
-            writefile(os.path.join(savecwd,'log/dmft.log'), output+error)
+            #print 'stderr:\n','*'*50,'\n',error,'\n','*'*50
+            #writefile(os.path.join(savecwd,'log/dmft.log'), output+error)
             sys.exit()
 
         #liblog = os.path.join(savecwd,'log/dmft.log')

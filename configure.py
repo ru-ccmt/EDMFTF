@@ -1,1 +1,1 @@
-configure.py.macos
+configure.py.intel

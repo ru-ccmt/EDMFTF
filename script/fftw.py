@@ -138,7 +138,7 @@ class Fftw(framework.Framework):
             if self.dmft.verbose:
                 print '\n\nlibfftw: provided FFTW cannot be used! aborting...'
                 print 'error is:\n','*'*50,'\n',comm,'\n',error,'\n','*'*50
-                print rez
+                print retz
             else:
                 print "no"
             return 1
