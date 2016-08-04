@@ -62,6 +62,7 @@ class Fftw(framework.Framework):
    - s : specify the path and library if you have it
    - d : download and install the FFTW library.
    - q : quit to download and install manually the FFTW.
+   - i : ignore and proceed
 """
                    answer = raw_input(">[q] ")
                    if answer == "d":
@@ -71,6 +72,8 @@ class Fftw(framework.Framework):
                        ret = self.check_fftw()
                        if ret!=0:
                            sys.exit()
+                   elif answer =="i":
+                       pass
                    else:
                        sys.exit()
                 else:

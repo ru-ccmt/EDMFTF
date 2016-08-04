@@ -9,7 +9,7 @@ include ../../Makefile.in
 #LIBS = -L/opt/intel/mkl/10.0.1.014/lib/32 -lmkl_lapack -lmkl -lguide -lgsl -pthread
 #LIBS = -i-static -L/opt/pgi/linux86-64/7.0-3/lib -llapack -lblas -lpgftnrtl -lpgc -lgsl -lgslcblas -lrt
 
-CFLAGS = $(PFLAGS) $(Fmpi_define) -DAS #-fast -xAVX # -D_TIME #-D_LOGGING #-DAS 
+CFLAGS = $(PFLAGS) $(Fmpi_define) $(GSLINC) -DAS #-fast -xAVX # -D_TIME #-D_LOGGING #-DAS 
 LIBS = $(PLIBS)
 
 GHEADERS = assert.h complex.h random.h sblas.h sfunction.h smesh.h sutil.h zeroin.h
