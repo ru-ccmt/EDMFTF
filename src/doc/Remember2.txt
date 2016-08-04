@@ -1,0 +1,7 @@
+to reduce RMT proceed in the following way:
+
+1) reduce_rmt_lapw -r 3  # meand 3% reduction, creates case.struct_new
+2) x clminter            # will take case.struct_new and case.clmsum to create case.clmsum_new
+
+finally, copy  case.*_new to case.*
+

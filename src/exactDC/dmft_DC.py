@@ -62,7 +62,7 @@ def AverageHartreeFock(nocc,Fk,l):
     #print 'Vu=', Vu, 'Vj=', Vj
     return Vu-Vj
 
-def ComputeExactDC(nocc,lmbda,epsilon,icase,fh_info,projector='../projectorw.dat',trans='Trans.dat',o_Nk=8,uniform=False,renorm_lambda=1.0):
+def ComputeExactDC(nocc,lmbda,epsilon,icase,fh_info,projector='../projectorw.dat',trans='Trans.dat',o_Nk=8,uniform=False):#,renorm_lambda=1.0):
     print 'icase=', icase, 'of projector "'+projector+'"'
     print 'lambda=', lmbda
     print 'epsilon=', epsilon
@@ -178,8 +178,8 @@ def ComputeExactDC(nocc,lmbda,epsilon,icase,fh_info,projector='../projectorw.dat
         rho = ul2/(4*pi*r**2)*ntot
         rs_1 = ((4*pi*rho)/3)**(1./3.)
         
-        (epx,Vxr) = yw_excor.exchangelda(rs_1,lmbda*renorm_lambda)
-        (epc,Vcr) = yw_excor.corrlda(1./rs_1, lmbda*renorm_lambda)
+        (epx,Vxr) = yw_excor.exchangelda(rs_1,lmbda)#*renorm_lambda)
+        (epc,Vcr) = yw_excor.corrlda(1./rs_1, lmbda)#*renorm_lambda)
         
         Vx = integrate.romb(ul2*Vxr,dx=r[1]-r[0]) / epsilon
         Vc = integrate.romb(ul2*Vcr,dx=r[1]-r[0]) / epsilon
@@ -223,15 +223,15 @@ def ComputeExactDC(nocc,lmbda,epsilon,icase,fh_info,projector='../projectorw.dat
             rs_1 = ((4*pi*rho)/3)**(1./3.)
             rs_1 = rs_1.flatten()
             
-            (epx,Vx) = yw_excor.exchangelda(rs_1,lmbda*renorm_lambda)
+            (epx,Vx) = yw_excor.exchangelda(rs_1,lmbda)#*renorm_lambda)
             epx *= 1./epsilon
             Vx *= 1./epsilon
             
             rsi = array([1/rsx if rsx>0 else 1e30 for rsx in rs_1])
-            (epc,Vc) = yw_excor.corrlda(rsi, lmbda*renorm_lambda)
-            epc *= 1./epsilon
-            Vc *= 1./epsilon
-            ##(epc,Vc) = yw_excor.corrlda_2(rsi,lmbda*renorm_lambda,epsilon)
+            #(epc,Vc) = yw_excor.corrlda(rsi, lmbda*renorm_lambda)
+            #epc *= 1./epsilon
+            #Vc *= 1./epsilon
+            (epc,Vc) = yw_excor.corrlda_2(rsi,lmbda,epsilon)
             
             Vxr = Vx.reshape(shape(rho_angle2))
             Vcr = Vc.reshape(shape(rho_angle2))
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--trans', action='store', default='imp.0/Trans.dat', help='filename which contains Sigind and T2C')
     parser.add_argument('-o', '--info', action='store', type=argparse.FileType('w'), default='DC.info', help='log filename')
     parser.add_argument('-u', '--uniform', action='store', type=bool, default=False, help='should one just take the average over all orbitals')
-    parser.add_argument('-r', '--renorml', action='store', type=float, default=1.0, help='renormalize lambda in xc')
+    #parser.add_argument('-r', '--renorml', action='store', type=float, default=1.0, help='renormalize lambda in xc')
     
     # Next, parse the arguments
     options = parser.parse_args()
@@ -305,5 +305,5 @@ if __name__ == '__main__':
     #uniform = options.uniform
     #o_Nk = options.Nk
     
-    (Vdc,PhiDC)=ComputeExactDC(nocc,options.lmbda,options.epsilon,options.icase,options.info,options.projector,options.trans,options.Nk,options.uniform,options.renorml)
+    (Vdc,PhiDC)=ComputeExactDC(nocc,options.lmbda,options.epsilon,options.icase,options.info,options.projector,options.trans,options.Nk,options.uniform)#,options.renorml)
     print 'Finished with', Vdc, PhiDC

@@ -726,7 +726,7 @@ if __name__ == '__main__':
     icols_ind = ImpurityLatticeConnection( cols, icols )
     print >> fh_info, 'Impurity-lattice connection: icols_ind=', icols_ind
     
-    fh_pinfo.write( '%3s %3s.%3s %12s %12s ' % ('#', '#','#','mu','Vdc') )
+    fh_pinfo.write( '%3s %3s.%4s %12s %12s ' % ('#', '#','#','mu','Vdc') )
     fh_pinfo.write( '%15s %15s %15s ' % ('Etot', 'Ftot+T*Simp', 'Ftot+T*Simp') )
     for iat in iSigind.keys():   # Over all inequivalent impurity problems
         fh_pinfo.write( '%12s %12s %12s %12s ' % ('n_latt', 'n_imp','Eimp[0]','Eimp[-1]') )
@@ -742,11 +742,14 @@ if __name__ == '__main__':
         UJ_icase={}
         for imp,icase in enumerate(impurity_projector):
             iprms = 'iparams'+str(imp)
-            U=p[iprms]['U'][0]
+            U=p[iprms]['U'][0]            # we always need U to determine screening length
             JH=0
-            if p[iprms].has_key('J'):
-                JH=p[iprms]['J'][0]
-            UJ_icase[icase]=[U,JH]       # Saves U into U_icase, which is needed below to compute lambda
+            if p[iprms].has_key('J'):    # if Hunds J is awailable, we take it into account
+                JH = p[iprms]['J'][0]
+            lmbda=1e-6
+            if p[iprms].has_key('DC_lmbda'): # if user wants to use finite lambda with exactd DC, it should set iparamsx['DC_lmbda']
+                lmbda = p[iprms]['DC_lmbda'][0]
+            UJ_icase[icase]=[U,JH,lmbda]       # Saves U into U_icase, which is needed below to compute lambda
         
         import RCoulombU
         if len(p['DCs'])>5 and p['DCs'][:6]=='exactd':
@@ -853,6 +856,7 @@ if __name__ == '__main__':
     istep0=0
     nl_imp = None
     (RelaxingStructure, mix_method) = fstc.AreWeRelaxingStructure2(w2k.case)
+    print >> fh_info, 'Relaxing Structure=', RelaxingStructure
     
     while icycle < p['finish']:
 
@@ -953,7 +957,8 @@ if __name__ == '__main__':
             print >> fh_info, '#<saverage>: ', cmd
             subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
 
-        if fstc.AreWeRelaxingStructure(w2k.case):
+        (RelaxingStructure, mix_method) = fstc.AreWeRelaxingStructure2(w2k.case)
+        if RelaxingStructure:
             fstc.TOTtoFOR(w2k.case)
             p['max_lda_iterations']=1000
             print >> fh_info, 'Mixing method corresponds to structural optimization.'
@@ -994,7 +999,7 @@ if __name__ == '__main__':
             if os.path.isfile('EF.dat'): EF = float(open('EF.dat').read())
             (ETOT,SUM,XSUM,YSUM,EORB,XEORB) = FindEtot(w2k.case,m_extn)
             
-            fh_pinfo.write( '%3d %3s.%3s %12.6f %12.6f %15.6f %15.6f %15.6f ' % (istep0, icycle, ita, EF, Vdc, ETOT, ETOT-SUM+XSUM, ETOT-SUM+YSUM-EORB+XEORB) )
+            fh_pinfo.write( '%3d %3s.%4s %12.6f %12.6f %15.6f %15.6f %15.6f ' % (istep0, icycle, ita, EF, Vdc, ETOT, ETOT-SUM+XSUM, ETOT-SUM+YSUM-EORB+XEORB) )
             for iat in iSigind.keys():   # Over all inequivalent impurity problems
                 fEimp = open('imp.'+str(iat)+'/Eimp.inp', 'r')
                 (Eimp,Olap,Edc) = [array([float(x) for x in line.split('#')[0].split()]) for line in fEimp.readlines()]  # throw out comments
@@ -1034,6 +1039,7 @@ if __name__ == '__main__':
         icycle += 1   # END CHARGE LOOP
         if RelaxingStructure: # When dmft/impurity loop restarts, we should relax again
             fstc.RelaxAgain(w2k.case, mix_method)
+            shutil.copy2(w2k.case+'.struct',w2k.case+'.struct.'+str(icycle-1))
         
         if (p['max_lda_iterations']>=10): 
             toclean = glob.glob('*.broyd*')
