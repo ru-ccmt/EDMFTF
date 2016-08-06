@@ -74,8 +74,8 @@ SUBROUTINE MAXENT(a,rfac,alpha,temp,ker,sxt,axt,mm,dw,nt,nw,steps,iseed)
         ELSE
            p=0.
         ENDIF
+        
         ! accepting with Metropolis probability
-
         CALL random_number(x)
         IF (x.LT.p) THEN 
            IF (a(j1).GT.0.1*am) acc=acc+1
@@ -85,7 +85,7 @@ SUBROUTINE MAXENT(a,rfac,alpha,temp,ker,sxt,axt,mm,dw,nt,nw,steps,iseed)
            x1=x2
         ENDIF
      ENDDO
-
+     
      IF (MOD(i,100).EQ.0) THEN
         arat=real(acc)/real(try)
         IF (arat.GT.0.1) THEN ! if accepting probability is large, reduce the size of future steps
@@ -93,12 +93,13 @@ SUBROUTINE MAXENT(a,rfac,alpha,temp,ker,sxt,axt,mm,dw,nt,nw,steps,iseed)
         ELSE                  ! if accepting probability is small, increase the size of future steps
            IF (rfac.GT.0.001) rfac=rfac/1.5
         ENDIF
-
+        
         am = maxval(a)
         da(:) = (0.1*a(:)+0.01*am)*rfac
         
         IF (MOD(i,steps/10).EQ.0) THEN
-           WRITE(*,'(A,I7,2x,A,f12.5,2x,A,I10,2x)') 'ann-step=', i,'chi2=', x1, 'accepted=', acc
+           WRITE(*,'(A,I7,2x,A,f12.5,2x,A,I7,2x,A,I9,2x,A,f7.4)') 'ann-step=', i,'chi2=', x1, 'accepted=', acc, &
+                'tried=', try, 'new stepsize=', rfac
         ENDIF
 
         temp=temp/1.5
@@ -124,7 +125,7 @@ REAL*8 FUNCTION ENTROPY(a,mm,dw,nw)
   eps=1.E-12
   DO i=-nw,nw  ! 10
      IF (a(i).GT.eps.AND.mm(i).GT.eps) THEN
-        ent=ent-a(i)*LOG(a(i)/mm(i))*dw(i)
+        ent=ent-a(i)*LOG(a(i)/mm(i))*dw(i) + (a(i)-mm(i))*dw(i)
      ENDIF
   ENDDO
   ENTROPY=ent

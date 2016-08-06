@@ -124,7 +124,7 @@ def MaximumEntropy(p, tau, Gt):
         Trc = me.lambdac(alpha,Aw,omega,dom,dlda)
         
         ratio = -2*S*alpha/Trc
-        print 'Finished maxent with alpha=',alpha,'-2*alpha*S=',-2*alpha*S,'Trace=',Trc
+        print 'Finished maxent with alpha=',alpha,'-2*alpha*S=',-2*alpha*S,'Trace=',Trc, 'S=', S
         print '   ratio=', ratio
 
         savetxt('dos_'+str(itt), vstack((omega,Aw)).transpose())
