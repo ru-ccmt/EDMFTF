@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import utils,indmffile,sys,re
+import utils,indmffile,sys,re,os
 import optparse
 from scipy import *
 
@@ -58,6 +58,20 @@ def union(data):
     return c
 
 
+
+def Find_s_oo_and_Edc(insig):
+    # Searching for s_oo and Edc
+    fh_sig = open(insig, 'r')
+    m = re.search(r'(s_oo\s*=\s*\[.*\])', fh_sig.next())
+    if m is not None:
+        exec(m.group(1))
+    m = re.search(r'(Edc\s*=\s*\[.*\])', fh_sig.next())
+    if m is not None:
+        exec(m.group(1))
+    fh_sig.close()
+    return (s_oo, Edc)
+
+
 if __name__=='__main__':
     """ Takes the self-energy file, which contains all self-energies for all impurity problems.
     It splits the self-energies to insert them into the LDA Hamiltonian, necessary for the dmft0, dmft1 and dmft2 step.
@@ -71,6 +85,11 @@ if __name__=='__main__':
     LDA Hamiltonian, necessary for the dmft0, dmft1 and dmft2 step.
     On the imaginary axis, it also creates a logarithmic mesh in Matsubara
     frequencies, to avoid too many points in the tail.
+
+    In this version, one can also insert some fixed self-energies, which are not computed by the impurity, but
+    just split/shift certain orbitals. This is replacement for more common open core calculations.
+    Provided the users prepares files sfx.[icix] (icix is a number for correlated block index) they will get 
+    properly split into sig.inp[icix] and inserted into the hamiltonian.
     """
 
     parser = optparse.OptionParser(usage)
@@ -92,22 +111,18 @@ if __name__=='__main__':
     inl.read()
 
     # Searching for s_oo and Edc
-    fh_sig = open(options.insig, 'r')
-    m = re.search(r'(s_oo\s*=\s*\[.*\])', fh_sig.next())
-    if m is not None:
-        exec(m.group(1))
-    m = re.search(r'(Edc\s*=\s*\[.*\])', fh_sig.next())
-    if m is not None:
-        exec(m.group(1))
-
+    (s_oo, Edc) = Find_s_oo_and_Edc(options.insig)
     
-    fh_sig.close()
-    
-    # Read the rest of the input file
-    #sigdata = loadtxt(fh_sig).transpose()  # self-energy from 'sig.inp' on long mesh
+    #fh_sig = open(options.insig, 'r')
+    #m = re.search(r'(s_oo\s*=\s*\[.*\])', fh_sig.next())
+    #if m is not None:
+    #    exec(m.group(1))
+    #m = re.search(r'(Edc\s*=\s*\[.*\])', fh_sig.next())
+    #if m is not None:
+    #    exec(m.group(1))
+    #fh_sig.close()
     
     sigdata = loadtxt(options.insig).transpose()  # self-energy from 'sig.inp' on long mesh
-    fh_sig.close()
     print 's_oo=', s_oo
     print 'Edc=', Edc
     
@@ -117,8 +132,9 @@ if __name__=='__main__':
     if inl.matsubara:
         print '..... Creating logarithmic mesh'
         sigdata = create_log_mesh(sigdata, options.nom, options.ntail)
-
-
+    
+    
+    # next few lines only find the columns which are not written in sig.inp
     missing_columns={}
     for icix in inl.siginds.keys():    # over all imp.problems, even those that are equivalent
         
@@ -141,29 +157,59 @@ if __name__=='__main__':
         colsp=filter(lambda x: x>0, cols_all)
         colsm=filter(lambda x: x<0, cols_all)
         
-        print 'icix=', icix, 'colsp=', colsp, 'colsm=', colsm
+        # if we want to treat an entire orbital as open-core, user has to provide files sfx.icix
+        # which will be used for such orbitals
+        c_filename = 'sfx.'+str(icix)
+        open_core = os.path.isfile(c_filename) and len(colsp)==0 and len(colsm)>0
+        
+        print 'icix=', icix, 'colsp=', colsp, 'colsm=', colsm,
+        if open_core: print c_filename,
+        print
+            
+
         nom=len(sigdata[0])
         wdata=[]
         wdata.append(sigdata[0])
         sinf = [5000.]
         
-        for col in colsp:
-            imiss = len(filter(lambda x: x<=col, missing_columns))
-            icol = col-imiss
-            print 'icl=', icol
-            real_part = sigdata[2*icol-1] + s_oo[col-1]-Edc[col-1] # adding  (s_oo-Edc)
-            imag_part = sigdata[2*icol]
-            wdata.append(real_part)   # corresponds to real-part of this imp. problem
-            wdata.append(imag_part)   # corresponds to imag-part of this imp. problem
-            sinf.append(s_oo[col-1]-Edc[col-1]); sinf.append(0) # s_oo also needed in k-sum for Eimp
-        for col in colsm:
-            sooE = s_oo[abs(col)-1]-Edc[abs(col)-1]
-            real_part = sooE*ones(nom)
-            wdata.append(real_part)
-            wdata.append(zeros(nom))
-            sinf.append(sooE); sinf.append(0)
 
+        if not open_core: 
+            # most of the time, we have at least one self-energy entry computed by the impurity problem
+            for col in colsp:
+                imiss = len(filter(lambda x: x<=col, missing_columns))  # imis== how many columns before this column do not appear in sig.inp
+                icol = col-imiss # actual column number in sig.inp
+                real_part = sigdata[2*icol-1] + s_oo[col-1]-Edc[col-1] # adding  (s_oo-Edc)
+                imag_part = sigdata[2*icol]
+                wdata.append(real_part)   # corresponds to real-part of this imp. problem
+                wdata.append(imag_part)   # corresponds to imag-part of this imp. problem
+                sinf.append(s_oo[col-1]-Edc[col-1]); sinf.append(0) # s_oo also needed in k-sum for Eimp
+            for col in colsm:
+                sooE = s_oo[abs(col)-1]-Edc[abs(col)-1]
+                real_part = sooE*ones(nom)
+                imag_part = zeros(nom)
+                wdata.append(real_part)
+                wdata.append(imag_part)
+                sinf.append(sooE); sinf.append(0)
+        else:
+            # if we are treating an entire atomic orbital as an open core
+            (c_s_oo,c_Edc) = Find_s_oo_and_Edc(c_filename)
+            c_sigdata = loadtxt(c_filename).transpose()            
+            if inl.matsubara:
+                c_sigdata = create_log_mesh(c_sigdata, options.nom, options.ntail)
+
+            if len(c_sigdata[0])!=nom:
+                print 'ERROR: The core file '+c_filename+' should have the same mesh as sig.inp. Length of core-file mesh is', len(c_sigdata[0]), 'and the sig mesh is', nom
+            
+            cols = abs(array(colsm))
+            for col in cols:
+                icol = col-min(cols)+1
+                real_part = c_sigdata[2*icol-1] + c_s_oo[icol-1]-c_Edc[icol-1] # adding  (s_oo-Edc)
+                imag_part = c_sigdata[2*icol]
+                wdata.append(real_part)
+                wdata.append(imag_part)
+                sinf.append(c_s_oo[icol-1]-c_Edc[icol-1]); sinf.append(0)
+            
         wdata = array(wdata).transpose()        
         wdata = vstack((wdata, sinf))                   # adding s_oo as the last line
-
+        
         savetxt(options.outsig+str(icix)+options.m_extn, wdata)

@@ -25,7 +25,7 @@ class Framework:
     """ This class is framework for DMFT package installation. """
     #set default values
     #prefix        = "./bin"                  # The install directory
-    build         = "./src"                   # The build directory
+    build         = "./src/build"             # The build directory
     make          = "make"                    # the "make" command
     downcmd       = ""                        # the command used to download stuff
     ranlib        = ""                        # the ranlib command
@@ -865,8 +865,9 @@ and specify missing parameters.\n"""
         else:
             self.config.compiler = "Unknown"
             print 'unknown'
-
-
+        if self.config.f2pylapack==None or self.config.f2pylapack=='':
+            self.config.f2pylapack='--link-lapack_opt'
+            
     def resume(self):
         print """
 
@@ -893,7 +894,8 @@ WARNING: Copy the bin directory ("""+self.config.prefix+""")
         print "Cleaning up...",
         sys.stdout.flush()
         
-        builddir = os.path.join(self.build)
+        #builddir = self.build+'/..'
+        builddir = os.path.abspath(self.build+'/..')
 
         os.chdir(builddir) 
         

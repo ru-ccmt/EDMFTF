@@ -146,6 +146,7 @@ def AStep(fday, case, name, inp_name, WIEN, para, fh_info):
             print 'ERROR in '+fe+' from file:', open(fe,'r').readlines()
 
 def lapw0(fday, case, WIEN, para, fh_info):
+    para=''
     AStep(fday, case, 'lapw0', 'in0', WIEN, para, fh_info)
         
 def lapw1(fday, case, WIEN, para, dftKS, dmfe, fh_info):
@@ -157,6 +158,7 @@ def lapw1(fday, case, WIEN, para, dftKS, dmfe, fh_info):
         print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name
         fl.close()
         
+        #cmd = dmfe.ROOT+'/x_dmft.py -p '+name
         cmd = dmfe.ROOT+'/x_dmft.py'+para+' '+name
         print >> fh_info, ('#<'+name+'>: '), cmd
         fh_info.flush()
@@ -246,12 +248,19 @@ def Diff(fday, case, dEF):
 
 
 SolveImpurity_num_calls=0
-def SolveImpurity(EF, asolver, iat, extn, p, UpdateAtom, nl_imp, fh_info, fh_pinfo):
+def SolveImpurity(EF, asolver, iat, extn, p, UpdateAtom, nl_imp, fh_info, fh_pinfo, fday):
 
     print 'Running ----- impurity solver -----'
     print >> fh_info, 'UpdateAtom=', UpdateAtom
     print >> fh_info, 'Running ----- impurity solver -----'
     fh_info.flush()
+
+    tim = time.strftime("%H:%M:%S")
+    print >> fday, '>%-10s ( %s )' % ('impurity', tim)
+    fday.flush()
+    fl = open(':log', 'a')
+    print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+'impurity'
+    fl.close()
 
     iprms = 'iparams'+str(iat)
     ipars = copy.deepcopy(p[iprms])
@@ -904,16 +913,16 @@ if __name__ == '__main__':
             
             # ------------ Impurity solver -------------------
             if p['runIMP']:
-                tim = time.strftime("%H:%M:%S")
-                print >> fday, '>%-10s ( %s )' % ('impurity', tim)
-                fday.flush()
+                #tim = time.strftime("%H:%M:%S")
+                #print >> fday, '>%-10s ( %s )' % ('impurity', tim)
+                #fday.flush()
                 
                 nimp += 1
                 
                 UpdateAtom = (p['UpdateAtom']!=0 and mod(nimp,p['UpdateAtom'])==0)
                 
                 for iat in iSigind.keys():   # Over all inequivalent impurity problems
-                    ni=SolveImpurity(EF, solver[iat], iat, extn, p, UpdateAtom, nl_imp[iat], fh_info, fh_pinfo)
+                    ni=SolveImpurity(EF, solver[iat], iat, extn, p, UpdateAtom, nl_imp[iat], fh_info, fh_pinfo, fday)
                     n_imp[iat] += ni
                     
                 SGather(dmfe.ROOT, fh_info, p, m_extn)
