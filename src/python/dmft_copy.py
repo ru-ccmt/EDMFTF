@@ -58,11 +58,17 @@ if opt in ['-l', '-a']:
             print 'Copying ... ', fle[0]
             shutil.copy2(fle[0], '.')
             
-d0 = ['params.dat', 'EF.dat', 'sig.inp', case+'.indmfl', case+'.indmfldn', case+'.indmfi', 'Sigma.000', 'projectorw.dat', 'Eorb_imp.dat', case+'.vsp', case+'.energy']
-      
+d0 = ['params.dat', 'EF.dat', 'sig.inp', case+'.indmfl', case+'.indmfldn', case+'.indmfi', 'Sigma.000', 'projectorw.dat', 'Eorb_imp.dat'] # case+'.vsp', case+'.energy']
+dn = ['sfx.*']
 if opt in ['-d', '-a']:
     for f in d0:
         fle = glob.glob(cpdr+'/'+f)
         if fle:
             print 'Copying ... ', fle[0]
             shutil.copy2(fle[0], '.')
+
+    for f in dn:
+        fle = glob.glob(cpdr+'/'+f)
+        for fl in fle:
+            print 'Copying ... ', fl
+            shutil.copy2(fl, '.')

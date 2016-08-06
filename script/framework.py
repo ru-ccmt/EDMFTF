@@ -894,7 +894,8 @@ WARNING: Copy the bin directory ("""+self.config.prefix+""")
         print "Cleaning up...",
         sys.stdout.flush()
         
-        builddir = self.build+'/..'
+        #builddir = self.build+'/..'
+        builddir = os.path.abspath(self.build+'/..')
 
         os.chdir(builddir) 
         
