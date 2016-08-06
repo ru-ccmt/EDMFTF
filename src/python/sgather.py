@@ -69,17 +69,19 @@ if __name__=='__main__':
     
     print 'case=%s, isig=%s, osig=%s' %  (case, options.isig, options.osig)
     
-    
+
     inl = indmffile.Indmfl(case)
     inl.read()
     if options.m_extn:
         inldn = indmffile.Indmfl(case, 'indmfl'+options.m_extn)
         inldn.read()
-                         
+
+    # Impurity quantities
     iSiginds = utils.ParsIndmfi(case)
     icols,icolsm = SimplifySiginds(iSiginds)
     print 'icols=', icols
-    
+
+    # lattice quantities
     colsp,colsm = SimplifySiginds(inl.siginds)
     print 'colsp=', colsp, 'colsm=', colsm
 
@@ -88,17 +90,27 @@ if __name__=='__main__':
         print 'colspdn=', colspdn, 'colsmdn=', colsmdn
 
 
-    #allcols = array(icols.values()).flatten()
+    # these are columns we can fill in whit our impurity problems
     allcols = sort( reduce(lambda x,y: x+y, icols.values()) )
     print 'allcols=', allcols
     print 'len(allcols)=', len(allcols)
     noccur = zeros(max(allcols),dtype=int)
     print 'len(noccur)=', len(noccur)
-
+    # these columns can not be obtained from impurity problems. Need another way.
     missing_columns={}
     for icix in colsm.keys():
-        for i in colsm[icix]: # missing columns do not appear in self-energy
-            missing_columns[abs(i)]=1
+        # This needs particular attention. Note that there are two types of negative cix indices :
+        # a) If both positive and negative indices appear for the same orbital (same icix) then we expect
+        #    to just merely shift the spectra that corresponds to the negative columns, and in this case
+        #    we add such terms in s_oo and Edc.
+        # b) If all indices of certain orbitals are negative, such orbital is treated as "open core" orbital,
+        #    and is not computed by solving an impurity problem. Rather it is split by a fixed self-energy,
+        #    stored in the file sfx.[icix]. This case needs particular attention in ssplit.py part, but
+        #    not in sgather.py step, as such "open core" orbitals do not appear in sig.inp, and hence can
+        #    be safely ignored in this step.
+        if len(colsp[icix]) > 0:  # only if some orbitals are positive in this icix, such case is not "open core" case, and we need to treat it.
+            for i in colsm[icix]: # missing columns do not appear in self-energy
+                missing_columns[abs(i)]=1
     print 'missing_columns=', missing_columns
 
     for c in allcols:
@@ -161,11 +173,11 @@ if __name__=='__main__':
         rSigma[2*ic-1] -= (rs_oo[c-1]-rEdc[c-1])
 
 
-    cm = colsm.values()
-    if options.m_extn:
-        cm += colsmdn.values()
-    cm=array(union(cm)).flatten()
-    print 'cm=', cm
+    #cm = colsm.values()
+    #if options.m_extn:
+    #    cm += colsmdn.values()
+    #cm=array(union(cm)).flatten()
+    #print 'cm=', cm
 
     if len(missing_columns)>0: # Some columns contain only s_oo and Edc (no dynamic component)
         # old-s_oo and old-Edc
