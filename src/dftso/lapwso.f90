@@ -484,7 +484,7 @@ subroutine Read_Next_Kpoint(SS, bname, NV, ne, weight, KV, ee, meigve, should_st
      ENDDO
   enddo
   if ((.not.Qcomplex) .and. should_store) deallocate( APA )
-  return
+  STOP 'lapwso'
 997 CONTINUE
   WRITE(6,*) ' ERROR IN READING VECTOR FILE. likely not enough k-points', SS(1,1), SS(2,1), SS(3,1), BNAME, NV(1), NE(1), WEIGHT(1)
   ERRMSG = ' ERROR IN READING VECTOR FILE. likely not enough k-points'
