@@ -72,7 +72,7 @@ PROGRAM lapwso
   ! Reading lapwso.def  file *
   CALL read_def_file(deffn, Qcomplex, iorbpot,ERRMSG,info)
   if (info.ne.0) then
-     CALL OUTERR('lapwso.f90',ERRMSG); return
+     CALL OUTERR('lapwso.f90',ERRMSG)
   endif
 
   if (vector_para) then
@@ -128,7 +128,7 @@ PROGRAM lapwso
   call ReadStructure(20,nato,rel,lxdos,ERRMSG,info)
   ndif = ndf
   if (info.ne.0) then
-     CALL OUTERR('structure.f90',ERRMSG); return
+     CALL OUTERR('structure.f90',ERRMSG)
   endif
   if (Qprint) CALL WriteInfoStructure(6, nato)
   CALL ReadStructureGroup(20, nato)
