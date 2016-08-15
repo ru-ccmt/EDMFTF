@@ -15,11 +15,6 @@ SUBROUTINE LMSORT(NATO,NGAUNT,JATOM,LQIND,LQNS,GFAC,L0PTR, L0FLD,M0PTR,M0FLD,LPP
   !
   !     ..................................................................
   !
-  ! 1.     PROGRAM UNIT 'LMSORT'
-  !           Convert (LP LL L0 LMX MP M0) combinations into data
-  !           structures representing (L0 M0 LP MP LMX) combinations
-  !           FORTRAN 77 SUBROUTINE
-  !
   ! 2.     PURPOSE
   !           Convert the LP LL L0 LMX MP M0 combinations (sorted in that
   !           order) as given by array LQNS for a given atom JATOM into
@@ -217,10 +212,6 @@ SUBROUTINE LMSORT(NATO,NGAUNT,JATOM,LQIND,LQNS,GFAC,L0PTR, L0FLD,M0PTR,M0FLD,LPP
   !              indicated in the PARAMETERS section above. During the
   !              range determination process all duplicate values will
   !              be removed.
-  !
-  !        INSTITUT FUER THEORETISCHE CHEMIE            --  TU VIENNA
-  !
-  !     ..................................................................
   !        Parameters
   INTEGER            NIL
   PARAMETER          (NIL = -1)

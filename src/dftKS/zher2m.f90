@@ -1,9 +1,4 @@
-subroutine zher2m (uplo,transa,transb,m,n,alpha,a,lda,b,ldb,beta,c,ldc)
-!
-! Author: Dieter Kvasnicka
-!         Institute of Physical and Theoretical Chemistry
-!         Vienna University of Technology, Austria
-!         2000-2002
+subroutine prod_zher (uplo,transa,transb,m,n,alpha,a,lda,b,ldb,beta,c,ldc)
 !
 !  Purpose
 !  =======
@@ -92,4 +87,4 @@ subroutine zher2m (uplo,transa,transb,m,n,alpha,a,lda,b,ldb,beta,c,ldc)
   else
      stop 'wrong parameter in zher2m'
   end if
-end subroutine zher2m
+end subroutine prod_zher

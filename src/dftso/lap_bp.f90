@@ -3,12 +3,6 @@ SUBROUTINE DBP2P( UPLO, N, AP, HB )
   !
   !  DBP2P transforms a block packed stored matrix AP into a packed matrix.
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   !     .. Scalar Arguments ..
   CHARACTER*1        UPLO
   INTEGER            N, HB
@@ -119,12 +113,6 @@ END SUBROUTINE DBP2P
 
 SUBROUTINE DLATD4( UPLO, N, NB, ABP, E, TAU, W, LDW, HB )
   IMPLICIT NONE
-  !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !
   !     .. Scalar Arguments ..
@@ -335,11 +323,6 @@ SUBROUTINE DP2BP( UPLO, N, AP, HB )
   !
   !  DP2BP transforms a packed stored matrix AP into a block packed matrix.
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   !
   !     .. Scalar Arguments ..
   CHARACTER*1        UPLO
@@ -453,11 +436,6 @@ END SUBROUTINE DP2BP
 SUBROUTINE DPHTR4( N, ABP, HB, INFO )
   IMPLICIT NONE
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !
   !     .. Scalar Arguments ..
@@ -597,10 +575,6 @@ SUBROUTINE DPHTRF( UPLO, N, AP, HB, INFO )
   IMPLICIT NONE
   !
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   CHARACTER      UPLO
   INTEGER        INFO, N, HB
@@ -731,11 +705,6 @@ END SUBROUTINE DPHTRF
 
 SUBROUTINE DSHEVX( JOBZ, RANGE, UPLO, N, AP, VL, VU, IL, IU,ABSTOL, M, W, Z, LDZ, WORK, IWORK, IFAIL,HBTRD, NUME, NBVL, INFO )
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !
   !     .. Scalar Arguments ..
@@ -1131,11 +1100,6 @@ SUBROUTINE DSHGS4( ITYPE, UPLO, N, ABP, BBP, HB, INFO )
   IMPLICIT NONE
   ! 
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   !
   !     .. Scalar Arguments ..
   CHARACTER          UPLO
@@ -1334,10 +1298,6 @@ SUBROUTINE DSHGST( ITYPE, UPLO, N, AP, BP, HB, INFO )
   IMPLICIT NONE
   !
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   CHARACTER      UPLO
   INTEGER        INFO, N, ITYPE, HB
@@ -1495,11 +1455,6 @@ END SUBROUTINE DSHGST
 SUBROUTINE DSHTR4( UPLO, N, ABP, D, E, TAU, WORK, LWORK, HB, INFO )
   IMPLICIT NONE
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !
   !     .. Scalar Arguments ..
@@ -1710,10 +1665,6 @@ SUBROUTINE DSHTRD( UPLO, N, ABP, D, E, TAU, WORK, LWORK, HB, INFO )
   !
   !
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !     .. Scalar Arguments ..
   CHARACTER          UPLO
@@ -1920,11 +1871,6 @@ SUBROUTINE DSTEZ2( RANGE, ORDER, N, VL, VU, IL, IU, ABSTOL, D, E, M, NSPLIT, W, 
   IMPLICIT NONE
   !
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !     .. Scalar Arguments ..
   CHARACTER          ORDER, RANGE
@@ -2563,11 +2509,6 @@ SUBROUTINE DUP2BP( UPLO, N, AP, HB )
   !  DP2BP transforms a unpacked stored matrix AP into a block packed matrix.
   !
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   !     .. Scalar Arguments ..
   CHARACTER*1        UPLO
   INTEGER            N, HB
@@ -2651,12 +2592,6 @@ INTEGER FUNCTION IJ2K( UPLO, I, J, N, HB )
   !
   !  IJ2K computes the index k of the matrix element A(I,J) in the 
   !  corresponding (block) packed array AP.
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   !
   !     .. Scalar Arguments ..
   CHARACTER*1        UPLO
@@ -2748,11 +2683,6 @@ SUBROUTINE ZBP2P( UPLO, N, AP, HB )
   !
   !  ZBP2P transforms a block packed stored matrix AP into a packed matrix.
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !     .. Scalar Arguments ..
   CHARACTER*1        UPLO
@@ -2861,12 +2791,6 @@ END SUBROUTINE ZBP2P
 
 SUBROUTINE ZHHEVX( JOBZ, RANGE, UPLO, N, AP, VL, VU, IL, IU,ABSTOL, M, W, Z, LDZ, WORK, RWORK, IWORK,IFAIL, HBTRD, NUME, NBVL, INFO )
   IMPLICIT NONE
-  !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !
   !     .. Scalar Arguments ..
@@ -3244,12 +3168,6 @@ SUBROUTINE ZHHGS4( ITYPE, UPLO, N, ABP, BBP, HB, INFO )
   IMPLICIT NONE
   ! 
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
-  !
   !     .. Scalar Arguments ..
   CHARACTER          UPLO
   INTEGER            INFO, ITYPE, N, HB
@@ -3454,11 +3372,6 @@ SUBROUTINE ZHHGST( ITYPE, UPLO, N, AP, BP, HB, INFO )
   IMPLICIT NONE
   !
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   CHARACTER      UPLO
   INTEGER        INFO, N, ITYPE, HB
   COMPLEX*16     AP( * ), BP( * )
@@ -3616,11 +3529,6 @@ SUBROUTINE ZHHTR4( UPLO, N, ABP, D, E, TAU, WORK, LWORK, HB, INFO )
   IMPLICIT NONE
   !
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !     .. Scalar Arguments ..
   CHARACTER, intent(in) :: UPLO
@@ -3840,11 +3748,6 @@ SUBROUTINE ZHHTRD(UPLO,N,ABP,D,E,TAU,WORK,LWORK,HB,INFO)
   !
   !
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   !     .. Scalar Arguments ..
   CHARACTER, intent(in) :: UPLO
   INTEGER,   intent(out):: INFO
@@ -4053,11 +3956,6 @@ SUBROUTINE ZLATD4( UPLO, N, NB, ABP, E, TAU, W, LDW, HB )
   IMPLICIT NONE
   !
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !     .. Scalar Arguments ..
   CHARACTER, intent(in) ::  UPLO
@@ -4283,11 +4181,6 @@ SUBROUTINE ZP2BP( UPLO, N, AP, HB )
   !  ZP2BP transforms a packed stored matrix AP into a block packed matrix.
   !
   !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
-  !
   !     .. Scalar Arguments ..
   CHARACTER*1        UPLO
   INTEGER            N, HB
@@ -4400,11 +4293,6 @@ SUBROUTINE ZPHTR4( N, ABP, HB, INFO )
   IMPLICIT NONE
   !
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   !     .. Scalar Arguments ..
   INTEGER            INFO, N, HB
@@ -4524,11 +4412,6 @@ END SUBROUTINE ZPHTR4
 
 SUBROUTINE ZPHTRF( UPLO, N, AP, HB, INFO ) 
   !
-  !
-  !  Block packed algorithms                                           1997
-  !  Based on LAPACK routines                              Dieter Kvasnicka
-  !                                                   Theoretical Chemistry
-  !                                         University of Technology Vienna
   !
   CHARACTER      UPLO
   INTEGER        INFO, N, HB

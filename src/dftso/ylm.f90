@@ -2,7 +2,6 @@ SUBROUTINE YLM(V,LMAX,Y)
   INTEGER            LMAX
   DOUBLE PRECISION   V(3)
   COMPLEX*16         Y(*)
-  !
   !     ..................................................................
   ! 1.     PROGRAM UNIT 'YLM'
   !           Calculates spherical harmonics
@@ -55,29 +54,7 @@ SUBROUTINE YLM(V,LMAX,Y)
   !                    constraint:
   !                       Dimension of Y .GE. (LMAX+1)**2 (not checked)
   !
-  !        USED SUBROUTINES (DIRECTLY CALLED)
-  !           none
-  !
-  !        INDIRECTLY CALLED SUBROUTINES
-  !           none
-  !
-  !        UTILITY-SUBROUTINES (USE BEFOREHAND OR AFTERWARDS)
-  !           none
-  !
-  !        INPUT/OUTPUT (READ/WRITE)
-  !           none
-  !
-  !        MACHINENDEPENDENT PROGRAMPARTS
-  !           Type COMPLEX*16 is used which does not conform to the
-  !           FORTRAN 77 standard.
-  !           Also the non-standard type conversion function DCMPLX()
-  !           is used which combines two double precision values into
-  !           one double complex value.
-  !
-  ! 4.     REMARKS
-  !           none
-  !
-  ! 5.     METHOD
+  ! 4.     METHOD
   !           The basic algorithm used to calculate the spherical
   !           harmonics for vector V is as follows:
   !

@@ -112,7 +112,7 @@ subroutine garadme(e,vru,p,dp,pe,dpe,ri_mat,jspin,kpot,ipr)
                     !   has to be added.
                     !   This contribution amouts to approx. 0.05 mRyd for p states
                     !   in Au. (It has not been taken into account in other parts
-                    !   of the WIEN package.) For excited states there are contributions
+                    !   of the code.) For excited states there are contributions
                     !   up to 0.1 mRyd.  
                     if (l .le. lomax) then
                        if (loorext(l,jatom)) then 
