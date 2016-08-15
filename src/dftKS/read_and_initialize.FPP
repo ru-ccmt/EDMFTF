@@ -48,7 +48,14 @@ SUBROUTINE read_and_initialize(NUMKPT,DEFFN,INFO,nmat_only)
      CALL OUTERR('read_d',ERRMSG); return
   endif
   !
-  if (Qprint) WRITE (6,*) 'max number of local orbitals/atom',nloat_new
+  if (Qprint) then
+#ifdef _REAL
+      WRITE(6,*) 'real lapw1 version'
+#else
+      WRITE(6,*) 'complex lapw1c version'
+#endif
+      WRITE (6,*) 'max number of local orbitals/atom',nloat_new
+  endif
   !
   NT = LMAX
   !

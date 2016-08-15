@@ -20,19 +20,25 @@ subroutine getMaxDim(nmat,nume,nkp,jspin,elin,elo, Qcomplex)
      read(9)(elin(l,jatom,1),l=0,lmax)            ! linearization energy from vector file
      read(9)((elo(l,nn,jatom,1),l=0,lomax),nn=1,nloat-1)
   enddo
+
   jspin=1
   do jatom=1,nato
      read(10,IOSTAT=ios)(elin(l,jatom,2),l=0,lmax)            ! linearization energy from vector file
      read(10,IOSTAT=ios)((elo(l,nn,jatom,2),l=0,lomax),nn=1,nloat-1)
   enddo
+
   if (ios.eq.0) then
      jspin=2
   else
      close(10, status='delete')
      close(55, status='delete')
-     close(23, status='delete')
+     if (myrank.eq.master) then
+        close(23, status='delete')
+     else
+        close(23)
+     endif
   endif
-  
+
   if (vector_para .or. myrank.eq.master) then
      ! If every node has his own file, all nodes read. If only one file exists, only master reads.
      

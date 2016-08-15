@@ -77,6 +77,7 @@ PROGRAM lapwso
 
   if (vector_para) then
      call Scatter_Vector_data(ierr)
+
      if (vector_para_so_only) then
         ! In this mode, we read from a single vector file case.vector, but we print to
         ! multiple vectorso files, so that each process produces its own vectorso_{myrank} file.
@@ -134,10 +135,12 @@ PROGRAM lapwso
   CALL ReadStructureGroup(20, nato)
   
   call get_nloat(lomax,nato,nloat)
+
   allocate( elo(0:lomax,nloat,nato,2) )
   ALLOCATE( e(0:lmax,nato,2) )
   if (vector_para_so_only) vector_para=.False.
   CALL getMaxDim(nmat,nume,nkp,jspin,e,elo, Qcomplex)
+
   if (vector_para_so_only) then
      vector_para=.True.
      pr_proc = floor(nkp/DBLE(nprocs)+0.999)
@@ -171,6 +174,7 @@ PROGRAM lapwso
   !ikps(1) = 1     ! what is the first k-point in this vector file
   !ikps(2) = nkp   ! number of k-points
   !pr_proc = nkp
+
 
 
   
@@ -371,6 +375,7 @@ PROGRAM lapwso
         CALL allocate_abcd(labc2,nloat,nume)
         
         call cputim(dtime0)
+
         call Read_Next_Kpoint(SS_, bname, NV, NE, weight_, KV, ee, meigve, .True., jspin, Qcomplex)
         print *, ikp, 'computed on processor', myrank, bname
 
@@ -438,6 +443,7 @@ END PROGRAM lapwso
 
 subroutine Read_Next_Kpoint(SS, bname, NV, ne, weight, KV, ee, meigve, should_store, jspin, Qcomplex)
   use param, only: nmat, nume
+  use mpi, only: myrank, stop_mpi
   IMPLICIT NONE
   integer, intent(in) :: jspin
   logical, intent(in) :: Qcomplex, should_store
@@ -448,23 +454,28 @@ subroutine Read_Next_Kpoint(SS, bname, NV, ne, weight, KV, ee, meigve, should_st
   real*8, intent(out) :: ee(:,:)          !ee(nume,2)
   complex*16, intent(out):: meigve(:,:,:) ! meigve(nmat,nume,jspin)
   ! locals
-  INTEGER :: isi, num, i, j
+  INTEGER :: isi, num, i, j, ios
   CHARACTER*67   :: ERRMSG
   REAL*8, allocatable  ::  APA(:)
   complex*16 :: meig_dum
   real*8 :: apa_dum
   !
   if ((.not.Qcomplex) .and. should_store) allocate( APA(nmat) )
+
+
   do isi=1,jspin
      ! Reading the vector file, which was obtained by lapw1
-     READ(8+isi,err=997) SS(1,isi),SS(2,isi),SS(3,isi),BNAME,NV(isi),NE(isi),WEIGHT(isi)
+     READ(8+isi,IOSTAT=ios,err=997) SS(1,isi),SS(2,isi),SS(3,isi),BNAME,NV(isi),NE(isi),WEIGHT(isi)
      IF(NV(isi).GT.NMAT) write(6,*) 'TOO MANY KJS, NV.GT.NMAT ',nv(isi),nmat
      IF(NE(isi).GT.NUME) write(6,*) 'TOO MANY BANDS, NE.GT.NUME',ne(isi),nume
      IF(NV(isi).GT.NMAT)  STOP 'TOO MANY KJS: '
      IF(NE(isi).GT.NUME)  STOP 'TOO MANY BANDS: '
+
      READ(8+isi)(KV(1,i,isi),KV(2,i,isi),KV(3,i,isi),i=1,NV(isi))
+     
      DO j=1,NE(isi)
         READ(8+isi) NUM,ee(j,isi)
+        
         IF(Qcomplex) THEN 
            if (should_store) then
               READ(8+isi) (meigve(i,j,isi),I=1,NV(isi))
@@ -483,8 +494,9 @@ subroutine Read_Next_Kpoint(SS, bname, NV, ne, weight, KV, ee, meigve, should_st
         ENDIF
      ENDDO
   enddo
+        
   if ((.not.Qcomplex) .and. should_store) deallocate( APA )
-  STOP 'lapwso'
+  return
 997 CONTINUE
   WRITE(6,*) ' ERROR IN READING VECTOR FILE. likely not enough k-points', SS(1,1), SS(2,1), SS(3,1), BNAME, NV(1), NE(1), WEIGHT(1)
   ERRMSG = ' ERROR IN READING VECTOR FILE. likely not enough k-points'

@@ -152,8 +152,12 @@ def lapw0(fday, case, WIEN, para, fh_info):
     para=''
     AStep(fday, case, 'lapw0', 'in0', WIEN, para, fh_info)
         
-def lapw1(fday, case, WIEN, para, dftKS, dmfe, cmplx, fh_info):
+def lapw1(fday, case, WIEN, para, dftKS, dmfe, Qcmplx, fh_info):
     if dftKS:
+        cmplx = pcmplx = ''
+        if Qcmplx:
+            cmplx='c'
+            pcmplx=' -c'
         name='lapw1'+cmplx
         tim = time.strftime("%H:%M:%S")
         print >> fday, '>%-10s ( %s )' % (name, tim)
@@ -161,9 +165,6 @@ def lapw1(fday, case, WIEN, para, dftKS, dmfe, cmplx, fh_info):
         print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name
         fl.close()
         
-        #cmd = dmfe.ROOT+'/x_dmft.py -p '+name
-        pcmplx=''
-        if cmplx: pcmplx=' -'+cmplx
         cmd = dmfe.ROOT+'/x_dmft.py'+para+pcmplx+' '+name
         print >> fh_info, ('#<'+name+'>: '), cmd
         fh_info.flush()
@@ -171,8 +172,21 @@ def lapw1(fday, case, WIEN, para, dftKS, dmfe, cmplx, fh_info):
     else:
         AStep(fday, case, 'lapw1', 'in1', WIEN, para, fh_info, cmplx)
 
-def lapwso(fday, case, WIEN, para, fh_info):
-    AStep(fday, case, 'lapwso', 'inso', WIEN, para, fh_info)
+def lapwso(fday, case, WIEN, para, dftKS, dmfe, fh_info):
+    if dftKS:
+        name='lapwso'
+        tim = time.strftime("%H:%M:%S")
+        print >> fday, '>%-10s ( %s )' % (name, tim)
+        fl = open(':log', 'a')
+        print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name
+        fl.close()
+
+        cmd = dmfe.ROOT+'/x_dmft.py'+para+' '+name
+        print >> fh_info, ('#<'+name+'>: '), cmd
+        fh_info.flush()
+        info=subprocess.call(cmd,shell=True,stdout=fh_info)
+    else:
+        AStep(fday, case, 'lapwso', 'inso', WIEN, para, fh_info)
 
 def lcore(fday, case, WIEN, fh_info):
     AStep(fday, case, 'lcore', 'inc', WIEN, '', fh_info)
@@ -861,7 +875,7 @@ if __name__ == '__main__':
         print >> fday, '\n   cycle %s \t%s %s/%s to go\n' % (0,time.asctime(),p['finish'],(p['finish'])%p['riter'])
         lapw0(fday,w2k.case,w2k.WIENROOT,para, fh_info); fday.flush()
         lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,p['c'],fh_info); fday.flush()
-        if p['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para, fh_info)
+        if p['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe, fh_info)
         fday.flush()
         
 
@@ -1045,7 +1059,7 @@ if __name__ == '__main__':
             
             lapw0(fday,w2k.case,w2k.WIENROOT,para, fh_info); fday.flush()
             lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,p['c'],fh_info); fday.flush()
-            if p['so']:  lapwso(fday,w2k.case,w2k.WIENROOT,para, fh_info)
+            if p['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe, fh_info)
                 
             fday.flush()
             
