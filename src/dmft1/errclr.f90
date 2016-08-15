@@ -1,5 +1,5 @@
-      SUBROUTINE ERRCLR(FNAME)
-      CHARACTER*(*)      FNAME
+SUBROUTINE ERRCLR(FNAME)
+  CHARACTER*(*)      FNAME
 !
 !     ..................................................................
 !
@@ -60,13 +60,8 @@
 !        INSTITUT FUER TECHNISCHE ELEKTROCHEMIE            --  TU VIENNA
 !     ..................................................................
 !
-      CLOSE (99)
-      OPEN (99,FILE=FNAME,STATUS='REPLACE')
-!      ENDFILE (99)
-!      CLOSE (99)
-!
-      RETURN
-!
-!        End of 'ERRCLR'
-!
-      END
+  !CLOSE (99)
+  !OPEN (99,FILE=FNAME,STATUS='REPLACE')
+  close(99, status='delete')
+  RETURN
+END SUBROUTINE ERRCLR

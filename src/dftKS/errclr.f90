@@ -60,8 +60,9 @@ SUBROUTINE ERRCLR(FNAME)
   !        INSTITUT FUER TECHNISCHE ELEKTROCHEMIE            --  TU VIENNA
   !     ..................................................................
   !
-  CLOSE (99)
-  OPEN (99,FILE=FNAME,STATUS='REPLACE')
+  !CLOSE (99)
+  !OPEN (99,FILE=FNAME,STATUS='REPLACE')
+  close(99, status='delete')
   RETURN
   !
   !        End of 'ERRCLR'

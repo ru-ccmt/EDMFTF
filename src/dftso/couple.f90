@@ -4,14 +4,15 @@ subroutine couple(indj,a,b,c)
   !     <Ylm' Xs'|s*l|Ylm Xs>. IT GENERATES THE ARRAY COUP WHICH WILL
   !     BE USED IN THE SPIN-ORIBIT PROGRAM.   L=0 DOESN'T COUPLE.
   !
-  USE param
-  USE couples
-  IMPLICIT REAL*8(A-H,O-Z)
-  
-  COMPLEX*16 COUP(LABC,-LABC:LABC,-LABC:LABC,2,2),imag,T(2,2),sum,czero
-  imag = (0.d0,1.d0)
-  czero = (0.d0,0.d0)
-
+  USE param, ONLY: labc
+  USE couples, ONLY: couplo
+  IMPLICIT NONE
+  INTEGER, intent(in) :: indj
+  REAL*8, intent(in)  :: a, b, c
+  ! locals
+  COMPLEX*16 :: COUP(LABC,-LABC:LABC,-LABC:LABC,2,2), T(2,2), sum
+  INTEGER :: i, is1, is2, isf, isi, j, l, mf, mi
+  COMPLEX*16, PARAMETER :: imag = (0.d0,1.d0)
   !!  spin rotation has the form     
   !!
   !! T =  | e^{ i(a+c)/2}*cos(b/2) , e^{ i(a-c)/2}*sin(b/2) |
@@ -52,11 +53,11 @@ subroutine couple(indj,a,b,c)
         !!PB 15.9.2004          a = dfloat(mf) * cos(theta)/2.d0
         coup(l,mf,mf,1,1) = -dfloat(mf)/2.d0
         coup(l,mf,mf,2,2)  = dfloat(mf)/2.d0
-        coup(l,mf,mf,1,2) = czero
-        coup(l,mf,mf,2,1) = czero
+        coup(l,mf,mf,1,2) = 0.d0
+        coup(l,mf,mf,2,1) = 0.d0
         do is1=1,2
            do is2=1,2
-              sum=czero
+              sum=0.d0
               do i=1,2
                  do j=1,2
                     sum=sum+dconjg(T(i,is1))*T(j,is2)*coup(l,mf,mf,i,j)
@@ -67,13 +68,13 @@ subroutine couple(indj,a,b,c)
         end do
         ! <mf||mf-1>
         if (mf.gt.-l) then
-           coup(l,mf,mf-1,1,1) = czero
-           coup(l,mf,mf-1,2,2) = czero
-           coup(l,mf,mf-1,2,1) = czero
+           coup(l,mf,mf-1,1,1) = 0.d0
+           coup(l,mf,mf-1,2,2) = 0.d0
+           coup(l,mf,mf-1,2,1) = 0.d0
            coup(l,mf,mf-1,1,2) = sqrt(dfloat((l+mf)*(l-mf+1)))/2.d0
            do is1=1,2
               do is2=1,2
-                 sum=czero
+                 sum=0.d0
                  do i=1,2
                     do j=1,2
                        sum=sum+dconjg(T(i,is1))*T(j,is2)*coup(l,mf,mf-1,i,j)
@@ -85,13 +86,13 @@ subroutine couple(indj,a,b,c)
         endif
         ! <mf||mf+1>
         if (mf.lt.l) then 
-           coup(l,mf,mf+1,1,1) = czero
-           coup(l,mf,mf+1,2,2) = czero 
+           coup(l,mf,mf+1,1,1) = 0.d0
+           coup(l,mf,mf+1,2,2) = 0.d0 
            coup(l,mf,mf+1,2,1) = sqrt(dfloat((l-mf)*(l+mf+1)))/2.d0
-           coup(l,mf,mf+1,1,2) = czero
+           coup(l,mf,mf+1,1,2) = 0.d0
            do is1=1,2
               do is2=1,2
-                 sum=czero
+                 sum=0.d0
                  do i=1,2
                     do j=1,2
                        sum=sum+dconjg(T(i,is1))*T(j,is2)*coup(l,mf,mf+1,i,j)
@@ -103,13 +104,13 @@ subroutine couple(indj,a,b,c)
         endif
         ! <mf-1||mf>
         if (mf.gt.-l) then
-           coup(l,mf-1,mf,1,1) = czero
-           coup(l,mf-1,mf,2,2) = czero 
+           coup(l,mf-1,mf,1,1) = 0.d0
+           coup(l,mf-1,mf,2,2) = 0.d0 
            coup(l,mf-1,mf,2,1) = sqrt(dfloat((l+mf)*(l-mf+1)))/2.d0
-           coup(l,mf-1,mf,1,2) = czero
+           coup(l,mf-1,mf,1,2) = 0.d0
            do is1=1,2
               do is2=1,2
-                 sum=czero
+                 sum=0.d0
                  do i=1,2
                     do j=1,2
                        sum=sum+dconjg(T(i,is1))*T(j,is2)*coup(l,mf-1,mf,i,j)
@@ -121,13 +122,13 @@ subroutine couple(indj,a,b,c)
         endif
         ! <mf+1||mf>
         if (mf.lt.l) then
-           coup(l,mf,mf+1,1,1) = czero
-           coup(l,mf,mf+1,2,2) = czero
-           coup(l,mf,mf+1,2,1) = czero
+           coup(l,mf,mf+1,1,1) = 0.d0
+           coup(l,mf,mf+1,2,2) = 0.d0
+           coup(l,mf,mf+1,2,1) = 0.d0
            coup(l,mf,mf+1,1,2) = sqrt(dfloat((l-mf)*(l+mf+1)))/2.d0
            do is1=1,2
               do is2=1,2
-                 sum=czero
+                 sum=0.d0
                  do i=1,2
                     do j=1,2
                        sum=sum+dconjg(T(i,is1))*T(j,is2)*coup(l,mf+1,mf,i,j)
@@ -140,7 +141,6 @@ subroutine couple(indj,a,b,c)
      enddo
   enddo
   
-16 continue
   RETURN
 END subroutine couple
 

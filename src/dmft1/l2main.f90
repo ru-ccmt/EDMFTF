@@ -92,6 +92,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   INTEGER    :: Nstar
   REAL*8     :: k_star(3,iord), rotij_cartesian(3,3), BR1inv(3,3), tmp3(3,3), Trans3(3,3)
   INTEGER    :: gind(iord), nsymop2
+  REAL*8     :: time0, time1, time2, time3, read_time, read_time2, atpar_time, overlap_time, bess_time, zgemm_time, zgem2_time, alm_time, trans_time, comprs_time, imp_time, inv_time, gc_time, dm_time
   
   RENORM_SIMPLE=.False.
   cmp_DM = matsubara
@@ -118,6 +119,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   MINWAV=100000
 
   tmat(:,:,:iord) =  iz(:,:,:iord)
+
+  call cputim(time0)
   
   natm = sum(mult) 
   ALLOCATE( csort(nat) )
@@ -168,7 +171,10 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      ENDDO
   end do
 
+  call cputim(time1)
+  read_time = time1-time0
   
+  time0=time1
   !-------------------------------------------------------------------------------------!
   !--------------- Reading potential parameters for all atoms.   -----------------------!
   !-- It stores  necessary parameters and uses them below, when looping over atoms -----!
@@ -245,6 +251,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      CALL p_cmp_rixmat(w_rfk)
      call w_deallocate_rfk()
   endif
+
+  call cputim(time1)
+  atpar_time = time1-time0
   
   !---------------- Reading self-energy ------------------------------------------------------------------!
   !---------------- Input self-energy must be in eV units. Will convert to Rydbergs below ----------------!
@@ -308,21 +317,24 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   endif
 
   !if (iso.eq.2) then
-     allocate( crotloc_x_rotij(3,3,natom) )
-     call INVERSSYMDEF(BR1,BR1inv)
-     DO icase=1,natom  !--------------- over all atoms requested in the input ------------------------!
-        latom = iatom(icase)   ! The succesive number of atom (all atoms counted)
-        tmp3 = matmul(BR1,rotij(:,:,latom))
-        rotij_cartesian = matmul(tmp3,BR1inv)
-        crotloc_x_rotij(:,:,icase) = matmul(crotloc(:,:,icase),rotij_cartesian)
-     END DO
+  allocate( crotloc_x_rotij(3,3,natom) )
+  call INVERSSYMDEF(BR1,BR1inv)
+  DO icase=1,natom  !--------------- over all atoms requested in the input ------------------------!
+     latom = iatom(icase)   ! The succesive number of atom (all atoms counted)
+     tmp3 = matmul(BR1,rotij(:,:,latom))
+     rotij_cartesian = matmul(tmp3,BR1inv)
+     crotloc_x_rotij(:,:,icase) = matmul(crotloc(:,:,icase),rotij_cartesian)
+  END DO
   !endif
 
+  call cputim(time0)
   if (Qrenormalize) then
      allocate(Olapm0(maxdim,maxdim,ncix), SOlapm(maxdim,maxdim,ncix) )
      CALL cmp_overlap(projector,Olapm0, SOlapm, Qcomplex, nsymop, csort, iorbital, cix_orb, nindo, cixdim, iSx, noccur, cfX, crotloc_x_rotij, maxucase, maxdim2, norbitals, pr_proc, RENORM_SIMPLE)
   endif
-
+  call cputim(time1)
+  overlap_time = time1-time0
+  
   !------------ allocating some important arrays --------------!
   ALLOCATE( a_real(nmat) ) !---  for eigenvectors -------------!
 
@@ -376,7 +388,16 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
 
   endif
   if (Cohfacts) ALLOCATE( Cohf0(nume) )
-  
+
+  bess_time=0
+  zgemm_time=0
+  alm_time=0
+  trans_time=0
+  comprs_time=0
+  imp_time=0
+  inv_time=0
+  gc_time=0
+  dm_time=0
 !!! start-kpoints
   iikp=0
   DO ivector=1,nvector
@@ -401,7 +422,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      else
         nkp= numkpt
      endif
-
+     
      DO iks=1,nkp   !------ Over all irreducible k-points ------!
         if (vector_para) then
            ikp = vectors(ivector,3)+iks  ! successive index in k-point table from case.klist
@@ -419,8 +440,11 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
 
         if (Tcompute .and. abs(projector).eq.5) allocate( phi_jl(nmat, n_al_ucase) )
 
+        read_time2=0
+        call cputim(time0)
         !------- reading from vector for both spins -----------!
         DO is=1,iso    !------ over up/dn ---------------------!
+           call cputim(time2)
            itape=8+is
            READ(itape,END=998) S,T,Z,KNAME,N,NE  !--- Here we can jupm out of loop 4 and stop at 998 -----------------------------------!
            IF(N.GT.MAXWAV) MAXWAV=N                                         
@@ -447,6 +471,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               !   nemax=nemax0
               endif
            ENDDO
+           call cputim(time3)
+           read_time2 = read_time2 + time3-time2
            
            if (abs(projector).GE.4) then
               nemin=nemin0
@@ -526,6 +552,10 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               WRITE(fh_p) ikp, nbands,maxdim2,norbitals, nemin
            endif
         endif
+        call cputim(time1)
+        bess_time = bess_time + time1-time0 - read_time2
+        read_time = read_time + read_time2
+        time0=time1
         
         if (Cohfacts) then
            ALLOCATE( Cohf(nbands,nbands) )
@@ -537,12 +567,14 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               endif
            ENDDO
            OPEN(1002,FILE='cohfactorsd.dat',status='unknown')
+           call cputim(time1)
+           read_time = read_time + time1-time0
         endif
      
      
         allocate( STrans(maxsize,ncix,nbands,nbands) )  ! WWW
         allocate( GTrans(nbands,nbands,norbitals) )
-
+        
         if (.False.) then
            ! Finds all star members and corresponding group operations
            ! This is switched off, as there are some cases of selection of G vectors, which are not completely symmetric
@@ -563,6 +595,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            isym = gind(igi)
            DMFTU=0
            DO icase=1,natom  !--------------- over all atoms requested in the input ------------------------!
+              call cputim(time0)
+              zgem2_time=0
               latom = iatom(icase)   ! The succesive number of atom (all atoms counted)
               jatom = isort(latom)   ! The sort of the atom  ( == w_jatom(iucase) )
               lfirst = ifirst(latom)
@@ -668,7 +702,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                        ibb=min(iblock,isize-ii+1)
                        lda=2*LMAX2+1
                        ldc=lda
-                       ldb=nmat                    
+                       ldb=nmat
+
                        !---- h_alyl(2*lmax+1,iblock,is)  contains rotated Apw's, such that chi(r) = (Apw*u(r) + Bpw*udot(r))*Ylm(r)
                        !---- h_blyl(2*lmax+1,iblock,is)  contains rotated Bpw's
                        !---- A(:N,iband,is)              contains eigenvectors, also named C(k+G,inad,is)
@@ -679,11 +714,14 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                        !---- alm[lm,iband][1,is] = sum_G Apw(lm,is,K+G) * C(k+G,iband,is)
                        !---- alm[lm,iband][2,is] = sum_G Bpw(lm,is,K+G) * C(k+G,iband,is)
                        !---- Where C(k+G,iband,is) are eigenvectors, and Apw and Bpw are expansion coefficients defined in Shick et.al., PRB 60, 10763 (1999).
+                       call cputim(time2)
                        call zgemm('N','N',2*l+1,nemax-nemin+1,ibb,(1.d0,0.d0), h_alyl(1,1,is),lda,a(ii,nemin,is),ldb,(1.d0,0.d0), alm(1,nemin,1,is),ldc)
                        call zgemm('N','N',2*l+1,nemax-nemin+1,ibb,(1.d0,0.d0), h_blyl(1,1,is),lda,a(ii,nemin,is),ldb,(1.d0,0.d0), alm(1,nemin,2,is),ldc)
                        if (abs(projector).eq.5) then !! The new
                           call zgemm('N','N',2*l+1,nbands,ibb,(1.d0,0.d0),h_interstitial(1,1,is),lda,a(ii,nemin,is),ldb,(1.d0,0.d0), a_interstitial(1,1,is),ldc)
                        endif !! The new
+                       call cputim(time3)
+                       zgem2_time = zgem2_time + time3-time2
                     ENDDO !----------- over both spins ---------!
                  ENDDO    !----------- over iblock -------------!
                  
@@ -710,7 +748,11 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  endif
               enddo  !--------- end of atom L loop (alm)  ----------------!
               !----------------  ALML(l,m,iband,ifr,ispin) contains (A*C,B*C) for all l,m,iband,ifr=(1,2),ispin --------!
-              
+
+              call cputim(time1)
+              alm_time = alm_time + time1-time0
+              zgemm_time = zgemm_time + zgem2_time
+              time0=time1
               !---------- Computing the DMFT transformation --------------!
               do lcase=1,nl(icase)
                  l1=ll(icase,lcase)
@@ -723,13 +765,18 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     CALL CmpXqtl(xqtl2(:,:,:,iorb), DMFTrans(:,:,:,:,iorb), nbands, nind, maxdim2)
                  endif
               enddo
+              call cputim(time1)
+              trans_time = trans_time + time1-time0
            ENDDO  ! over atom-cases
            !-------- computing correlated green's function --------!
-     
-           if (Qrenormalize) CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
 
+           call cputim(time0)
+           if (Qrenormalize) CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
            CALL CompressSigmaTransformation2(STrans, DMFTU, Sigind, iSx, cix, iorbital, ll, nl, natom, iso, ncix, maxdim, maxdim2, lmax2, norbitals, nbands, maxsize) ! WWW
-           
+           call cputim(time1)
+           comprs_time = comprs_time + time1-time0
+           time0=time1
+
            IF (mode.EQ.'g') THEN
               CALL CompressGcTransformation4(GTrans, DMFTrans, nbands, nindo, norbitals, maxdim2)
               CALL GetImpurityLevels2(Eimpmk, Olapmk, DMFTU, STrans, E, EF, s_oo, nemin, nume, iSx, iorbital, ll, nl, csize, cix, natom, iso, ncix, maxdim, maxdim2, lmax2, norbitals, nbands, maxsize)
@@ -754,7 +801,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  ENDDO
               ENDDO
            ENDIF
-     
+           call cputim(time1)
+           imp_time = imp_time + time1-time0
+           
            if (Cohfacts) WRITE(1002,'(A,5I5,2x,A)') '#', ikp, isym, nbands, nemin, nomega, ': ikp, isym, nbands nemin, nomega, kweight'
            
            !$OMP PARALLEL DO SHARED(gtot,gmloc,gloc,Ekp,sigma,STrans,cohf) PRIVATE(gij,i,zek,evl,evr,xomega,gk,gmk,gtc) SCHEDULE(STATIC)
@@ -799,11 +848,14 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  DO i=1,nbands
                     gij(i,i) = xomega+EF-E(i+nemin-1)  !-----  g^-1 of the LDA part in band representation ----!
                  ENDDO
+                 call cputim(time0)
                  ! Adding self-energy
                  if (ncix.gt.0) then         !-------- adding self-energy if correlated orbitals exist ------------!
                     CALL AddSigma_optimized2(gij, sigma(:,:,iom), STrans, csize, -1, nbands, ncix, maxsize) ! WWW
                  endif
-                 
+                 call cputim(time1)
+                 comprs_time = comprs_time + time1-time0
+                 time0=time1
                  DO i=1,nbands               !-------- adding minimum broadening for all bands -------------------!
                     gij(i,i) = gij(i,i) + (0.d0, 1.d0)*gamma
                  ENDDO
@@ -814,6 +866,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                        gij(i,i) = 1/gij(i,i) !-------- g is diagonal if no correlations ---------------------------!
                     ENDDO
                  endif
+                 call cputim(time1)
+                 inv_time = inv_time + time1-time0
+                 time0=time1
                  
                  CALL CmpGkc2(gmk, gij, DMFTU, iSx, iorbital, ll, nl, cix, natom, iso, ncix, maxdim, maxdim2, lmax2, norbitals, nbands)
                  gmloc(:,:,:,iom) = gmloc(:,:,:,iom) + gmk(:,:,:)*(mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
@@ -837,6 +892,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  ENDDO
                  gtot(iom) = gtot(iom) + gtc*(mweight(ikp)/tweight/nsymop2) 
      
+                 call cputim(time1)
+                 gc_time = gc_time + time1-time0
+                 
               ELSEIF (mode.EQ.'x') THEN
                  ! do nothing
               ELSEIF (mode.EQ.'u') THEN
@@ -852,8 +910,12 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            !$OMP END PARALLEL DO
            
            if (mode.EQ.'g' .and. cmp_DM) then
+              
+              call cputim(time0)
               mweight_ikp = (mweight(ikp)/tweight/nsymop2)
               call cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, nl, ll, iSx, cix, mweight_ikp, iso, iorbital, nbands, nume, nemin, maxdim, maxdim2, ncix, nomega, csize, maxsize, natom, lmax2, norbitals)
+              call cputim(time1)
+              dm_time = dm_time + time1-time0
            endif
         ENDDO !------  isym: over star of the irreducible k-point ----!
 
@@ -1010,10 +1072,25 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   if (Qrenormalize) deallocate( Olapm0, SOlapm )
   !------ Deallocation of memory ---------------
   
-2032 FORMAT(50X,I2,//)                                                        
-!********************************************************************* *PH*
-      
+  if (Qprint) then
+     write(6,'(//,3X,"=====>>> CPU TIME SUMMARY",/)')
+     write(6,*)
+     write(6,'(a,f10.2)') '   read files        :', read_time
+     write(6,'(a,f10.2)') '   atpar             :', atpar_time
+     write(6,'(a,f10.2)') '   cmp overlap       :', overlap_time
+     write(6,'(a,f10.2)') '   bessel and Ylm    :', bess_time
+     write(6,'(a,f10.2)') '   zgemm inside      :', zgemm_time
+     write(6,'(a,f10.2)') '   cmp alms          :', alm_time
+     write(6,'(a,f10.2)') '   cmp projector     :', trans_time
+     write(6,'(a,f10.2)') '   compress projectr :', comprs_time
+     write(6,'(a,f10.2)') '   impurity levels   :', imp_time
+     write(6,'(a,f10.2)') '   matrix inversion  :', inv_time
+     write(6,'(a,f10.2)') '   greens function   :', gc_time
+     write(6,'(a,f10.2)') '   density matrix    :', dm_time
+  endif
+  
+  
+  
   RETURN                    
-  STOP 'L2main - Error'
-!
+2032 FORMAT(50X,I2,//)                                                        
 END SUBROUTINE L2MAIN

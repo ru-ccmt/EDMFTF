@@ -1,7 +1,7 @@
 subroutine read_def_file(deffn, nloat, nohns, iter, readHinv, force, runorb, nmat_only, dokorig, writeham, ERRMSG, info)
   !        open all files listed in 'lapw1.def'
   use param, only   : filename_V_sph, filename_V_vns, filename_vector, filename_energy
-  use mpi, only : Qprint, FilenameMPI2, FilenameMPI, vector_para, myrank, master
+  use mpi, only : Qprint, FilenameMPI2, FilenameMPI, vector_para, myrank, master, cpuID, nprocs
   IMPLICIT NONE
   CHARACTER*(*), intent(in) :: deffn
   INTEGER, intent(out) :: nloat, info
@@ -16,7 +16,7 @@ subroutine read_def_file(deffn, nloat, nohns, iter, readHinv, force, runorb, nma
   END INTERFACE
   !locals
   INTEGER       :: IUNIT, IRECL, myid, lngth
-  CHARACTER*180 :: FNAME
+  CHARACTER*180 :: FNAME, xend
   CHARACTER*11  :: STATUS, FORM
   LOGICAL       :: Hinv_open
   CHARACTER*80  :: myids
@@ -39,18 +39,24 @@ subroutine read_def_file(deffn, nloat, nohns, iter, readHinv, force, runorb, nma
   DO
      READ (1,*,END=20,ERR=960) IUNIT,FNAME,STATUS,FORM,IRECL
      lngth = Len_Trim(FNAME)
-     if ( FNAME(lngth-1:lngth).EQ.'_x' ) then
-        ! We will write vector and energy files for each processor separately.
-        ! No mpi gather needed in this case.
-        FNAME = FNAME(:lngth-2)
-        CALL FilenameMPI2(FNAME)
-        if(iunit.eq.10 .or. iunit.eq.11) vector_para = .True.
-        if (iunit.eq.10) filename_vector=FNAME  ! vector file
-        if (iunit.eq.11) filename_energy=FNAME  ! energy file
-        !print *, 'Found para=', FNAME, vector_para
+     
+     if (iunit.eq.10) filename_vector=FNAME  ! vector file
+     if (iunit.eq.11) filename_energy=FNAME  ! energy file
+
+     if ((vector_para .or. FNAME(lngth-1:lngth).EQ.'_x') .and. (iunit.eq.10 .or. iunit.eq.11)) then
+        ! It is enugh that one of the two files has '_x' and we will try vector_para.
+        xend=''
+        if (nprocs > 1) then
+           xend = '_'//trim(ADJUSTL(cpuID))
+           vector_para = .True.
+        endif
+        call add_xend(FNAME, xend ) ! remove '_x' if present, and then add _{myrank}
+        if (iunit.eq.10) filename_vector=FNAME  ! correct name of vector file
+        if (iunit.eq.11) filename_energy=FNAME  ! correct name of energy file
         OPEN (IUNIT,FILE=FNAME,STATUS=STATUS,FORM=FORM,ERR=920)
         cycle
      endif
+
      if (iunit.EQ.6 .or. iunit.eq.21) then
         if (Qprint) then
            if (myrank.ne.master) CALL FilenameMPI(FNAME)    ! Each processor will have different information file
@@ -62,11 +68,6 @@ subroutine read_def_file(deffn, nloat, nohns, iter, readHinv, force, runorb, nma
      if (iunit.eq.10 .or. iunit.eq.11 .or. iunit.eq.71 .or. iunit.eq.55) then
         ! These are output files and should be opened only on master node
         if (iunit.eq.71) force=.true.
-        if (iunit.eq.10) filename_vector=FNAME
-        if (iunit.eq.11) filename_energy=FNAME
-        !if (iunit.eq.21) filename_scf1  =FNAME
-        !if (iunit.eq.71) filename_nsh   =FNAME
-        !if (iunit.eq.55) filename_vec   =FNAME
         if (myrank.EQ.master) OPEN (IUNIT,FILE=FNAME,STATUS=STATUS,FORM=FORM,ERR=920)
         cycle
      endif

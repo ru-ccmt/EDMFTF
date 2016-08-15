@@ -1,27 +1,38 @@
-      SUBROUTINE DVBES1 (FJ,DJ,SM,RI,NT)
-      IMPLICIT REAL*8(A-H,O-Z)
-!-----X----X----X----X----X----X----X----X----X----X----X----X----X----X
-!-----X CALCULATE THE DERIVATIVES OF THE BESSEL FUNCTIONS.   X----X----X
-!-----X   DJ=DFJ/DX WHERE X=SM*RI                                 X----X
-!-----X                    D.D.KOELLING                      X----X----X
-!-----X----X----X----X----X----X----X----X----X----X----X----X----X----X
-      DIMENSION DJ(NT),FJ(NT)
-      DATA ZUP/1.0D-5/,ZERO/0.0D0/,THIRD/.3333333333333D0/,ONE/1.0D0/
-      X=SM
-      IF (X.GT.ZUP)  GO TO 20
-      DJ(1)=ZERO
-      DJ(2)=THIRD
-      DO 10 L=3,NT
-  10  DJ(L)=ZERO
-      RETURN
-  20  Q2=-ONE/X
-      Q3=Q2
-      DJ(1)=-FJ(2)
-      LM=1
-      DO 30 L=2,NT
-      Q3=Q3+Q2
-      DJ(L)=FJ(LM)+Q3*FJ(L)
-      LM=LM+1
-  30  CONTINUE
-      RETURN
-      END
+SUBROUTINE DVBES1(FJ,DJ,SM,RI,NT)
+  IMPLICIT NONE
+  !        Arguments
+  INTEGER, intent(in) :: NT
+  REAL*8, intent(in)  :: RI, SM, FJ(NT)
+  REAL*8, intent(out) :: DJ(NT)
+  !..................................................................
+  !   calculate the derivatives of the Bessel functions
+  !      DJ = DFJ/DX where X = SM*RI
+  !                                        D.D.KOELLING
+  !..................................................................
+  !   Local Parameters
+  REAL*8, PARAMETER :: ZUP = 1.0D-5
+  !        Local Scalars
+  INTEGER            L, LM
+  DOUBLE PRECISION   Q2, Q3, X
+  !
+  X = SM*RI
+  IF (X .GT. ZUP) THEN
+     Q2 = -1.d0/X
+     Q3 = Q2
+     DJ(1) = -FJ(2)
+     LM = 1
+     DO L = 2, NT
+        Q3 = Q3 + Q2
+        DJ(L) = FJ(LM) + Q3*FJ(L)
+        LM = LM + 1
+     ENDDO
+  ELSE
+     DJ(1) = 0.d0
+     DJ(2) = 1.0D+0/3.0D+0
+     DO L = 3, NT
+        DJ(L) = 0.d0
+     ENDDO
+  ENDIF
+  !
+  RETURN
+END SUBROUTINE DVBES1

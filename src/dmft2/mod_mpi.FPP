@@ -520,7 +520,7 @@ CONTAINS
   subroutine Scatter_Vector_data()
     IMPLICIT NONE
     INTEGER       :: idat(2)
-    CHARACTER*180 :: sdat(4)
+    CHARACTER*180 :: sdat(4), xend
     INTEGER,       allocatable :: idat_all(:,:)
     CHARACTER*180, allocatable :: sdat_all(:,:)
     INTEGER       :: ierr, irank, inkp, ik_start, i
@@ -563,6 +563,17 @@ CONTAINS
     vectors(nvector,1) = 1         ! the successive number of vector file
     vectors(nvector,2) = idat(1)   ! number of k-points
     vectors(nvector,3) = idat(2)   ! what is the first k-point in this vector file
+    ! THIS IS NEW PART FROM SUMMER 2016
+    ! Here we decided to take filenames from the dmft2.def-file, so that user
+    ! has flexibility to change the order of files from the input.
+    call get_xend(xend,sdat(1))  ! This will extract the suffix from _processes_ files, i.e., xend=='_myrank'
+    ! Now we add xend to the filenames from 
+    call add_xend(sdat(1), vecfn(1), xend) ! case.vectorso
+    call add_xend(sdat(2), vecfn(2), xend) ! case.vectorsodn
+    call add_xend(sdat(3), vecfn(3), xend) ! case.energysodn
+    call add_xend(sdat(4), vecfn(4), xend) ! case.energyso
+    ! THIS IS NEW PART FROM SUMMER 2016
+    !
     fvectors(nvector,1) = sdat(1)  ! filenames....
     fvectors(nvector,2) = sdat(2)
     fvectors(nvector,3) = sdat(3)
@@ -724,3 +735,34 @@ SUBROUTINE FilenameMPI3(infout, ii)
   infout    = TRIM(infout)//trim(ADJUSTL(strii))
 END SUBROUTINE FilenameMPI3
 
+subroutine get_xend(xend,filename)
+  IMPLICIT NONE
+  CHARACTER*180, intent(in) :: filename
+  CHARACTER*180, intent(out) :: xend
+  ! locals                                                                                                                                                                  
+  INTEGER :: i, ln, ln0
+  ln0=len_trim(filename)
+  ln=ln0
+  DO i=ln0,1,-1
+     IF (filename(i:i) .EQ. '_') THEN
+        ln = i-1
+        exit
+     ENDIF
+  ENDDO
+  xend = filename(ln+1:ln0)
+end subroutine get_xend
+
+subroutine add_xend(fileout,filein,xend)
+  IMPLICIT NONE
+  CHARACTER*180, intent(out) :: fileout
+  CHARACTER*200, intent(in) :: filein
+  CHARACTER*180, intent(in) :: xend
+  ! locals                                                                                                                                                                  
+  INTEGER :: ln
+  ln=len_trim(filein)
+  if (filein(ln-1:ln).eq.'_x') then
+     fileout(:) = filein(1:ln-2)//xend
+  else
+     fileout(:) = filein(1:ln)//xend
+  endif
+end subroutine add_xend

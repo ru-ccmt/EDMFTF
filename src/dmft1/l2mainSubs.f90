@@ -310,7 +310,6 @@ SUBROUTINE AddSigma_optimized2(gij, sigma, STrans, csize, sign, nbands, ncix, ma
   !----- locals
   COMPLEX*16 :: Sigmaij
   INTEGER    :: i, j, icix, it
-  
   DO i=1,nbands                     ! over bands-1
      do j=1,nbands                  ! over bands-2
         Sigmaij=0

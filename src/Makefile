@@ -1,6 +1,6 @@
 include Makefile.in
 
-SRC = impurity/ctqmc impurity/atom_ctqmc impurity/atomg impurity/broad impurity/NCA impurity/OCA impurity/atomd impurity/fort impurity/maxent_source impurity/ancont impurity/skrams optics magnetSusc/dmft_bubble magnetSusc/dmftgk downfold putils/MMoment putils/local_axes putils/wavef exactDC dmft1 dmft2 dftKS
+SRC = impurity/ctqmc impurity/atom_ctqmc impurity/atomg impurity/broad impurity/NCA impurity/OCA impurity/atomd impurity/fort impurity/maxent_source impurity/ancont impurity/skrams optics magnetSusc/dmft_bubble magnetSusc/dmftgk downfold putils/MMoment putils/local_axes putils/wavef exactDC dmft1 dmft2 dftKS dftso
 
 
 all:
@@ -58,6 +58,7 @@ install :
 	cp putils/wavef/w2k_atpar.so ${DESTDIR}
 	cp putils/wavef/wavef.py ${DESTDIR}
 	cp dftKS/lapw1{c,} ${DESTDIR}
+	cp dftso/lapwso ${DESTDIR}
 	cp exactDC/*.py ${DESTDIR}
 	cp exactDC/*.so ${DESTDIR}
 

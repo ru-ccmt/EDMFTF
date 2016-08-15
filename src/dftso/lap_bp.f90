@@ -245,7 +245,7 @@ SUBROUTINE DLATD4( UPLO, N, NB, ABP, E, TAU, W, LDW, HB )
   DOUBLE PRECISION   DDOT
   EXTERNAL           LSAME, DDOT
   INTEGER            IJ2K
-  EXTERNAL		 IJ2K
+  EXTERNAL           IJ2K
   !     ..
   !     .. Intrinsic Functions ..
   INTRINSIC          MIN

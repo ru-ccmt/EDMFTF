@@ -1,44 +1,37 @@
-       subroutine abc_r (jatom,j,p,dp,pe,dpe,pei,rmt,isi,lapw)
-         USE loabcr
-         USE param
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+subroutine abc_r (l,alor_l,blor_l,clor_l,p_l,dp_l,pe_l,dpe_l,pei_l,plor_l,dplor_l,pi2lor_l,pe2lor_l,rmt,lapw)
+  use mpi, ONLY: Qprint
+  IMPLICIT NONE
+  REAL*8, intent(out) :: alor_l, blor_l, clor_l
+  INTEGER, intent(in) :: l
+  REAL*8,  intent(in) :: Rmt
+  logical, intent(in) :: lapw
+  REAL*8, intent(in)  :: DP_l,DPE_l, P_l,PE_l,PEI_l
+  REAL*8, intent(in)  :: plor_l, dplor_l, pi2lor_l, pe2lor_l
+  ! locals
+  REAL*8 :: CUTOFF
+  PARAMETER          (CUTOFF = 200.0D+0)
+  REAL*8 :: XAC, XBC
+  INTRINSIC          SQRT
 
-      logical lapw
-      DOUBLE PRECISION   DP(Labc+1,NATO,2),DPE(Labc+1,NATO,2)
-      DOUBLE PRECISION   P(Labc+1,NATO,2),PE(Labc+1,NATO,2),PEI(Labc+1,NATO,2)
-      DOUBLE PRECISION   CUTOFF
-      PARAMETER          (CUTOFF = 200.0D+0)
-      DOUBLE PRECISION   XAC, XBC
-      INTRINSIC          SQRT
-
-      if (lapw) then
-      XAC =  PLOR(J,JATOM,isi)*DPE(J+1,JATOM,isi) - &
-            DPLOR(J,JATOM,isi)* PE(J+1,JATOM,isi)
-      XAC = XAC*RMT*RMT
-      XBC =  PLOR(J,JATOM,isi)* DP(J+1,JATOM,isi) - &
-            DPLOR(J,JATOM,isi)*  P(J+1,JATOM,isi)
-      XBC = -XBC*RMT*RMT
-      CLOR(J,JATOM,isi) = XAC*(XAC + 2.0D0*PI2LOR(J,JATOM,isi)) &
-                        + XBC*(XBC*PEI(J+1,JATOM,isi) &
-                        + 2.0D0*PE2LOR(J,JATOM,isi)) &
-                        + 1.0D0
-      CLOR(J,JATOM,isi) = 1.0D0/SQRT(CLOR(J,JATOM,isi))
-      CLOR(J,JATOM,isi) = MIN(CLOR(J,JATOM,isi),CUTOFF)
-      ALOR(J,JATOM,isi) = CLOR(J,JATOM,isi)*XAC
-      BLOR(J,JATOM,isi) = CLOR(J,JATOM,isi)*XBC
-      else
-      xbc=-P(J+1,JATOM,isi)/PLOR(J,JATOM,isi)
-      xac=sqrt(1+xbc**2+2*xbc*PI2LOR(J,JATOM,isi))
-      ALOR(J,JATOM,isi) = 1.d0/xac
-      BLOR(J,JATOM,isi) = 0.d0
-      CLOR(J,JATOM,isi) = xbc/xac
-      end if
-      write (6,10)j,alor(j,jatom,isi),blor(j,jatom,isi), &
-                  clor(j,jatom,isi)
-      RETURN
-!
- 10   FORMAT ('RLO COEFFICIENT: l,A,B,C  ',i2,5X,3F12.5)
-!
-!        End of 'ABC_r'
-!
-      END
+  if (lapw) then
+     XAC =  PLOR_l*DPE_l - DPLOR_l* PE_l
+     XAC = XAC*RMT*RMT
+     XBC =  PLOR_l* DP_l - DPLOR_l*  P_l
+     XBC = -XBC*RMT*RMT
+     CLOR_l = XAC*(XAC + 2.0D0*PI2LOR_l) + XBC*(XBC*PEI_L + 2.0D0*PE2LOR_l) + 1.0D0
+     CLOR_l = 1.0D0/SQRT(CLOR_l)
+     CLOR_l = MIN(CLOR_l,CUTOFF)
+     ALOR_l = CLOR_l*XAC
+     BLOR_l = CLOR_l*XBC
+  else
+     xbc=-P_l/PLOR_l
+     xac=sqrt(1+xbc**2+2*xbc*PI2LOR_l)
+     ALOR_l = 1.d0/xac
+     BLOR_l = 0.d0
+     CLOR_l = xbc/xac
+  end if
+  if (Qprint) write (6,10)l,alor_l,blor_l,clor_l
+  RETURN
+  !
+10 FORMAT ('RLO COEFFICIENT: l,A,B,C  ',i2,5X,3F12.5)
+END subroutine abc_r

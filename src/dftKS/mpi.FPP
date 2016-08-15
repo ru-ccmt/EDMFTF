@@ -320,7 +320,7 @@ subroutine give_dn_filename(filenamedn,filename)
   ! locals
   INTEGER :: i, ln
   ln=len_trim(filename)
-  DO i=1,LEN(filename)
+  DO i=len_trim(filename),1,-1
      IF (filename(i:i) .EQ. '_') THEN
         ln = i-1
         exit
@@ -332,5 +332,22 @@ subroutine give_dn_filename(filenamedn,filename)
      filenamedn(:) = filename(1:ln)//'dn'//filename(ln+1:180-2)
   endif
 end subroutine give_dn_filename
+
+subroutine add_xend(filename,xend)
+  IMPLICIT NONE
+  CHARACTER*180, intent(inout) :: filename
+  CHARACTER*180, intent(in) :: xend
+  ! locals                                                                                                                                                                  
+  INTEGER :: ln
+  !print *, 'add_xend: input filename=', TRIM(filename)
+  ln=len_trim(filename)
+  if (filename(ln-1:ln).eq.'_x') then
+     filename(:) = filename(1:ln-2)//xend
+  else
+     filename(:) = filename(1:ln)//xend
+  endif
+  !print *, 'add_xend: xend=', TRIM(xend)
+  !print *, 'add_xend: result =', filename
+end subroutine add_xend
 
 

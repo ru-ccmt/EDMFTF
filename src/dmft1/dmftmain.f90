@@ -9,7 +9,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   use abc,       ONLY: init_abc, deallocate_abc
   IMPLICIT NONE
   complex*16   :: imag
-  real*8       :: xx(3), xz(3), check, ddd, E1, E2, ident, phix, phiz, thetax, thetaz, ttime
+  real*8       :: xx(3), xz(3), check, ddd, E1, E2, ident, phix, phiz, thetax, thetaz, ttime, time1, time0
   integer      :: i, j, j1, jc, jr, jatom, lateq, icase,  ISX, ISY, ISZ, IDV, index, index1, info, ios, irecl, itape, iunit, loro, m1, m2
   CHARACTER*4  :: adum
   CHARACTER*5  :: CHAR
@@ -38,6 +38,8 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   fUdmft = 'Udmft.'
 
   CALL start_MPI()
+  
+  call cputim(time0)
   
   CALL GTFNAM(DEFFN,ERRFN)
   
@@ -229,12 +231,12 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
      FNAME = '_processes_'
      !WRITE(6,*) 'Trying to open ', FNAME
      open(999,FILE=FNAME,STATUS='OLD',ERR=77,IOSTAT=ios) ! opens _processes_, hence this parallel dmft_lapw1 run, and not parallel w2k_lapw1 run
+     !WRITE(6,*) 'Found ', FNAME
      call Scatter_Vector_data()
      goto 88
 77   CONTINUE
-     
      CALL FilenameMPI2(FNAME)
-     !WRITE(6,*) 'Trying to open ', FNAME
+     !WRITE(6,*) 'Trying old method with ', FNAME
      open(999,FILE=FNAME,STATUS='OLD',ERR=88,IOSTAT=ios) ! opens _processes_x                                                                                  
      nvector=0
      vectors=0
@@ -673,13 +675,14 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   CALL deallocate_kpts
   CALL deallocate_abc()
   call DeallocateStructure()
-  CALL CPUTIM(TTIME)
-                                                                       
+  call cputim(time1)
+  ttime = time1-time0
+  
 !.....CALCULATE CPUTIME REQUIRED                                        
-  if (Qprint) WRITE(6,2000)                                                     
-  if (Qprint) WRITE(6,2010) TTIME                                        
+  !if (Qprint) WRITE(6,2000)                                                     
+  if (Qprint) WRITE(6,2010) ttime
   if (myrank.EQ.master) CALL ERRCLR(ERRFN)
-
+  
   CALL stop_MPI()
 
   STOP !'DMFT1 END'
@@ -736,7 +739,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
 121 FORMAT(' New x axis || ',3f9.4)
 1013 FORMAT('users (crotloc) matrix: ',3f10.7,/,24x,3f10.7,/,24x,3f10.7)
 2000 FORMAT(//,3X,'=====>>> CPU TIME SUMMARY',/)
-2010 FORMAT(12X,'TOTAL       : ',F8.1)
+2010 FORMAT(12X,'TOTAL    :',F10.2)
 9000 FORMAT('can''t open definition file ',A40)
 9010 FORMAT('can''t open unit: ',I2)
 9020 FORMAT('       filename: ',A50)

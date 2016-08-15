@@ -1,17 +1,21 @@
 SUBROUTINE symop(theta,fi)
   !     for .orhto. systems   opimat == imat
   !     for not.ortho. systems opimat == BR1 . imat . BR1^-1 
-  USE rotmat
-  USE struct
-  IMPLICIT REAL*8 (A-H,O-Z)
-  REAL*8 BR1in(3,3),opimat(3,3),rot(3,3),rotinv(3,3),trans(3,3), tmp(3,3)
-  REAL*8 rloc(3,3),sloc(3,3),th(10),ph(10)
-  LOGICAL          ORTHO
-  COMMON /ORTH/   ORTHO
-  COMMON /GENER/  BR1(3,3),BR2(3,3)
-  !.........inverssymdef is a subroutine in sph-UP.frc and
-  !.........calculates the inverse of an 3*3 matrix.......
+  USE rotmat, ONLY: det, phase
+  USE structure, ONLY: BR1, rotij, mult, rotloc
+  USE param, ONLY: nato
+  USE mpi, ONLY: Qprint
+  IMPLICIT NONE
+  REAL*8, intent(in) :: theta, fi
+  ! external
+  REAL*8 :: determinant
+  ! locals
+  REAL*8 :: BR1in(3,3), opimat(3,3), rot(3,3), rotinv(3,3), trans(3,3), tmp(3,3)
+  REAL*8 :: rloc(3,3), sloc(3,3)!, th(10), ph(10)
+  REAL*8 :: pi, ct, cf, st, sf, a, b, c, DD, tt
+  INTEGER :: indj, jatom, mu, ii, jj
   pi=acos(-1.d0)
+  !.........inverssymdef calculates the inverse of an 3*3 matrix.......
   CALL INVERSSYMDEF(BR1,BR1in)
   ct=dcos(theta)
   cf=dcos(fi)
@@ -39,9 +43,9 @@ SUBROUTINE symop(theta,fi)
   !   my understanding:
   !   trans : spin-coordinate-system <- global <- spin-coordinate-system
   indj=0
-  do jatom=1,nat
+  do jatom=1,nato
      do mu=1,mult(jatom)
-	indj=indj+1
+        indj=indj+1
 !!!     rotij specified the transformation between the first atom of certain type
 !!!         and all other atoms of the same type 
 !!!     opimat is like rotij in cartesian coordinates, i.e.,
@@ -60,40 +64,42 @@ SUBROUTINE symop(theta,fi)
 !!!     sloc is spin coordinate system written in local coordinate system.
         tt=determinant(rloc)
         sloc = matmul(rloc,rot) * tt
-        
-        !        write(6,*)'ATOM:',indj
-        ! write(6,*)'local coord. system:'
-        ! do ii=1,3
-        ! write(6,5)(rloc(ii,jj),jj=1,3)
-        ! end do
-        ! write(6,*)'rotij:'
-        ! do ii=1,3
-        ! write(6,5)(rotij(ii,jj,indj),jj=1,3)
-        ! end do
-        ! write(6,*)'opimat:'
-        ! do ii=1,3
-        ! write(6,5)(opimat(ii,jj),jj=1,3)
-        ! end do
-        ! write(6,*)
-        ! write(6,*)'spin with respect to local coord.:'
-        ! do ii=1,3
-        ! write(6,5)(sloc(ii,jj),jj=1,3)
-        ! end do
-        ! write(6,*)
-	
+
+        if (Qprint) then
+           write(6,*)'ATOM:',indj
+           write(6,*)'local coord. system:'
+           do ii=1,3
+              write(6,5)(rloc(ii,jj),jj=1,3)
+           end do
+           write(6,*)'rotij:'
+           do ii=1,3
+              write(6,5)(rotij(ii,jj,indj),jj=1,3)
+           end do
+           write(6,*)'opimat:'
+           do ii=1,3
+              write(6,5)(opimat(ii,jj),jj=1,3)
+           end do
+           write(6,*)
+           write(6,*)'spin with respect to local coord.:'
+           do ii=1,3
+              write(6,5)(sloc(ii,jj),jj=1,3)
+           end do
+           write(6,*)
+        endif
+     
         call euler(sloc,a,b,c)
         !! Now we calculate <Y_{lms}|l*s|Y_{l'm's'}> matrix elements
         !! but we rotate the spin into the local coordinate system of each atom,
         !! in which L is specified.
         call couple(indj,a,b,c)
         
-        det(indj)=trans(1,1)*trans(2,2)-trans(1,2)*trans(2,1)	
+        det(indj)=trans(1,1)*trans(2,2)-trans(1,2)*trans(2,1)
         if (abs(1.-abs(det(indj))).gt.1.d-2) then
            write(6,*)'WRONG SYMMETRY in spin pol. case'
            write(6,555)indj,det(indj)
         endif
-	
-	DD=determinant(trans)
+
+        DD=determinant(trans)
         if (DD.lt.-0.5) then
            trans(:,:) = -trans(:,:)
         end if
@@ -108,8 +114,8 @@ SUBROUTINE symop(theta,fi)
         !       write(6,4)det(indj),phase(indj)
      enddo
   enddo
-3 format(i2,1x,'Euler angles: a,b,c:  ',3f7.1)
-4 format('det=',f3.0,' phase=',f8.4)
+!3 format(i2,1x,'Euler angles: a,b,c:  ',3f7.1)
+!4 format('det=',f3.0,' phase=',f8.4)
 5 format(3f12.7)
 555 format(' atom',i3,' det',f10.5)
 end SUBROUTINE symop
@@ -119,35 +125,8 @@ subroutine transform(T,Pinv,A,P)
   DIMENSION T(3,3),P(3,3),A(3,3),Pinv(3,3), tmp(3,3)
   tmp = matmul(Pinv,A)
   T = matmul(tmp,P)
-  !do i=1,3
-  !   do j=1,3
-  !      sum=0
-  !      do k=1,3
-  !         do l=1,3
-  !            sum=sum+Pinv(i,k)*A(k,l)*P(l,j)
-  !         end do
-  !      end do
-  !      T(i,j)=sum
-  !   end do
-  !end do
   return
 end subroutine transform
-
-SUBROUTINE INVERSSYMDEF(A,AINV)
-  IMPLICIT REAL*8 (A-H,O-Z)
-  DIMENSION A(3,3),AINV(3,3)
-  det= determinant(a)
-  AINV(1,1) =(   A(2,2) * A(3,3) - A(2,3) * A(3,2) ) / det
-  AINV(2,1) =( - A(2,1) * A(3,3) + A(2,3) * A(3,1) ) / det
-  AINV(3,1) =(   A(2,1) * A(3,2) - A(2,2) * A(3,1) ) / det
-  AINV(1,2) =( - A(1,2) * A(3,3) + A(1,3) * A(3,2) ) / det
-  AINV(2,2) =(   A(1,1) * A(3,3) - A(1,3) * A(3,1) ) / det
-  AINV(3,2) =( - A(1,1) * A(3,2) + A(1,2) * A(3,1) ) / det
-  AINV(1,3) =(   A(1,2) * A(2,3) - A(1,3) * A(2,2) ) / det
-  AINV(2,3) =( - A(1,1) * A(2,3) + A(1,3) * A(2,1) ) / det
-  AINV(3,3) =(   A(1,1) * A(2,2) - A(1,2) * A(2,1) ) / det
-  RETURN
-END SUBROUTINE INVERSSYMDEF
 
 REAL*8 FUNCTION determinant(A)
   REAL* 8 A(3,3)

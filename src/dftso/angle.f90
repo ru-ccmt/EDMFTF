@@ -1,13 +1,16 @@
 SUBROUTINE ANGLE(XMS,THETA,PHI)
-  USE param
-  USE struct
-  IMPLICIT REAL*8 (A-H,O-Z)
+  USE structure, ONLY: lattic, alat, alpha, ortho
+  USE mpi, ONLY: Qprint
+  IMPLICIT NONE
+  REAL*8, intent(in) :: XMS(3)
+  REAL*8, intent(out):: THETA, PHI
   !*******************************************************************
-  LOGICAL          ORTHO
+  REAL*8 :: cosg1, gamma0, pi, tt, xa, xb, xc, xx, AA, BB, CC
   !
-  COMMON/ORTH/     ORTHO
-  DIMENSION XMS(3)
   PI=ACOS(-1.D0)
+  AA=alat(1)
+  BB=alat(2)
+  CC=alat(3)
   !---------------------------------------------------------------------
   IF (ORTHO) THEN
      XA=AA*XMS(1)
@@ -16,7 +19,7 @@ SUBROUTINE ANGLE(XMS,THETA,PHI)
      GOTO 200
   END IF
 
-  write(6,*)'LATTICE:',lattic	
+  if (Qprint) write(6,*)'LATTICE:',lattic
   IF(LATTIC(1:1).EQ.'H') THEN
      XA=XMS(1)*AA*SQRT(3.D0)/2.d0
      XB=AA*(XMS(2)-XMS(1)/2.d0)
@@ -31,7 +34,7 @@ SUBROUTINE ANGLE(XMS,THETA,PHI)
         XB=XMS(1)*AA*COS(ALPHA(3))+BB*XMS(2)
         XC=CC*XMS(3)
      ELSE IF ((ABS(ALPHA(2)-PI/2.d0).GT.1.D-4).and.(ABS(ALPHA(1)-PI/2.d0).LT.1.D-4).and.(ABS(ALPHA(3)-PI/2.d0).LT.1.D-4)) THEN
-	XA=XMS(1)*AA*SIN(ALPHA(2))
+        XA=XMS(1)*AA*SIN(ALPHA(2))
         XB=XMS(2)*BB
         XC=XMS(1)*AA*COS(ALPHA(2))+CC*XMS(3)
      ELSE
@@ -39,7 +42,7 @@ SUBROUTINE ANGLE(XMS,THETA,PHI)
         !        END IF
         TT=ABS((ALPHA(1)-PI/2.d0)*(ALPHA(2)-PI/2.d0)*(ALPHA(3)-PI/2.d0))
         !	IF (TT.GT.1.D-3) STOP 'TRICLINIC NOT IMPLEMENTED'
-        write(6,*) ' Triclinic implemented, but never tested'
+        if (Qprint) write(6,*) ' Triclinic implemented, but never tested'
         cosg1=(cos(ALPHA(3))-cos(alpha(1))*cos(ALPHA(2)))/sin(alpha(1))/sin(alpha(2))
         gamma0=acos(cosg1)
         !      from lapw5
@@ -70,7 +73,4 @@ SUBROUTINE ANGLE(XMS,THETA,PHI)
      IF (ABS(XB).GT.1.D-5) PHI=PHI*XB/ABS(XB)
   END IF
 END SUBROUTINE ANGLE
-	
-
-
 

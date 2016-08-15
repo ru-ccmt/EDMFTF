@@ -42,6 +42,12 @@ PROGRAM LAPW1
   
   CALL start_MPI()
 
+#ifdef _REAL  
+  print *, 'real lapw1 version'
+#else
+  print *, 'complex lapw1c version'
+#endif
+
   cut=.false.
   !call W2kinit
   CALL GTFNAM(DEFFN,ERRFN)
