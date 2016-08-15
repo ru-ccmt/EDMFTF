@@ -125,7 +125,7 @@ def dmft1(fday, case, fh_info, extn, MPI, ROOT, m_extn=''):
 ## The charge self-consistency part
 ################################################
 
-def AStep(fday, case, name, inp_name, WIEN, para, fh_info):
+def AStep(fday, case, name, inp_name, WIEN, para, fh_info, cmplx=''):
     if not os.path.isfile(case+'.'+inp_name) and not os.path.isfile(case+'.'+inp_name+'c'):
         print '  stop error: the required input file '+case+'.'+inp_name+' for the next step could not be found!'
         print >> fday, '  stop error: the required input file '+case+'.'+inp_name+' for the next step could not be found!'
@@ -134,7 +134,10 @@ def AStep(fday, case, name, inp_name, WIEN, para, fh_info):
     print >> fday, '>%-10s ( %s )' % (name, tim)
     #fday.flush()
 
-    cmd = WIEN+'/x'+para+' -f '+case+' '+name
+    pcmplx=''
+    if cmplx: pcmplx=' -'+cmplx
+        
+    cmd = WIEN+'/x'+para+' -f '+case+pcmplx+' '+name
     #print cmd
     print >> fh_info, ('#<'+name+'>: '), cmd
     fh_info.flush()
@@ -149,9 +152,9 @@ def lapw0(fday, case, WIEN, para, fh_info):
     para=''
     AStep(fday, case, 'lapw0', 'in0', WIEN, para, fh_info)
         
-def lapw1(fday, case, WIEN, para, dftKS, dmfe, fh_info):
+def lapw1(fday, case, WIEN, para, dftKS, dmfe, cmplx, fh_info):
     if dftKS:
-        name='lapw1'
+        name='lapw1'+cmplx
         tim = time.strftime("%H:%M:%S")
         print >> fday, '>%-10s ( %s )' % (name, tim)
         fl = open(':log', 'a')
@@ -159,12 +162,14 @@ def lapw1(fday, case, WIEN, para, dftKS, dmfe, fh_info):
         fl.close()
         
         #cmd = dmfe.ROOT+'/x_dmft.py -p '+name
-        cmd = dmfe.ROOT+'/x_dmft.py'+para+' '+name
+        pcmplx=''
+        if cmplx: pcmplx=' -'+cmplx
+        cmd = dmfe.ROOT+'/x_dmft.py'+para+pcmplx+' '+name
         print >> fh_info, ('#<'+name+'>: '), cmd
         fh_info.flush()
         info=subprocess.call(cmd,shell=True,stdout=fh_info)
     else:
-        AStep(fday, case, 'lapw1', 'in1', WIEN, para, fh_info)
+        AStep(fday, case, 'lapw1', 'in1', WIEN, para, fh_info, cmplx)
 
 def lapwso(fday, case, WIEN, para, fh_info):
     AStep(fday, case, 'lapwso', 'inso', WIEN, para, fh_info)
@@ -595,6 +600,7 @@ if __name__ == '__main__':
               'cc'            : 1e-5,      # the charge density precision to stop the LDA+DMFT run
               'ec'            : 1e-5,      # the energy precision to stop the LDA+DMFT run
               'so'            : False,     # spin-orbit coupling
+              'c'             : False,     # non-centrosymmetric
               'rCF'           : None,      # Reduction of the crystal field splitting, if necessary
               'recomputeEF'   : 1,         # Recompute EF in dmft2 step. If recomputeEF=2, it tries to find an insulating gap.
               'mixEF'         : 1.0,       # Chemical potential can be mixed with mixEF<1.0
@@ -665,7 +671,7 @@ if __name__ == '__main__':
         sys.exit(0)
     
     para = ''
-    if p['dftKS'] : para = ' -p'  # Parallel run with internal lapw1
+    if p['dftKS'] : para = ' -p'  # Parallel run with internal lapw1. We could use either '-p' to have many vector files, or just '', to have single vector file. Not clear what is faster...
     if os.path.isfile('.machines') and os.path.getsize('.machines')>0 : 
         para = ' -p'              # Using w2k parallelization. For not neccessary for SO.
         p['dftKS'] = False        # Switching off internal lapw1
@@ -713,7 +719,10 @@ if __name__ == '__main__':
     if os.path.isfile(w2k.case+".inso") and os.path.getsize(w2k.case+".inso")>0 :
         print 'Found '+w2k.case+'.inso file, hence assuming so-coupling exists. Switching -so switch!'
         p['so'] = True
-
+    if os.path.isfile(w2k.case+".in1c") and os.path.getsize(w2k.case+".in1c")>0 :
+        print 'Found '+w2k.case+'.in1c file, hence assuming non-centrosymmetric structure. Switching -c switch!'
+        p['c'] = True
+        
     # corelated indexes
     cixs = inl.siginds.keys()        # all columns for cix
 
@@ -851,7 +860,7 @@ if __name__ == '__main__':
         # Starting with LAPW
         print >> fday, '\n   cycle %s \t%s %s/%s to go\n' % (0,time.asctime(),p['finish'],(p['finish'])%p['riter'])
         lapw0(fday,w2k.case,w2k.WIENROOT,para, fh_info); fday.flush()
-        lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,fh_info); fday.flush()
+        lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,p['c'],fh_info); fday.flush()
         if p['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para, fh_info)
         fday.flush()
         
@@ -1035,7 +1044,7 @@ if __name__ == '__main__':
             print >> fday, '\n:ITT%-2d   cycle %s \t%s %s/%s to go\n' % (istep2, istep1,time.asctime(),p['finish']-istep1,(p['finish']-istep1)%p['riter'])
             
             lapw0(fday,w2k.case,w2k.WIENROOT,para, fh_info); fday.flush()
-            lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,fh_info); fday.flush()
+            lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,p['c'],fh_info); fday.flush()
             if p['so']:  lapwso(fday,w2k.case,w2k.WIENROOT,para, fh_info)
                 
             fday.flush()

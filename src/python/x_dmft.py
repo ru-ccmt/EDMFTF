@@ -96,7 +96,7 @@ def CheckMatsubara(filename):
     (matsubara, gamma, gammac, nom_def, aom_def, bom_def) = finq.next().split()[:6]
     return int(matsubara)
 
-def PrepareDefinitionFile(idmf, mode, case, cixs, updn, dnup, so, para, scratch, cmplx, _band='', m_ext=''):
+def PrepareDefinitionFile_dmft1(idmf, mode, case, cixs, updn, dnup, so, para, scratch, cmplx, _band='', m_ext=''):
 
     IND_CDOS = 500
     IND_UDMF = 501
@@ -147,7 +147,7 @@ def PrepareDefinitionFile(idmf, mode, case, cixs, updn, dnup, so, para, scratch,
     fdef.close()
 
 
-def PrepareDefinitionFile2(idmf, mode, case, cixs, updn, dnup, so, para, scratch, cmplx='', m_ext=''):
+def PrepareDefinitionFile_dmft2(idmf, mode, case, cixs, updn, dnup, so, para, scratch, cmplx='', m_ext=''):
 
     IND_CDOS = 500
     IND_S = 80
@@ -211,7 +211,36 @@ def PrepareDefinitionFile_lapw1(widmf, case, updn, para, scratch, band, cmplx):
         print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (3,  "'"+case+".qvec"+"'",                "'unknown'", "'formatted'", 0)
     fdef.close()
     
-    
+def PrepareDefinitionFile_lapwso(widmf, case, para, scratch, cmplx, updn='',orb=False):
+    fdef = open(widmf+updn+'.def', 'w')
+    dnup=''
+    if (updn=='up'): dnup='dn'
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 4, "'"+case+".in1"+cmplx+"'",                   "'old'",     "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 5, "'"+case+".inso'",                           "'old'",     "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 6, "'"+case+".outputso'",                       "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 8, "'"+case+".scfso'",                          "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 9, "'"+scratch+"/"+case+".vector"+dnup+para+"'","'unknown'", "'unformatted'",9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (10, "'"+scratch+"/"+case+".vectorup"+para+"'",   "'unknown'", "'unformatted'",9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (18, "'"+case+".vsp"+dnup+"'",                    "'old'",     "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (19, "'"+case+".vspup'",                          "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (20, "'"+case+".struct"+"'",                      "'old'",     "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (22, "'"+case+".vns"+dnup+"'",                    "'old'",     "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (23, "'"+case+".vnsup'",                          "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (41, "'"+scratch+"/"+case+".vectorsodn"+para+"'",   "'unknown'", "'unformatted'",9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (42, "'"+scratch+"/"+case+".vectorso"+updn+para+"'","'unknown'", "'unformatted'",9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (45, "'"+case+".normsodn'",                       "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (46, "'"+case+".normsoup'",                       "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (51, "'"+case+".energysodn"+para+"'",             "'unknown'", "'formatted'", 9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (52, "'"+case+".energyso"+updn+para+"'",          "'unknown'", "'formatted'", 9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (53, "'"+case+".energydum'",                      "'unknown'", "'formatted'", 9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (54, "'"+case+".energy"+dnup+para+"'",            "'unknown'", "'formatted'", 9000)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (55, "'"+case+".energyup"+para+"'",               "'unknown'", "'formatted'", 9000)
+    if (orb):
+        print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (11, "'"+case+".vorbdn'",                     "'unknown'", "'formatted'", 0)
+        print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (12, "'"+case+".vorbup'",                     "'unknown'", "'formatted'", 0)
+        print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (13, "'"+case+".vorbdu'",                     "'unknown'", "'formatted'", 0)
+
+
 def PrepareInFile(idmf, mode, case, updn, nsymop=0, recomputeEF=None, mixEF=1.0, WL=None,Temperature=None, Q_ETOT=False):
     if Q_ETOT:
         Q_ETOT_ = '.T.'
@@ -350,9 +379,17 @@ if __name__=='__main__':
         if para: print 'Parallel vector/energy files written.'
         PrepareDefinitionFile_lapw1('lapw1', w2k.case, updn, para, w2k.SCRATCH, k_band, cmplx)
         if not options.def_only:
-            runExternal('lapw1', dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
+            runExternal(exe, dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
         sys.exit(0)
 
+    if args[0]=='lapwso':
+        exe = 'lapwso'
+        if para: print 'Parallel vector/energy files written.'
+        PrepareDefinitionFile_lapwso('lapwso', w2k.case, para, w2k.SCRATCH, cmplx)
+        if not options.def_only:
+            runExternal(exe, dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
+        sys.exit(0)
+        
     # This is needed for dmft but not for lapw1
     if not options.so and os.path.isfile(w2k.case+".inso") and os.path.getsize(w2k.case+".inso")>0 :
         print 'Found '+w2k.case+'.vectorso file, hence assuming so-coupling exists. Switching -so switch!'
@@ -379,7 +416,7 @@ if __name__=='__main__':
         idmf = '0'
         mode = 'e'               # mode for computing eigenvalues
         
-        PrepareDefinitionFile(idmf, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx)
+        PrepareDefinitionFile_dmft1(idmf, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx)
         PrepareInFile(idmf, mode, w2k.case, updn, 1)
 
         if not options.def_only:
@@ -390,7 +427,7 @@ if __name__=='__main__':
         idmf = '1'
         mode = 'g'               # mode for computing eigenvalues
         
-        PrepareDefinitionFile(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, '', options.m_ext)
+        PrepareDefinitionFile_dmft1(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, '', options.m_ext)
         PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn)
         
         if not options.def_only:
@@ -403,7 +440,7 @@ if __name__=='__main__':
         mode = options.mode
         Temperature = getTemperature()
         
-        PrepareDefinitionFile2(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, options.m_ext)
+        PrepareDefinitionFile_dmft2(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, options.m_ext)
         PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn, 0, options.recomputeEF, options.mixEF, options.WL,Temperature,options.Q_ETOT)
 
         if not options.def_only:
@@ -422,7 +459,7 @@ if __name__=='__main__':
 	if (options._no_group):
             nsymop = 1
             
-        PrepareDefinitionFile(idmf, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, k_band)
+        PrepareDefinitionFile_dmft1(idmf, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, k_band)
         PrepareInFile(idmf, mode, w2k.case, updn, nsymop)
         if not options.def_only:
             runExternal('dmft'+idmf, dmfe.ROOT, dmfe.MPI2, options.nom, options.ntail, 'dmft')
@@ -466,7 +503,7 @@ if __name__=='__main__':
         mode = 'p'               # mode for computing eigenvalues
 
         PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn,1)
-        PrepareDefinitionFile(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, '_band', options.m_ext)
+        PrepareDefinitionFile_dmft1(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, '_band', options.m_ext)
 
         nom = inl.om_npts 
         aom = inl.om_emin  

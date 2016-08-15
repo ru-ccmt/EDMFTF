@@ -9,7 +9,7 @@ from numpy import imag
 
 class DmftEnvironment:
     '''This class provides the following member variables:
-    ROOT    - location of WIEN+DMFT executables
+    ROOT    - location of EDMFTF executables
     MPI     - command to launch MPI process
     '''
 
@@ -28,7 +28,7 @@ class DmftEnvironment:
         if ROOT and os.path.isdir(ROOT):
             self.ROOT = ROOT
         else:
-            errstr = "Cannot determine location of WIEN+DMFT executables because"
+            errstr = "Cannot determine location of EDMFTF executables because "
             errstr += "%s does not exist." % ROOT
             errstr += "Check your WIEN_DMFT_ROOT environment variables."
             raise Exception, errstr
