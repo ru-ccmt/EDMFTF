@@ -418,7 +418,7 @@ PROGRAM lapwso
   if (vector_para) call WriteProcesses()
     
   if (Qprint) then
-     write(6,*) 'TOTAL NUMBER OF K-POINTS:',abs(ikp)-1
+     write(6,*) 'TOTAL NUMBER OF K-POINTS:',nkp
      write(6,*) 'TOTAL TIME:',dt4-dt0
      write(6,*) 'read:',cp(1)
      write(6,*) 'hmsec:',cp(3)

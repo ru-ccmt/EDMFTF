@@ -183,8 +183,8 @@ PROGRAM LAPW1
   call DeallocateStructure()
   if (Qprint) then
      !        print summary
-     WRITE(21,'(":KPT   :      NUMBER OF K-POINTS:",i6)') KPOINT
-     WRITE(6,*)  '      NUMBER OF K-POINTS:',KPOINT
+     WRITE(21,'(":KPT   :      NUMBER OF K-POINTS:",i6)') numkpt
+     WRITE(6,*)  '      NUMBER OF K-POINTS:', numkpt
      if(cut) then
         WRITE(21,99) 
 99      format(':WARN :      WARNING: RKmax reduced due to NMATMAX')
