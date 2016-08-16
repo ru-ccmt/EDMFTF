@@ -54,7 +54,7 @@ PROGRAM LAPW1
      CALL OUTERR(MNAM,'INILPW aborted unsuccessfully.')
      GOTO 999
   ENDIF
-  
+
   if (nprocs.EQ.1 .and. Qprint) then
      write(6,*)'Running DMFT-lapw1 in single processor mode'
      write(6,*)' '
@@ -126,7 +126,7 @@ PROGRAM LAPW1
      !WRITE(6,*) kpoints(:)
   endif
   
-  
+
   !DO kpoint=first_kp,first_kp+pr_proc-1
   DO ikp=1,pr_proc
      kpoint = kpoints(ikp)
@@ -135,6 +135,7 @@ PROGRAM LAPW1
         call INIT_MATRICES(0, 0,nmatmax1, Qprint)
         !  set up array warp and generate plane wave list
         call generate_reciprocal(RKM,K3(:,kpoint),nat,nmatmax1,nmat_only)
+
         if(nmat_only) then
            CALL ERRCLR(ERRFN)
            stop 'NMAT_ONLY'
@@ -171,6 +172,7 @@ PROGRAM LAPW1
         HSrows=0
         !allocate( KZZ(3,1) )
      endif
+
      ! If the output is not parallel (each processor does not produce its own vector/energy file), we always need to
      ! send data to the master node, and the master node needs to print
      if (.not. vector_para) call mpi_SendReceive(kpoint,NE,HSrows,Eigval,KZZ,Z,numkpt)

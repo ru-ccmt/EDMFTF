@@ -14,6 +14,7 @@ SUBROUTINE generate_reciprocal(RKM,Sk,nat,nmatmax1,nmat_only)
   use nmr, only  : korig
   use param, only : nvec1, nvec2, nvec3, nume
   use lapw_timer, only : time_coor,  start_timer, stop_timer
+  use mpi, only: stop_MPI
   IMPLICIT NONE
   logical, intent(in) :: nmat_only
   INTEGER, intent(in) :: NAT, nmatmax1
@@ -79,7 +80,8 @@ SUBROUTINE generate_reciprocal(RKM,Sk,nat,nmatmax1,nmat_only)
               endif
               ! store vectors so that they are sorted according to their lebgth RKQ
               M=N-1
-              DO WHILE(M.GE.1 .and. RK(M) .GT. RKQ)
+              DO WHILE(M.GE.1)
+                 if (RK(M) .GT. RKQ) EXIT
                  ! Vectors should be sorted accoring to RKQ.
                  ! We shift all vectors with larger RK down the list
                  ! to make room for the current vector.
@@ -88,6 +90,7 @@ SUBROUTINE generate_reciprocal(RKM,Sk,nat,nmatmax1,nmat_only)
                  KZZ(:,M+1) = KZZ(:,M)
                  M=M-1
               ENDDO
+
               M = M + 1
               IF (M .GE. NDM1 .AND. RK(NDM1).LT. RKQ) THEN
                  ! If we are runnig out of space (M>NDM1) and the previous last point was further away that this one,

@@ -140,7 +140,7 @@ CONTAINS
     INTEGER, intent(in)    :: kpoint, NE, HSrows, numkpt
     INTEGER, POINTER,   intent(inout) :: KZZ(:,:) ! (3,HSrows+1)
     Ttype, allocatable, intent(inout) :: Z(:,:)  ! (HSrows,NE)
-    REAL*8,  intent(inout) :: Eigval(NE)
+    REAL*8,  intent(inout) :: Eigval(:)  ! Eigval(NE)
     ! locals
     INTEGER :: itmp(3), kpt, HSr, NEi, ipr
     INTEGER :: status(MPI_STATUS_SIZE)

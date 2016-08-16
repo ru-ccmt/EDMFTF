@@ -12,21 +12,21 @@ DESTDIR = ./
 # Two libraires atpar and lattice are created in the subdirectories with the same name.
 #..............................................................................
 # common routines, which do not depend on real/complex version
-R_COMM = real/ylm.o real/sphbes.o real/dvbes1.o real/gaunt1.o real/vectf.o real/cputim.o real/errclr.o real/outerr.o \
+R_COMM = real/ylm.o real/sphbes.o real/dvbes1.o real/gaunt1.o real/vectf.o real/cputim.o real/outerr.o \
 	real/find_nloat.o real/cbcomb.o real/lmsort.o real/readFirstPart_of_in1.o real/readSecondPart_of_in1.o  \
 	real/readThirdPart_of_in1.o real/readKlist.o
 # these routines depend on the type and need preprocessor
-R_OBJS = real/dsyr2m.o real/stern.o real/modules.o real/mpi.o real/gtfnam.o  real/errflg.o real/hamilt.o real/hns.o real/horb.o \
+R_OBJS = real/dsyr2m.o real/stern.o real/modules.o real/mpi.o real/gtfnam.o  real/errflg.o real/errclr.o real/hamilt.o real/hns.o real/horb.o \
 	real/read_and_initialize.o real/lapw1.o real/setwar.o real/tapewf.o real/warpin.o real/wfpnt.o real/wfpnt1.o \
 	real/diagonalize.o real/atpar.o real/generate_reciprocal.o real/forfhs.o real/lopw.o real/nn.o real/prtkpt.o \
 	real/linEnergySearch.o real/make_albl.o real/lohns.o real/readorbital.o real/read_def_file.o
 #..............................................................................
 # common routines, which do not depend on real/complex version
-C_COMM = cmplx/ylm.o cmplx/sphbes.o cmplx/dvbes1.o cmplx/gaunt1.o cmplx/vectf.o cmplx/cputim.o cmplx/errclr.o cmplx/outerr.o \
+C_COMM = cmplx/ylm.o cmplx/sphbes.o cmplx/dvbes1.o cmplx/gaunt1.o cmplx/vectf.o cmplx/cputim.o cmplx/outerr.o \
 	cmplx/find_nloat.o cmplx/cbcomb.o cmplx/lmsort.o cmplx/readFirstPart_of_in1.o cmplx/readSecondPart_of_in1.o \
 	cmplx/readThirdPart_of_in1.o cmplx/readKlist.o
 # these routines depend on the type and need preprocessor
-C_OBJS = cmplx/zher2m.o cmplx/stern.o cmplx/modules.o cmplx/mpi.o cmplx/gtfnam.o cmplx/errflg.o cmplx/hamilt.o cmplx/hns.o cmplx/horb.o \
+C_OBJS = cmplx/zher2m.o cmplx/stern.o cmplx/modules.o cmplx/mpi.o cmplx/gtfnam.o cmplx/errflg.o cmplx/errclr.o cmplx/hamilt.o cmplx/hns.o cmplx/horb.o \
 	cmplx/read_and_initialize.o cmplx/lapw1.o cmplx/setwar.o cmplx/tapewf.o cmplx/warpin.o cmplx/wfpnt.o cmplx/wfpnt1.o \
 	cmplx/diagonalize.o cmplx/atpar.o cmplx/generate_reciprocal.o cmplx/forfhs.o cmplx/lopw.o cmplx/nn.o cmplx/prtkpt.o \
 	cmplx/linEnergySearch.o cmplx/make_albl.o cmplx/lohns.o cmplx/readorbital.o cmplx/read_def_file.o 
