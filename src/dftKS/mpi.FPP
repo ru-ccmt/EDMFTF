@@ -138,9 +138,9 @@ CONTAINS
   subroutine mpi_SendReceive(kpoint,NE,HSrows,Eigval,KZZ,Z,numkpt)
     IMPLICIT NONE
     INTEGER, intent(in)    :: kpoint, NE, HSrows, numkpt
-    INTEGER, POINTER,   intent(inout) :: KZZ(:,:) ! (3,HSrows+1)
-    Ttype, allocatable, intent(inout) :: Z(:,:)  ! (HSrows,NE)
-    REAL*8,  intent(inout) :: Eigval(:)  ! Eigval(NE)
+    INTEGER, POINTER,   intent(inout) :: KZZ(:,:)   ! (3,HSrows+1)
+    Ttype, allocatable, intent(inout) :: Z(:,:)     ! (HSrows,NE)
+    REAL*8, allocatable,intent(inout) :: Eigval(:)  ! Eigval(NE)
     ! locals
     INTEGER :: itmp(3), kpt, HSr, NEi, ipr
     INTEGER :: status(MPI_STATUS_SIZE)
@@ -148,24 +148,33 @@ CONTAINS
     itmp(1) = kpoint
     itmp(2) = NE
     itmp(3) = HSrows
+
+    !if (myrank.eq.master) print *, 'On master we have', itmp(1:3)
     do ipr=1,nprocs-1 ! Notice that all processors need to send integer data, even if they contain no data.
        ! This is because otherwise master will still wait to receive data, even when tere is nothing to send.
        if (myrank.eq.master) then
-          !print *, 'I am receiving', myrank, itmp(1:3)
           call MPI_Recv ( itmp, 3, MPI_INTEGER, ipr,      0, MPI_COMM_WORLD, status, ierr )
           if (ierr.ne.0) print *, 'ERROR in MPI_Recv 0', ierr
           kpt = itmp(1)
           NEi = itmp(2)
           HSr = itmp(3)
-          !print *, 'nprocs=', nprocs
-          !print*, 'On master got', kpt, NEi, HSr
+	  !print *, 'I am receiving', myrank, itmp(1:3)
           if (kpt.le.numkpt) then  ! Now even master knows that it might be empty k-point, and can skip it.
-             if (HSr.gt.HSrows) then
-                ! Careful: We assume that NEi is newer too large and that Z(1:HSrows,1:nume2) -> Z(1:HSr1:NEi) does not need to be reallocated
-                deallocate( Z)
-                allocate( Z(1:HSr,1:NEi) )
+	     
+	     if (HSr.gt.size(Z,1) .or. NEi.gt.size(Z,2)) then
+                !print *, 'reallocating Z increasing', size(Z,1), HSr, size(Z,2), NEi
+                deallocate(Z)
+		allocate( Z(1:HSr,1:NEi) )
+             end if
+             if (HSr.gt.size(KZZ,2)) then
+                !print *, 'reallocating KZZ increasing', size(KZZ,2), HSr
                 deallocate( KZZ )
                 allocate( KZZ(1:3,1:HSr) )
+             endif
+             if (NEi.gt.size(Eigval)) then
+                !print *, 'reallocaying Eigval increasing ', size(Eigval), NEi
+                deallocate(Eigval)
+                allocate( Eigval(NEi) )
              endif
              !
              call MPI_Recv ( Eigval, NEi, MPI_DOUBLE_PRECISION, ipr,1, MPI_COMM_WORLD, status, ierr )
@@ -191,6 +200,7 @@ CONTAINS
           endif
        endif
     enddo
+
   end subroutine mpi_SendReceive
   
 #else

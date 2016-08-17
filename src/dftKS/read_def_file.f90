@@ -110,12 +110,12 @@ subroutine read_def_file(deffn, nloat, nohns, iter, readHinv, force, runorb, nma
 20 CONTINUE
   CLOSE (1)
   
-  if(.not.readHinv) then
-     inquire(unit=200, opened=Hinv_open)
-     if(Hinv_open) then
-        close(unit=200, status='DELETE')
-     endif
-  endif
+  !if(.not.readHinv) then
+  !   inquire(unit=200, opened=Hinv_open)
+  !   if(Hinv_open) then
+  !      close(unit=200, status='DELETE')
+  !   endif
+  !endif
   
   return
   

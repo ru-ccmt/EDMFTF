@@ -138,6 +138,7 @@ PROGRAM LAPW1
 
         if(nmat_only) then
            CALL ERRCLR(ERRFN)
+           call stop_MPI
            stop 'NMAT_ONLY'
         endif
         numemin=min(nume,(nv+nlo))
@@ -170,14 +171,17 @@ PROGRAM LAPW1
      else
         NE=0
         HSrows=0
-        !allocate( KZZ(3,1) )
+	!allocate( KZZ(3,1),  eigval(1), Z(1,1) )
+	!allocate( HS(1,1), HSDIAG(1) )
      endif
 
      ! If the output is not parallel (each processor does not produce its own vector/energy file), we always need to
      ! send data to the master node, and the master node needs to print
+
      if (.not. vector_para) call mpi_SendReceive(kpoint,NE,HSrows,Eigval,KZZ,Z,numkpt)
      if (kpoint .le. numkpt) CALL END_MATRICES
   ENDDO
+
 
   if (vector_para) call WriteProcesses(pr_procr,first_kp,filename_vector,filename_energy)
   
