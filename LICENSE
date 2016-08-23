@@ -3,7 +3,7 @@
   -- Rutgers University, The State University of New Jersey
   -- Center for Computational Materials Theory
   -- (C) Copyright 2015-2016
-
+  
   Please cite the basic DFT+DMFT method:
   [1] Kristjan Haule, Chuck-Hou Yee, Kyoo Kim, Phys. Rev. B 81, 195107 (2010).
   
@@ -28,12 +28,12 @@
   modification,  are  permitted  provided  that the following conditions
   are met:
 
-  * Redistributions  of  source  code  must  retain  the above copyright
-    notice,  this  list  of  conditions  and  the  following  disclaimer.
-  * Redistributions  in  binary  form must reproduce the above copyright
-    notice,  this list of conditions and the following disclaimer in the
-    documentation  and/or other materials provided with the distribution.
-  * Neither  the  name of the Rutgers University, nor the names of its
+  * Redistributions  of  source  code  is not permitted, unless the above
+    copyright notice is retained, and permission from Kristjan Haule is
+    obtained, and the authors of the code are properly acknowldeged in
+    the derived products.
+
+ * Neither  the  name of the Rutgers University, nor the names of its
     contributors may be used to endorse or promote products derived from
     this software without specific prior written permission.
 
