@@ -11,9 +11,9 @@ SUBROUTINE RINT13(REL,A,B,X,Y,S,JATOM)
   !      COMMON /POTNLC/ Z(NRAD),RNOT(NATO),DX(NATO),JRI(NATO)             
   D=EXP(DX(JATOM))                                                  
   if (xmcd.eq.1) then
-     CIN=7.29927D-3   !LO CIN=ALPHA=1/137    
+     CIN=7.29927D-3    ! for core, CIN=ALPHA=1/137    
   else
-     CIN=1.331258D-5
+     CIN=1.331258D-5   ! CIN=1/137^2
      IF(.NOT.REL) CIN=1E-22
      CIN=CIN*4
   endif

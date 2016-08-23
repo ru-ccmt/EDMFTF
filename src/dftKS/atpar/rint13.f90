@@ -5,8 +5,13 @@ FUNCTION RINT13(REL,A,B,X,Y,NRAD,DX_,JRI_,R0_) result(S)
   !                                                                       
   !     PERFORM RADIAL INTEGRALS REQUIRED BY BHDK13                       
   !                            D.D.KOELLING                               
-  !use param, ONLY: NRAD
-  !use struk, ONLY: DX, JRI, R0
+  ! We are integrating f(r) = A(r)*X(r)+ B(r)*Y(r)*1/137 
+  !  where r-mesh is exponential in the form r=e^{i*dx}
+  !  therefore the integral is Int f(r)dr = Int f(e^{i*dx})e^{i*dx}*dx
+  !  which can also be written Sum f(r_i)*r_i*dx
+  ! The simpson method then collects the even and odd terms and
+  ! adds 2/3 and 4/3 to each, and also takes care of the end points.
+  !
   IMPLICIT NONE
   !
   REAL*8 :: S
