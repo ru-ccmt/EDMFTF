@@ -2,7 +2,7 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
   USE com_mpi,  ONLY: myrank, master, vectors, nvector, vector_para, fvectors, AllReduce_MPI, Qprint
   USE com,      ONLY: MINWAV, MAXWAV, iso, emin, emax
   USE abc,      ONLY: KX, KY, KZ, BK3, E, A, ALM, ALML, aK
-  USE param,    ONLY: nmat , LMAX2, iblock, nrf, NRAD, LOMAX, nloat, nemin0, nemax0
+  USE param,    ONLY: nmat , LMAX2, iblock, nrf, NRAD, LOMAX, nloat, nemin0, nemax0, max_nl
   USE w_atpar,  ONLY: w_FJ, w_DFJ, w_jatom, w_alo, w_nlo, w_nlov, w_nlon, w_ilo, w_lapw, w_ri_mat, w_P, w_DP, nnlo
   USE structure,ONLY: RMT, VOL, pos, tau, nat, rotij, tauij, iord, iz, BR1, rot_spin_quantization
   USE case,     ONLY: iatom, isort, nl, ll, crotloc, shft, maxdim, ncix, natom, Sigind, csize, maxsize, cix, ifirst
@@ -19,7 +19,7 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
   INTEGER, intent(in)     :: cixdim(ncix), iSx(maxdim2, norbitals), noccur(maxsize,ncix)
   COMPLEX*16, intent(in)  :: cfX(maxdim2,maxdim2,norbitals,norbitals)
   INTEGER, intent(in)     :: maxucase, maxdim2, norbitals
-  REAL*8,  intent(in)     :: crotloc_x_rotij(3,3,natom)
+  REAL*8,  intent(in)     :: crotloc_x_rotij(3,3,max_nl,natom)
   LOGICAL, intent(in)     :: SIMPLE
   ! interfaces
   interface
@@ -252,28 +252,30 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
               ri_mat(:,:,:,:) = w_ri_mat(:,:,:,:,iucase)
               P(:,:,:) = w_p(:,:,:,iucase)        
               DP(:,:,:) = w_dp(:,:,:,iucase)      
-              if (iso.eq.2) then
-                 !!  local_axis_defined_by_locrot  <- local_axis_of_equivalent_atom <- group_operation_symmetry <- from_spin_quantization_to_global_cartesian
-                 !!* Trans3 = crotloc(:,:,icase) * rotij_cartesian * iz_cartesian(:,:,isym) * rot_spin_quantization
-                 tmp3 = matmul(iz_cartesian(:,:,isym), rot_spin_quantization)
-                 Trans3 = matmul(crotloc_x_rotij(:,:,icase),tmp3)
-                 Det = detx(Trans3)
-                 Trans3 = transpose(Trans3*Det)
-                 CALL Angles(phi1,the1,psi1, Trans3 )
-                 CALL Spin_Rotation(Rispin,phi1,the1,psi1)
-              endif
               if ((nlo+nlon+nlov).NE.nnlo) then
                  WRITE(6,*) 'ERROR: nlo+nlon+nlov should be equal to nnlo but is not', nlo+nlon+nlov, nnlo
                  STOP
               endif
               isize = N-(nlo+nlon+nlov)
-              crotloc_x_BR1(:,:) = matmul( crotloc(:,:,icase),BR1 )
               
               if (abs(projector).eq.5) al_interstitial(:,:,:,:)=0.d0
 
               FAC=4.0D0*PI*RMT(jatom)**2/SQRT(VOL)
               do lcase=1,nl(icase) !----------- loop over L(jatom) requested in the ionput ---------------!
                  l=ll(icase,lcase) !------ current L --!
+
+                 if (iso.eq.2) then
+                    !!  local_axis_defined_by_locrot  <- local_axis_of_equivalent_atom <- group_operation_symmetry <- from_spin_quantization_to_global_cartesian
+                    !!* Trans3 = crotloc(:,:,icase) * rotij_cartesian * iz_cartesian(:,:,isym) * rot_spin_quantization
+                    tmp3 = matmul(iz_cartesian(:,:,isym), rot_spin_quantization)
+                    Trans3 = matmul(crotloc_x_rotij(:,:,lcase,icase),tmp3)
+                    Det = detx(Trans3)
+                    Trans3 = transpose(Trans3*Det)
+                    CALL Angles(phi1,the1,psi1, Trans3 )
+                    CALL Spin_Rotation(Rispin,phi1,the1,psi1)
+                 endif
+                 crotloc_x_BR1(:,:) = matmul( crotloc(:,:,lcase,icase),BR1 )
+                 
                  ALM = 0.0         !------  ALM(m,band,nrf,is) will hold product of eigenvectors and a/b expansion coefficients --!
                  nonzero_interst=.false.
                  if (abs(projector).eq.5) then

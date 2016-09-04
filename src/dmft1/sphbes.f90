@@ -1,4 +1,5 @@
 SUBROUTINE sphbes2(l,N,X,jl)
+  use error, only: outerr
   IMPLICIT NONE
   INTEGER, intent(in) :: l, N
   REAL*8, intent(in)  :: X(N)
@@ -48,7 +49,8 @@ END SUBROUTINE sphbes2
 
 
 
-SUBROUTINE SPHBES(N,X,FJ)                                         
+SUBROUTINE SPHBES(N,X,FJ)
+  use error, only: outerr
   IMPLICIT REAL*8 (A-H,O-Z)
   DIMENSION FJ(*)                                                   
   DATA XLIM/0.1D0/,HF/0.5D0/,ZERO/0.0D0/,ONE/1.0D0/,TWO/2.0D0/,TNHF/10.5D0/,FFT/15.0D0/,T25/1.0D25/,TN25/1.0D-25/,TN50/1.0D-50/

@@ -308,8 +308,8 @@ CONTAINS
     print*, myrank, TRIM(fvectors(1,1)), ' ', TRIM(fvectors(1,2)), ' ', TRIM(fvectors(1,3)), ' ', TRIM(fvectors(1,4))
     return
 970 CONTINUE
-    WRITE (ERRMSG,'(A,A)')  'read error _processes_'
-    CALL OUTERR('DMFT',ERRMSG)
+    WRITE(99,*) 'ERROR dmft1 - read error _processes_'
+    call stop_MPI
     STOP 'DMFT - Error'
   end subroutine Scatter_Vector_data
   

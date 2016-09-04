@@ -23,6 +23,7 @@ MODULE param
   LOGICAL          :: matsubara, Cohfacts
   LOGICAL          :: ComputeLogGloc
   INTEGER          :: nemin0, nemax0
+  INTEGER          :: max_nl
 ! for x-dos set lxdos to 3
   parameter (lxdos= 3)
   parameter (nloat= 3)
@@ -147,7 +148,7 @@ MODULE case
   INTEGER,ALLOCATABLE    :: Sigind(:,:,:), csize(:)
   CHARACTER*30,ALLOCATABLE::legend(:,:)
   REAL*8, ALLOCATABLE    :: shft(:,:)
-  REAL*8, ALLOCATABLE    :: crotloc(:,:,:)
+  REAL*8, ALLOCATABLE    :: crotloc(:,:,:,:)
   INTEGER                :: natom, ncix, maxsize, maxdim
   INTEGER, ALLOCATABLE   :: isort(:), ifirst(:)
 END MODULE case

@@ -7,6 +7,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   USE kpts,      ONLY: numkpt, MKNAME, MIPGR, mweight, tweight, MSX, MSY, MSZ, allocate_kpts, deallocate_kpts
   USE com_mpi,   ONLY: VECFN, vectors, fvectors, myrank, master, nprocs, nvector, vector_para, filenamempi, filenamempi2, start_mpi, stop_mpi, Scatter_Vector_data, fastFilesystem, Qprint
   use abc,       ONLY: init_abc, deallocate_abc
+  use error,     ONLY: errflg, errclr, outerr
   IMPLICIT NONE
   complex*16   :: imag
   real*8       :: xx(3), xz(3), check, ddd, E1, E2, ident, phix, phiz, thetax, thetaz, ttime, time1, time0
@@ -15,7 +16,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   CHARACTER*5  :: CHAR
   CHARACTER*10 :: KNAME
   CHARACTER*11 :: STATUS,FORM                                      
-  CHARACTER*67 :: ERRMSG
+  CHARACTER*200:: ERRMSG
   CHARACTER*80 :: DEFFN, ERRFN
   CHARACTER*200:: FNAME, fUdmft, vec_up, vec_dn, ene_up, ene_dn
   CHARACTER*161:: TEXT
@@ -27,7 +28,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   REAL*8       :: POST(3), BKRLOC(3,3), S(3)
   INTEGER      :: projector
   INTEGER      :: strlen, locrot, shift, latom, wfirst, iat, im, wat, minsigind, lngth
-  INTEGER      :: ivector, nkpt, inkp, ik_start
+  INTEGER      :: ivector, nkpt, inkp, ik_start, il
   INTEGER      :: identity3(3,3), diff, ig
 
   REAL*8,ALLOCATABLE:: wtmp(:)
@@ -43,7 +44,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   
   CALL GTFNAM(DEFFN,ERRFN)
   
-  if (myrank.EQ.master) CALL ERRFLG(ERRFN,'Error in DMFT')
+  if (myrank.EQ.master) CALL ERRFLG(ERRFN,'Error in dmft1')
   
   nspin1=1
   !WRITE(*,*) myrank, ('Definition file is ' // DEFFN)
@@ -299,7 +300,9 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   
   ALLOCATE(nl(natom))
   allocate(ll(natom,4), qsplit(natom,4), cix(natom,4), iatom(natom))
-  ALLOCATE(crotloc(3,3,natom))
+  
+  call FindMax_nl(natom, max_nl)
+  ALLOCATE(crotloc(3,3,max_nl,natom))
   crotloc=0
 
   !natm = sum(mult) = ndif
@@ -341,70 +344,100 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
         write(6,*)'Symmetrization over eq. k-points is performed'
      endif
 
-     crotloc(:,:,i) = rotloc(:,:,jatom)  ! Rotation for this type from the struct file
-
+     !crotloc(:,:,i) = rotloc(:,:,jatom)  ! Rotation for this type from the struct file
+     do j=1,nL(i)
+        crotloc(:,:,j,i) = rotloc(:,:,jatom)  ! Rotation for this type from the struct file
+     enddo
+     
      ! Rotation matrix in case the coordinate system is changed!
-     if(loro.gt.0)then        ! change of local rotation matrix
-        read(5,*)(xz(j),j=1,3)  ! new z-axis expressed in unit cell vectors
-        if (Qprint) write(6,120)(xz(j),j=1,3)
-        call angle(xz,thetaz,phiz)
-        crotloc(1,3,i)=sin(thetaz)*cos(phiz)
-        crotloc(2,3,i)=sin(thetaz)*sin(phiz)
-        crotloc(3,3,i)=cos(thetaz)          
-        if(loro.eq.1)then       ! only z-axis fixed
-           crotloc(3,1,i)= 0.     ! new x perpendicular to new z       
-           ddd=abs(crotloc(3,3,i)**2-1.)
-           if(ddd.gt.0.000001)then
-              crotloc(1,1,i)=-crotloc(2,3,i)
-              crotloc(2,1,i)= crotloc(1,3,i)
-           else
-              crotloc(1,1,i)=1.
-              crotloc(2,1,i)=0.
-           endif
-           ddd=0.                 ! normalize new x
-           do j=1,3
-              ddd=ddd+crotloc(j,1,i)**2
-           enddo
-           do j=1,3
-              crotloc(j,1,i)=crotloc(j,1,i)/sqrt(ddd)
-           enddo
-        elseif(loro.eq.2)then   ! also new x-axis fixed
-           read(5,*)(xx(j),j=1,3)
-           if (Qprint) write(6,121)(xx(j),j=1,3)
-           !write(21,121)(xx(j),j=1,3)
-           call angle(xx,thetax,phix)
-           crotloc(1,1,i)=sin(thetax)*cos(phix)
-           crotloc(2,1,i)=sin(thetax)*sin(phix)
-           crotloc(3,1,i)=cos(thetax)          
-           !  check orthogonality of new x and z axes
-           check=0.
-           do j=1,3
-              check=check+crotloc(j,1,i)*crotloc(j,3,i)
-           enddo
-           if(abs(check).gt.0.00001)then
-              write(6,*)' new x and z axes are not orthogonal'
-              print *,' new x and z axes are not orthogonal'
-              stop
-           endif
-        endif
-        crotloc(1,2,i)=crotloc(2,3,i)*crotloc(3,1,i)-crotloc(3,3,i)*crotloc(2,1,i)
-        crotloc(2,2,i)=crotloc(3,3,i)*crotloc(1,1,i)-crotloc(1,3,i)*crotloc(3,1,i)
-        crotloc(3,2,i)=crotloc(1,3,i)*crotloc(2,1,i)-crotloc(2,3,i)*crotloc(1,1,i)
+     if (loro.eq.0) then
+        ! nothing to do
+     elseif (loro.gt.0)then        ! change of local rotation matrix
+        print *, 'positive locrot not supported anymore. Please use locrot=-1,-2,-3,...'
+        call stop_MPI
+        STOP 'ERROR dmft1'
+        !read(5,*)(xz(j),j=1,3)  ! new z-axis expressed in unit cell vectors
+        !if (Qprint) write(6,120)(xz(j),j=1,3)
+        !call angle(xz,thetaz,phiz)
+        !crotloc(1,3,i)=sin(thetaz)*cos(phiz)
+        !crotloc(2,3,i)=sin(thetaz)*sin(phiz)
+        !crotloc(3,3,i)=cos(thetaz)          
+        !if(loro.eq.1)then       ! only z-axis fixed
+        !   crotloc(3,1,i)= 0.     ! new x perpendicular to new z       
+        !   ddd=abs(crotloc(3,3,i)**2-1.)
+        !   if(ddd.gt.0.000001)then
+        !      crotloc(1,1,i)=-crotloc(2,3,i)
+        !      crotloc(2,1,i)= crotloc(1,3,i)
+        !   else
+        !      crotloc(1,1,i)=1.
+        !      crotloc(2,1,i)=0.
+        !   endif
+        !   ddd=0.                 ! normalize new x
+        !   do j=1,3
+        !      ddd=ddd+crotloc(j,1,i)**2
+        !   enddo
+        !   do j=1,3
+        !      crotloc(j,1,i)=crotloc(j,1,i)/sqrt(ddd)
+        !   enddo
+        !elseif(loro.eq.2)then   ! also new x-axis fixed
+        !   read(5,*)(xx(j),j=1,3)
+        !   if (Qprint) write(6,121)(xx(j),j=1,3)
+        !   !write(21,121)(xx(j),j=1,3)
+        !   call angle(xx,thetax,phix)
+        !   crotloc(1,1,i)=sin(thetax)*cos(phix)
+        !   crotloc(2,1,i)=sin(thetax)*sin(phix)
+        !   crotloc(3,1,i)=cos(thetax)          
+        !   !  check orthogonality of new x and z axes
+        !   check=0.
+        !   do j=1,3
+        !      check=check+crotloc(j,1,i)*crotloc(j,3,i)
+        !   enddo
+        !   if(abs(check).gt.0.00001)then
+        !      write(6,*)' new x and z axes are not orthogonal'
+        !      print *,' new x and z axes are not orthogonal'
+        !      stop
+        !   endif
+        !endif
+        !crotloc(1,2,i)=crotloc(2,3,i)*crotloc(3,1,i)-crotloc(3,3,i)*crotloc(2,1,i)
+        !crotloc(2,2,i)=crotloc(3,3,i)*crotloc(1,1,i)-crotloc(1,3,i)*crotloc(3,1,i)
+        !crotloc(3,2,i)=crotloc(1,3,i)*crotloc(2,1,i)-crotloc(2,3,i)*crotloc(1,1,i)
+        !if (Qprint) then
+        !   write(6,*)' New local rotation matrix in global orthogonal system'
+        !   write(6,*)'                      new x     new y     new z'
+        !   write(6,1013)((crotloc(j,j1,i),j1=1,3),j=1,3)  !written as in .struct
+        !endif
+     elseif (loro.eq.-1) then               ! in cartesian, and equal for all l cases
+        read(5,*)( crotloc(1,j,1,i),j=1,3)  ! new x-axis expressed in unit cell vectors
+        read(5,*)( crotloc(2,j,1,i),j=1,3)  ! new y-axis expressed in unit cell vectors
+        read(5,*)( crotloc(3,j,1,i),j=1,3)  ! new z-axis expressed in unit cell vectors
+        do il=2,nL(i)
+           crotloc(:,:,il,i) = crotloc(:,:,1,i)
+        enddo
         if (Qprint) then
            write(6,*)' New local rotation matrix in global orthogonal system'
            write(6,*)'                      new x     new y     new z'
-           write(6,1013)((crotloc(j,j1,i),j1=1,3),j=1,3)  !written as in .struct
+           write(6,1013)((crotloc(j,j1,1,i),j1=1,3),j=1,3)  !written as in .struct
         endif
-     elseif (loro.lt.0) then
-        read(5,*)( crotloc(1,j,i),j=1,3)  ! new x-axis expressed in unit cell vectors
-        read(5,*)( crotloc(2,j,i),j=1,3)  ! new y-axis expressed in unit cell vectors
-        read(5,*)( crotloc(3,j,i),j=1,3)  ! new z-axis expressed in unit cell vectors
+     elseif(loro.eq.-2) then
+        do il=1,nL(i)
+           read(5,*)( crotloc(1,j,il,i),j=1,3)  ! new x-axis expressed in unit cell vectors
+           read(5,*)( crotloc(2,j,il,i),j=1,3)  ! new y-axis expressed in unit cell vectors
+           read(5,*)( crotloc(3,j,il,i),j=1,3)  ! new z-axis expressed in unit cell vectors
+        enddo
         if (Qprint) then
-           write(6,*)' New local rotation matrix in global orthogonal system'
-           write(6,*)'                      new x     new y     new z'
-           write(6,1013)((crotloc(j,j1,i),j1=1,3),j=1,3)  !written as in .struct
+           do il=1,nL(i)
+              write(6, '(A,I3,2x,A,I3)') 'T2C for l=', LL(i,il), 'qsplit=', qsplit(i,il)
+              write(6,*)' New local rotation matrix in global orthogonal system'
+              write(6,*)'                      new x     new y     new z'
+              write(6,1013)((crotloc(j,j1,il,i),j1=1,3),j=1,3)  !written as in .struct
+           enddo
         endif
-     endif !change of loc.rot. end
+     else
+        print *, 'locrot=', locrot, 'with loro=', loro, 'and shift=',shift, 'not implemented'
+        WRITE(ERRMSG,*) 'locrot=', locrot, 'with loro=', loro, 'and shift=',shift, 'not implemented'
+        call OUTERR('dmft1', ERRMSG)
+     endif
+
         
      ! end Rotation matrix loro
 
@@ -613,7 +646,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
      DO icase=1,natom
         latom = iatom(icase)
         write(6, '(A,I3,1x,A,1x,I3)') 'catom', icase, 'atom', latom
-        BKRLOC = matmul(crotloc(:,:,icase),matmul(BR1,rotij(:,:,latom)))
+        BKRLOC = matmul(crotloc(:,:,1,icase),matmul(BR1,rotij(:,:,latom)))
         DO JR=1,3
            WRITE(6, '(3F10.5)') (BKRLOC(JR,JC),JC=1,3) 
         ENDDO
@@ -681,7 +714,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
 !.....CALCULATE CPUTIME REQUIRED                                        
   !if (Qprint) WRITE(6,2000)                                                     
   if (Qprint) WRITE(6,2010) ttime
-  if (myrank.EQ.master) CALL ERRCLR(ERRFN)
+  if (myrank.EQ.master) CALL ERRCLR
   
   CALL stop_MPI()
 
@@ -891,3 +924,54 @@ subroutine swapGroup(iz1,tau1,iz2,tau2)
   tau1(:) = tau2(:)
   tau2(:) = taux(:)
 end subroutine swapGroup
+
+subroutine FindMax_nl(natom, max_nl)
+  use com_mpi, only: stop_MPI
+  use error, only: OUTERR
+  IMPLICIT NONE
+  INTEGER, intent(out):: max_nl
+  INTEGER, intent(in) :: natom
+  ! locals
+  CHARACTER*200 :: ERRMSG
+  INTEGER :: i, j, il, latom,nL,locrot, loro, shift
+  max_nl=0
+  DO i=1,natom
+     READ(5,*) latom,nL,locrot ! read from case.indmfl
+     if (nL > max_nl) max_nl = nL
+     loro = MOD(locrot, 3)
+     shift = locrot/3
+     ! loro can be (0 -original coordinate system), (1 - new z-axis), (2 - new z-axis, x-axis)
+     do j=1,nL
+        read(5,*) !LL(i,j), qsplit(i,j), cix(i,j) ! LL contains all L-quantum numbers which need to be computed.
+     enddo
+     if (loro.eq.0) then
+        ! nothing to do
+     elseif(loro.gt.0)then        ! change of local rotation matrix
+        print *, 'positive locrot not supported anymore. Please use locrot=-1,-2,-3,...'
+        call stop_MPI
+        STOP 'ERROR dmft1'
+     elseif (loro.eq.-1) then               ! in cartesian, and equal for all l cases
+        read(5,*)  !( crotloc(1,j,1,i),j=1,3)  ! new x-axis expressed in unit cell vectors
+        read(5,*)  !( crotloc(2,j,1,i),j=1,3)  ! new y-axis expressed in unit cell vectors
+        read(5,*)  !( crotloc(3,j,1,i),j=1,3)  ! new z-axis expressed in unit cell vectors
+     elseif(loro.eq.-2) then
+        do il=1,nL
+           read(5,*) !( crotloc(1,j,il,i),j=1,3)  ! new x-axis expressed in unit cell vectors
+           read(5,*) !( crotloc(2,j,il,i),j=1,3)  ! new y-axis expressed in unit cell vectors
+           read(5,*) !( crotloc(3,j,il,i),j=1,3)  ! new z-axis expressed in unit cell vectors
+        enddo
+     else
+        print *, 'locrot=', locrot, 'with loro=', loro, 'and shift=',shift, 'not implemented'
+        WRITE(ERRMSG,*) 'locrot=', locrot, 'with loro=', loro, 'and shift=',shift, 'not implemented'
+        call OUTERR('dmft1', ERRMSG)
+     endif
+     ! end Rotation matrix loro
+     if (shift.ne.0) then
+        read(5,*) !(shft(j,latom),j=1,3)
+     endif
+  enddo
+  rewind(5)
+  READ(5,*) !EMIN,EMAX,irenormalize,projector
+  READ(5,*) !imatsubara, gammac, gamma, nom_default, aom_default, bom_default
+  read(5,*) !natom
+end subroutine FindMax_nl
