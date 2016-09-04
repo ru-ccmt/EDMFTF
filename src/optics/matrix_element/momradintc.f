@@ -120,21 +120,21 @@ subroutine momradintc(rel,iat,nln,is,iso)
   !=========================================================================
   !
   !      store the needed shared arrays in the local ones
-  !
+  !?????
   ucl(1:jri1)=ucore_1(1:jri1,is)
   uscl(1:jri1)=uscore_1(1:jri1,is)
   ucor(1:jri1)=ucore_1(1:jri1,is)/rr(1:jri1,iat)
   uscor(1:jri1)=uscore_1(1:jri1,is)/rr(1:jri1,iat)	
   !
   if(nln.gt.0)then
-     ulr(1:jri1)=rrad01(1:jri1,nln-1)/rr(1:jri1,iat)
-     uslr(1:jri1)=rrad02(1:jri1,nln-1)/rr(1:jri1,iat)	
-     ul(1:jri1)=rrad01(1:jri1,nln-1)
-     usl(1:jri1)=rrad02(1:jri1,nln-1)
-     udlr(1:jri1)=rade01(1:jri1,nln-1)/rr(1:jri1,iat)
-     usdlr(1:jri1)=rade02(1:jri1,nln-1)/rr(1:jri1,iat)
-     udl(1:jri1)=rade01(1:jri1,nln-1)
-     usdl(1:jri1)=rade02(1:jri1,nln-1)
+     ulr(1:jri1)=rrad01(1:jri1,nln-1)/rr(1:jri1,iat)     ! u_A/r
+     uslr(1:jri1)=rrad02(1:jri1,nln-1)/rr(1:jri1,iat)	 ! u_B/r/137
+     ul(1:jri1)=rrad01(1:jri1,nln-1)                     ! u_A
+     usl(1:jri1)=rrad02(1:jri1,nln-1)                    ! u_B/137
+     udlr(1:jri1)=rade01(1:jri1,nln-1)/rr(1:jri1,iat)    ! udot_A/r
+     usdlr(1:jri1)=rade02(1:jri1,nln-1)/rr(1:jri1,iat)   ! udor_B/r /137
+     udl(1:jri1)=rade01(1:jri1,nln-1)                    ! udot_A
+     usdl(1:jri1)=rade02(1:jri1,nln-1)                   ! udot_B/137
      upl(1)=0.0d0
      do m=2,jri1
         if(m.le.npo2)then
@@ -144,7 +144,7 @@ subroutine momradintc(rel,iat,nln,is,iso)
         else
            m0=m-npo2
         endif
-        upl(m)=polynom(1,np,rr(m0,iat),ul(m0),c,rr(m,iat))-ulr(m)
+        upl(m)=polynom(1,np,rr(m0,iat),ul(m0),c,rr(m,iat))-ulr(m)  ! upl = d(u_A)/dr-u_A/r
      enddo !m
      uspl(1)=0.0d0
      do m=2,jri1
@@ -155,7 +155,7 @@ subroutine momradintc(rel,iat,nln,is,iso)
         else
            m0=m-npo2
         endif
-        uspl(m)=polynom(1,np,rr(m0,iat),usl(m0),c,rr(m,iat))-uslr(m)
+        uspl(m)=polynom(1,np,rr(m0,iat),usl(m0),c,rr(m,iat))-uslr(m) ! uspl = (d(u_B)/dr-u_B/r)/137.
      enddo !m
      udor(1)=0.0d0
      do m=2,jri1
@@ -166,7 +166,7 @@ subroutine momradintc(rel,iat,nln,is,iso)
         else
            m0=m-npo2
         endif
-        udor(m)=polynom(1,np,rr(m0,iat),udl(m0),c,rr(m,iat))-udlr(m)
+        udor(m)=polynom(1,np,rr(m0,iat),udl(m0),c,rr(m,iat))-udlr(m) ! udor = d(udot_A)/dr-udot_A/r
      enddo !m
      usdor(1)=0.0d0
      do m=2,jri1
@@ -177,15 +177,15 @@ subroutine momradintc(rel,iat,nln,is,iso)
         else
            m0=m-npo2
         endif
-        usdor(m)=polynom(1,np,rr(m0,iat),usdl(m0),c,rr(m,iat))-usdlr(m)
+        usdor(m)=polynom(1,np,rr(m0,iat),usdl(m0),c,rr(m,iat))-usdlr(m) ! usdor = (d(udot_B)/dr-udot_B/r)/137.
      enddo !m
      !        
-     call rint13(rel,ucl,uscl,upl,uspl,iuup,iat)
-     call rint13(rel,ucor,uscor,ul,usl,iuu,iat)      
-     iucl1ul(iat,is)=iuup-(fl-one)*iuu   
-     call rint13(rel,ucl,uscl,udor,usdor,iuup,iat)
-     call rint13(rel,ucor,uscor,udl,usdl,iuu,iat)        
-     iucl1udl(iat,is)=iuup-(fl-one)*iuu
+     call rint13(rel,ucl,uscl,upl,uspl,iuup,iat) ! iuup = <u_Acore*r| d(u_A)/dr-u_A/r > + <u_Bcore*r| d(u_B)/dr-u_B/r > /137^2
+     call rint13(rel,ucor,uscor,ul,usl,iuu,iat)  ! iuu  = <u_Acore  | u_A> + <u_Bcore|u_B>/137^2    
+     iucl1ul(iat,is)=iuup-(fl-one)*iuu           ! iucl1ul = iuup - (l-1)*iuu
+     call rint13(rel,ucl,uscl,udor,usdor,iuup,iat)! iuup = <u_Acore*r| d(udot_A)/dr-udot_A/r> + <u_Bcore*r|(d(udot_B)/dr-udot_B/r)>/137^2
+     call rint13(rel,ucor,uscor,udl,usdl,iuu,iat) ! iuu = <u_Acore|udot_A> +  <u_Bcore|udot_B>/137^2
+     iucl1udl(iat,is)=iuup-(fl-one)*iuu           ! iucl1udl = <u_Acore*r|d(udot_A)/dr-udot_A/r> + <u_Bcore*r|(d(udot_B)/dr-udot_B/r)>/137^2 - (l-1)*(<u_Acore|udot_A> +  <u_Bcore|udot_B>/137^2)
      
      !------------------------------------------------------        
      !       And now for local orbitals, l< lomax

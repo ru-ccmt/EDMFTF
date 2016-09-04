@@ -153,6 +153,41 @@ REAL*8 FUNCTION RINT13(rel,A1,B1,A2,B2,Nr,DX,R0)
   RETURN
 END FUNCTION RINT13
 
+REAL*8 FUNCTION RINT13g(C1,C2,A1,B1,A2,B2,Nr,DX_,R0_)
+  ! C1=1, C2=[1.d0/137.0359895d0**2 or 0]
+  IMPLICIT NONE
+  !        but here C1 and C2 are arbitrary
+  REAL*8, intent(in) :: C1, C2
+  REAL*8, intent(in) :: A1(Nr), B1(Nr), A2(Nr), B2(Nr)
+  REAL*8, intent(in) :: DX_, R0_
+  INTEGER, intent(in):: Nr
+  ! locals
+  INTEGER::            J, J1
+  REAL*8 ::   D, S, P1, P2, R, R1, Z2, Z4
+  D = EXP(DX_)
+  J = 3-MOD(Nr,2)
+  J1=J-1
+  R = r0_*(D**(J-1))
+  R1 = R/D
+  Z4 = 0
+  Z2 = 0
+  DO
+     Z4=Z4+R*(C1*A1(J)*A2(J) + C2*B1(J)*B2(J))     ! Z4 ~ R*A*X (r)
+     R=R*D
+     J=J+1
+     IF (J .GE. Nr) EXIT
+     Z2 = Z2 + R*(C1*A1(J)*A2(J) + C2*B1(J)*B2(J))  ! Z2 ~ R*A*X (r+dr)   
+     R=R*D
+     J=J+1
+  enddo
+  P1 = R0_*(C1*A1(1)*A2(1) + C2*B1(1)*B2(1))
+  P2 = R1*(C1*A1(J1)*A2(J1) + C2*B1(J1)*B2(J1))
+  S = 2*Z2 + 4*Z4 + R*(C1*A1(J)*A2(J) + C2*B1(J)*B2(J)) + P2
+  S = (DX_*S+P1)/3.0D+0
+  IF (J1.GT.1) S=S+0.5D0*DX_*(P1+P2)
+  RINT13g=S
+  RETURN
+END FUNCTION RINT13g
 
 ! Nr -> jrj(jatom)
 SUBROUTINE ReadPotential(VR, filename, maxNr, Nr, nat)

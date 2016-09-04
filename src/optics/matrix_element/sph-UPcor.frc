@@ -102,7 +102,7 @@ SUBROUTINE COR_MAT(cornum,atom_num,KUPLIMIT,KFIRST,IEF)
   SQFP=SQRT(4.D0*PI)   
   ione=(0d0,1.0d0)                                    
   CIN=1.331258D-5
-  CINC=7.29927D-3  
+  CINC=7.29927D-3   ! 1/137.
   h=0
   !ad
   !ad   conversion from Rydberg to Hartree                       
@@ -165,11 +165,11 @@ SUBROUTINE COR_MAT(cornum,atom_num,KUPLIMIT,KFIRST,IEF)
         rr(jjj,jatom)=Rnot(jatom)*exp((jjj-1)*dx(jatom))
      enddo
      core_counter=0
-     read(30,11) ncore(jatom)
+     read(30,11) ncore(jatom)    ! number of core states from case.inc
      kiatt=ncore(jatom)
      do ova=1,kiatt
         core_counter=core_counter+1
-        read(30,12) nqn(ova,jatom),kappa(ova,jatom),nel(ova,jatom)
+        read(30,12) nqn(ova,jatom),kappa(ova,jatom),nel(ova,jatom) ! this reads case.inc and gets n,kappa,occup
      enddo !ova
      ncg1(jatom)=core_counter
   ENDDO  !jatom	
@@ -212,8 +212,8 @@ SUBROUTINE COR_MAT(cornum,atom_num,KUPLIMIT,KFIRST,IEF)
      case ('2s')
         ucore_1(1:jri1,is)=((ucore_temp(1:jri1,2,atom_num,is))*rr(1:jri1,atom_num))
         uscore_1(1:jri1,is)=((uscore_temp(1:jri1,2,atom_num,is))*rr(1:jri1,atom_num))			
-        pqn=2
-        nln=0
+        pqn=2 ! seems to ne n
+        nln=0 ! seems to be l
         nnj=1
      case ('2ps')
         ucore_1(1:jri1,is)=((ucore_temp(1:jri1,3,atom_num,is))*rr(1:jri1,atom_num))
@@ -287,8 +287,8 @@ SUBROUTINE COR_MAT(cornum,atom_num,KUPLIMIT,KFIRST,IEF)
               do z2=1,jri1
                  RRAD01(z2,z1)=rrad1(z2,z1)
                  RADE01(z2,z1)=rade1(z2,z1)
-                 RRAD02(z2,z1)=rrad2(z2,z1)*CINC
-                 RADE02(z2,z1)=rade2(z2,z1)*CINC
+                 RRAD02(z2,z1)=rrad2(z2,z1)*CINC  ! Careful : B is multiplied by 1/speed_of_light
+                 RADE02(z2,z1)=rade2(z2,z1)*CINC  ! Careful : B is multiplied by 1/speed_of_light
               enddo
            enddo
            !_______________________end lmax2 loop_______________________________

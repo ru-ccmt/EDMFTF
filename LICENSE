@@ -1,18 +1,39 @@
 
   -- Department of Physics & Astronomy
-  -- Rutgers University, The State University of New Jesrsey
+  -- Rutgers University, The State University of New Jersey
+  -- Center for Computational Materials Theory
   -- (C) Copyright 2015-2016
+  
+  Please cite the basic DFT+DMFT method:
+  [1] Kristjan Haule, Chuck-Hou Yee, Kyoo Kim, Phys. Rev. B 81, 195107 (2010).
+  
+  and DFT part, which is based on Wien2k code
+  [2] P. Blaha, K. Schwarz, G. Madsen, D. Kvasnicka and J. Luitz, WIEN2k,
+  An Augmented Plane Wave + Local Orbitals Program for Calculating Crystal Properties
+  (Karlheinz Schwarz, Techn. Universität Wien, Austria), 2001. ISBN 3-9501031-1-2
+  
+  
+  Consider citing, if you use some of these items:
+  
+  Continuous time Quantum Monte Carlo:
+  [3] Kristjan Haule, Phys. Rev. B 75, 155113 (2007).
 
+  Free energy implementation :
+  [4] Kristjan Haule, Turan Birol, Phys. Rev. Lett. 115, 256402 (2015).
+
+  Forces and structural optimization :
+  [5] Kristjan Haule, Gheorghe L. Pascut, arXiv:1602.02819.
+  
   Redistribution  and  use  in  source and binary forms, with or without
   modification,  are  permitted  provided  that the following conditions
   are met:
 
-  * Redistributions  of  source  code  must  retain  the above copyright
-    notice,  this  list  of  conditions  and  the  following  disclaimer.
-  * Redistributions  in  binary  form must reproduce the above copyright
-    notice,  this list of conditions and the following disclaimer in the
-    documentation  and/or other materials provided with the distribution.
-  * Neither  the  name of the Rutgers University, nor the names of its
+  * Redistributions  of  source  code  is not permitted, unless the above
+    copyright notice is retained, and permission from Kristjan Haule is
+    obtained, and the authors of the code are properly acknowldeged in
+    the derived products.
+
+ * Neither  the  name of the Rutgers University, nor the names of its
     contributors may be used to endorse or promote products derived from
     this software without specific prior written permission.
 
