@@ -21,7 +21,9 @@ public:
 
 
 class ClusterData{
+public:
   function2D<int> F_i;                  //yes
+private:
   function2D<function2D<double> > F_M;  //yes
 public:
   function2D<double> Ene;               //yes

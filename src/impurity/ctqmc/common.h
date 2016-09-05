@@ -36,12 +36,14 @@ public:
   static double smallest_dt;
   //static bool QNj;
   static int Segment;
+  static bool SampleTransitionP;
+  static bool SaveStatus;
   static void SetParameters(int rank, int size, double mu_, double U_, double beta_, int max_size_, int N_flavors_,
 			    int N_ifl_, int tsample_,
 			    int warmup_, int CleanUpdate_, double minM_, double minD_, double PChangeOrder_, double PMove_,
 			    int Ncout_, long long Naver_, double TwoKinks_, int GlobalFlip_, double treshold_, int SampleGtau_,
 			    int PreciseP_, double minDeltat_, bool SampleSusc_, int SampleVertex_, double maxNoise_,
-			    bool LazyTrace_, int Segment_, int fastFilesystem_)
+			    bool LazyTrace_, int Segment_, int fastFilesystem_, bool SampleTransitionP_)
   {
     my_rank = rank;
     mpi_size = size;
@@ -72,6 +74,7 @@ public:
     fastFilesystem=fastFilesystem_;
     smallest_dt=3e-16*beta;
     Segment = Segment_;
+    SampleTransitionP = SampleTransitionP_;
   }
 };
 
