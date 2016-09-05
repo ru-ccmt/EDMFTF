@@ -8,7 +8,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   !--        'e' -> eigenvalues are printed
   !--        'u' -> printing transformation
   !--        'x' -> computes xqtl2, just for debugging
-  USE param,    ONLY: LMAX2, LOMAX, NRAD, nloat, nrf, nmat, nume, gamma, gammac, aom_default, bom_default, nom_default, IBLOCK, matsubara, Cohfacts, ComputeLogGloc, maxbands, nemin0, nemax0
+  USE param,    ONLY: LMAX2, LOMAX, NRAD, nloat, nrf, nmat, nume, gamma, gammac, aom_default, bom_default, nom_default, IBLOCK, matsubara, Cohfacts, ComputeLogGloc, maxbands, nemin0, nemax0, max_nl
   USE structure,ONLY: VOL, RMT, iord, iz, nat, mult, pos, tau, rotij, tauij, jri, BR1, rot_spin_quantization
   USE case,     ONLY: cf, csize, maxsize, nl, cix, ll, Sigind, iatom, legend, maxdim, natom, ncix, shft, isort, crotloc, ifirst
   USE sym2,     ONLY: tmat, idet, iz_cartesian
@@ -58,7 +58,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   INTEGER,    allocatable :: pr_procs(:)
   ! For p_interstitial
   COMPLEX*16, allocatable :: a_interstitial(:,:,:), h_interstitial(:,:,:)
-  REAL*8, allocatable     :: phi_jl(:,:), crotloc_x_rotij(:,:,:)
+  REAL*8, allocatable     :: phi_jl(:,:), crotloc_x_rotij(:,:,:,:)
   REAL*8, allocatable     :: aKR(:), jlr(:), jlp(:)
   !------- other local arrays
   complex*16  :: h_yl(2*LMAX2+1,iblock)
@@ -317,13 +317,15 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   endif
 
   !if (iso.eq.2) then
-  allocate( crotloc_x_rotij(3,3,natom) )
+  allocate( crotloc_x_rotij(3,3,max_nl,natom) )
   call INVERSSYMDEF(BR1,BR1inv)
   DO icase=1,natom  !--------------- over all atoms requested in the input ------------------------!
      latom = iatom(icase)   ! The succesive number of atom (all atoms counted)
      tmp3 = matmul(BR1,rotij(:,:,latom))
      rotij_cartesian = matmul(tmp3,BR1inv)
-     crotloc_x_rotij(:,:,icase) = matmul(crotloc(:,:,icase),rotij_cartesian)
+     do il=1,nL(icase)
+        crotloc_x_rotij(:,:,il,icase) = matmul(crotloc(:,:,il,icase),rotij_cartesian)
+     end do
   END DO
   !endif
 
@@ -611,28 +613,29 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               ri_mat(:,:,:,:) = w_ri_mat(:,:,:,:,iucase)
               P(:,:,:) = w_p(:,:,:,iucase)        
               DP(:,:,:) = w_dp(:,:,:,iucase)      
-              if (iso.eq.2) then
-                 !!  local_axis_defined_by_locrot  <- local_axis_of_equivalent_atom <- group_operation_symmetry <- from_spin_quantization_to_global_cartesian
-                 !!* Trans3 = crotloc(:,:,icase) * rotij_cartesian * iz_cartesian(:,:,isym) * rot_spin_quantization
-                 tmp3 = matmul(iz_cartesian(:,:,isym), rot_spin_quantization)
-                 Trans3 = matmul(crotloc_x_rotij(:,:,icase),tmp3)
-                 Det = detx(Trans3)
-                 Trans3 = transpose(Trans3*Det)
-                 CALL Angles(phi1,the1,psi1, Trans3 )
-                 CALL Spin_Rotation(Rispin,phi1,the1,psi1)
-              endif
               if ((nlo+nlon+nlov).NE.nnlo) then
                  WRITE(6,*) 'ERROR: nlo+nlon+nlov should be equal to nnlo but is not', nlo+nlon+nlov, nnlo
                  STOP
               endif
               isize = N-(nlo+nlon+nlov)
-              crotloc_x_BR1(:,:) = matmul( crotloc(:,:,icase),BR1 )
-              
               if (abs(projector).eq.5) al_interstitial(:,:,:,:)=0.d0
               
               FAC=4.0D0*PI*RMT(jatom)**2/SQRT(VOL)
               do lcase=1,nl(icase) !----------- loop over L(jatom) requested in the ionput ---------------!
                  l=ll(icase,lcase) !------ current L --!
+
+                 if (iso.eq.2) then
+                    !!  local_axis_defined_by_locrot  <- local_axis_of_equivalent_atom <- group_operation_symmetry <- from_spin_quantization_to_global_cartesian
+                    !!* Trans3 = crotloc(:,:,icase) * rotij_cartesian * iz_cartesian(:,:,isym) * rot_spin_quantization
+                    tmp3 = matmul(iz_cartesian(:,:,isym), rot_spin_quantization)
+                    Trans3 = matmul(crotloc_x_rotij(:,:,lcase,icase),tmp3)
+                    Det = detx(Trans3)
+                    Trans3 = transpose(Trans3*Det)
+                    CALL Angles(phi1,the1,psi1, Trans3 )
+                    CALL Spin_Rotation(Rispin,phi1,the1,psi1)
+                 endif
+                 crotloc_x_BR1(:,:) = matmul( crotloc(:,:,lcase,icase),BR1 )
+                 
                  ALM = 0.0         !------  ALM(m,band,nrf,is) will hold product of eigenvectors and a/b expansion coefficients --!
                  if (abs(projector).eq.5) a_interstitial=0
                  !--------- blocks are for efficiency. Matrix is multiplied in block form. This must be important in the past, while modern BLAS should do that better. I think it is obsolete.

@@ -14,9 +14,9 @@ FFLAGS  = $(WFOPT)
 GEN = cputim.o splines.o stern.o
 
 # These routines are tightly coupled, mostly through modules.f90
-OBJSMOD = mod_mpi.o structure.o gtfnam2.o modules.o w_atpar.o angle.o atpar.o dvbes1.o \
-          romb.o errclr.o errflg.o harmon.o inverss.o spline.o p_project.o l2mainSubs.o l2main.o eigsys.o \
-          dmftmain.o  outerr.o rotate.o sphbes.o symop.o ylm.o mknam.o \
+OBJSMOD = mod_mpi.o error_handle.o structure.o gtfnam2.o modules.o w_atpar.o angle.o atpar.o dvbes1.o \
+          romb.o harmon.o inverss.o spline.o p_project.o l2mainSubs.o l2main.o eigsys.o \
+          dmftmain.o  rotate.o sphbes.o symop.o ylm.o mknam.o \
           sym.o lomain.o cmpxqtl.o testxqtldiff.o printgloc.o readselfenergy.o \
 	  cmpdmftrans.o zinv.o overlap1.o spin_rotate.o cmp_dm.o
 

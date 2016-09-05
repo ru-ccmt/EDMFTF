@@ -165,7 +165,12 @@ class IndmfBase:
             #    shift= (locrot_shift+3)/3
 
             (shift,locrot) = divmodulo(locrot_shift,3)
-            if locrot<0: locrot=3
+            if locrot<0:
+                if locrot==-2: 
+                    locrot=3*nL
+                else:
+                    locrot=3
+                    
             #print 'shift=', shift, 'locrot=', locrot
             
 

@@ -18,6 +18,7 @@ MODULE structure
 CONTAINS
   
   SUBROUTINE ReadStructure(fh_str) ! fh_str should be 20
+    use error, ONLY: outerr
     IMPLICIT NONE
     INTEGER, intent(in)      :: fh_str
     !
@@ -101,7 +102,8 @@ CONTAINS
     !     BR2(3,3) :  TRANSFORMS A RECIPROCAL LATTICE VECTOR OF A SPE-      
     !                 CIAL COORDINATE SYSTEM ( IN UNITS OF 2 PI / A )       
     !                 TO CARTESIAN SYSTEM                                   
-    !      
+    !
+    use error, ONLY: outerr
     IMPLICIT NONE
     LOGICAL, intent(in) :: mprint
     ! local variables
@@ -364,6 +366,7 @@ CONTAINS
   END SUBROUTINE LATGEN
   
   SUBROUTINE ROTDEF(mprint)
+    use error, ONLY: outerr
     !                                                                       
     !     ROTDEF GENERATES THE ROTATION-MATRICES ROTIJ(3,3,ntot) TAUIJ(3,ntot) FOR      
     !     NONSYMMORPHIC STRUCTURES. THESE MATRICES PERFORM ROTATIONS        
