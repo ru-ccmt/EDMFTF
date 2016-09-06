@@ -72,6 +72,10 @@ private:
   function2D<double> Prob;        // Probability for each atomic state in current configuration
   function2D<double> AProb;       // Average Probability
   function1D<double> kaver;       // average perturbation order for each bath - measures kinetic energy
+  function2D<double> P_transition;// Transition probability from state to state
+public:  
+  function2D<double> AP_transition;// Avergae Transition probability from state to state
+private:
   int nsusc;
   function2D<double> susc;        // current frequency dependent susceptibility
   function2D<double> aver_susc;   // sampled frequency dependent susceptibility
@@ -160,6 +164,7 @@ CTQMC<Rand>::CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nma
   NGtv(0), gsign(1), asign(0), successfullC(common::N_ifl), successfullM(common::N_ifl), 
   Faver(common::N_ifl,cluster.fl_fl.size()), Njc(cluster.fl_fl.size()), MinTraceRatio(MinTraceRatio_)
 {
+
   cerr<<"Zatom="<<cluster.Zatom<<" log(Zatom)="<<cluster.Zatom.exp_dbl()<<endl;
   (*xout)<<"log(Zatom)="<<cluster.Zatom.exp_dbl()<<endl;
   // all atomic states are generated
@@ -331,6 +336,12 @@ CTQMC<Rand>::CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nma
 	}
       }
     }
+  }
+  
+  if (common::SampleTransitionP){
+    P_transition.resize(cluster.nsize,2*cluster.N_flavors);
+    AP_transition.resize(cluster.nsize,2*cluster.N_flavors);
+    AP_transition = 0.0;
   }
 }
 
@@ -1396,6 +1407,8 @@ void CTQMC<Rand>::ComputeAverage(long long istep)
     ComputeFrequencyPart<0>(intervals, Operators, biom.size(), dexp);
   }
 
+  if (common::SampleTransitionP) P_transition = 0;
+  
   // time differences can be precomputed
   int N = Operators.size();
   dtau.resize(N+1);
@@ -1430,6 +1443,8 @@ void CTQMC<Rand>::ComputeAverage(long long istep)
       }
     }
 
+    double fact = P_i/common::beta;
+    //int c_state=istate;
     for (int ip=0; ip<Operators.size(); ip++){
       int jstate = state_evolution_left(ist,ip).istate;
       double Ns = cluster.Ns[jstate];
@@ -1439,6 +1454,9 @@ void CTQMC<Rand>::ComputeAverage(long long istep)
       dnf += Ns*dtau[ip+1];
       dmg += Sz*dtau[ip+1];
 
+      //if (common::SampleTransitionP) P_transition(c_state-1, Operators.typ(ip) ) += fact;
+      //c_state = jstate;
+      
       if (common::SampleSusc){
 	const funProxy<dcomplex>& dexp_ = dexp[ip+1];
 	for (int im=1; im<dexp.size_Nd(); im++){
@@ -1447,8 +1465,15 @@ void CTQMC<Rand>::ComputeAverage(long long istep)
 	}
       }
     }
-
-    double fact = P_i/common::beta;
+    if (common::SampleTransitionP){
+      int c_state=istate;
+      for (int ip=0; ip<Operators.size(); ip++){
+	int jstate = state_evolution_left(ist,ip).istate;
+	P_transition(c_state-1, Operators.typ(ip) ) += fact;
+	c_state = jstate;
+      }
+    }
+    
     observables[0] += dnf*fact;
     observables[1] += sqr(dmg)*fact;
     observables[2] += sqr(0.5*dnf)*fact;
@@ -1502,7 +1527,8 @@ void CTQMC<Rand>::StoreCurrentState(function1D<double>& aver_observables, long l
   
   AProb.AddPart(Prob, trusign);
   aver_observables.AddPart(observables, trusign);
-
+  if (common::SampleTransitionP) AP_transition.AddPart(P_transition, trusign);
+  
   asign += trusign;
   
   for (int ifl=0; ifl<kaver.size(); ifl++) kaver[ifl] += intervals[ifl].size()/2*trusign;
@@ -2020,6 +2046,15 @@ bool Qnonzero(const functionb<dcomplex>& Gf){
   return true;
 }
 
+struct CustomLess{
+  function2D<int>* pF_i;
+  int ist;
+  CustomLess(function2D<int>* pF_i_, int ist_) : pF_i(pF_i_), ist(ist_){}
+  bool operator()(int op1, int op2)
+  {   
+    return pF_i->operator()(op1,ist) < pF_i->operator()(op2,ist);
+  }
+};
 
 
 int main(int argc, char *argv[])
@@ -2090,6 +2125,7 @@ int main(int argc, char *argv[])
   int iseed_start = 0;           // starting seed
   int Segment = -1;              // Assuming superstates/blocks are all one dimensional -- Segment picture
   int Nhigh   = 40;              // The last Nhigh number of Matsubara points will be used to determine the tails
+  bool SampleTransitionP = false;// Should we sample transition probability?
   ifstream inp(inputf.c_str());
   if (!inp.good()) {cerr<<"Missing input file!... exiting "<<endl; return 1;}
   for (int i=0; i<BathProbability.size(); i++) BathProbability[i]=1.0;
@@ -2144,6 +2180,7 @@ int main(int argc, char *argv[])
     if (str=="Segment")     inp>>Segment;
     if (str=="MinTraceRatio")inp>>MinTraceRatio;
     if (str=="Nhigh")       inp>>Nhigh;
+    if (str=="SampleTransitionP")  inp>>SampleTransitionP;
     if (str=="BathProbability"){
       char chr[1001];
       inp.getline(chr, 1000, '\n');
@@ -2161,6 +2198,7 @@ int main(int argc, char *argv[])
     if (str=="AllRead")     inp>>AllRead;
     if (str=="fastFilesystem") inp>>fastFilesystem;
   }
+  common::SaveStatus=true;
   if (nomv>nom) nomv = nom;
   if (nOm>nom) nOm = nom;
   if (SampleVertex<=0){nomv=0; nOm=0; }
@@ -2207,6 +2245,8 @@ int main(int argc, char *argv[])
   (*xout)<<"LazyTrace="<<LazyTrace<<endl;
   (*xout)<<"MinTraceRatio"<<MinTraceRatio<<endl;
   (*xout)<<"fastFilesystem="<<fastFilesystem<<endl;
+  (*xout)<<"SampleTransitionP="<<SampleTransitionP<<endl;
+  (*xout)<<"SaveStatus="<<common::SaveStatus<<endl;
   ClusterData cluster;
   ifstream incix(fcix.c_str());
   
@@ -2232,7 +2272,7 @@ int main(int argc, char *argv[])
   
   common::SetParameters(my_rank,mpi_size,mu,U,beta,cluster.max_size,cluster.N_flavors,cluster.N_ifl,tsample,warmup,
 			CleanUpdate,minM,minD,PChangeOrder,PMove,Ncout,Naver,TwoKinks,GlobalFlip,treshold,SampleGtau,PreciseP,
-			minDeltat,SampleSusc, SampleVertex, maxNoise,LazyTrace,Segment,fastFilesystem);
+			minDeltat,SampleSusc, SampleVertex, maxNoise,LazyTrace,Segment,fastFilesystem,SampleTransitionP);
 
 
   mesh1D iom_large;
@@ -2271,7 +2311,7 @@ int main(int argc, char *argv[])
 
   
   double nf = ctqmc.sample(M);
-  ctqmc.SaveStatus(my_rank);
+  if (common::SaveStatus) ctqmc.SaveStatus(my_rank);
 
   // Green's function is compressed to few components only
   function2D<dcomplex> Gd(cluster.N_unique_fl,ctqmc.ioms().size());
@@ -2350,7 +2390,7 @@ int main(int argc, char *argv[])
   }
   
   Reduce(my_rank, Master, mpi_size, ctqmc.Histogram(), Gd, Sd, ctqmc.AverageProbability(), ctqmc.asign, ctqmc.Observables(),
-	 ctqmc.k_aver(), ctqmc.Susc(), Gtau, ctqmc.VertexH, ctqmc.VertexF, Gd_deg, common::cmp_vertex, common::QHB2);
+	 ctqmc.k_aver(), ctqmc.Susc(), Gtau, ctqmc.VertexH, ctqmc.VertexF, Gd_deg, ctqmc.AP_transition, common::cmp_vertex, common::QHB2, common::SampleTransitionP);
   
   if (my_rank==Master){
 
@@ -2538,6 +2578,24 @@ int main(int argc, char *argv[])
 	out<<endl;
       }
     }
+    if (common::SampleTransitionP){
+      ofstream out("TProbability.dat"); out.precision(16);
+      out<<"# asign="<<ctqmc.asign<<endl;
+      for (int ist=1; ist<=ctqmc.AP_transition.size_N(); ist++){
+	// For convenience we sort the operators such that final states are sorted in the output
+	vector<int> index(2*common::N_flavors);
+	for (int op=0; op<2*common::N_flavors; op++) index[op]=op;
+	CustomLess customLess(&cluster.F_i,ist);
+	std::sort(index.begin(), index.end(), customLess);
+	
+	for (int op=0; op<2*common::N_flavors; op++){
+	  int op_sorted = index[op];
+	  int inew = cluster.F_i(op_sorted,ist);
+	  if (inew>0)
+	    out<<setw(3)<<ist<<" "<<setw(3)<<inew<<" "<<setw(20)<<ctqmc.AP_transition[ist-1][op_sorted]/ctqmc.asign<<endl;
+	}
+      }
+    }
   }
 
   if (common::cmp_vertex && my_rank==Master){
@@ -2663,3 +2721,5 @@ Timer NState::t_evolve;
 Timer NState::t_apply;
 double common::smallest_dt;
 int common::Segment;
+bool common::SampleTransitionP;
+bool common::SaveStatus;
