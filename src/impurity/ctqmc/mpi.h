@@ -5,7 +5,7 @@ using namespace std;
 void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<dcomplex>& Gd, function2D<dcomplex>& Sd,
 	    function2D<double>& AverageProbability, double& asign, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
 	    function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
-	    bool cmp_vertex, bool QHB2)
+	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP)
 {
   function2D<double> cAverageProbability;
   function1D<double> chistogram;
@@ -16,6 +16,7 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
   function2D<double> cSusc;
   function2D<double> cGtau;
   function1D<int> cGd_deg;
+  function2D<double> cAP_transition;
   double casign;
   if (my_rank==Master){
     chistogram.resize(histogram.size());
@@ -27,6 +28,7 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
     ckaver.resize(kaver.size());
     cSusc.resize(susc.fullsize_N(), susc.fullsize_Nd());
     cGd_deg.resize(Gd_deg.size());
+    if (SampleTransitionP) cAP_transition.resize(AP_transition.fullsize_N(),AP_transition.fullsize_Nd());
   }
   
   MPI::COMM_WORLD.Reduce(histogram.MemPt(), chistogram.MemPt(), histogram.size(), MPI_DOUBLE, MPI_SUM, Master);
@@ -49,6 +51,8 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
 
   MPI::COMM_WORLD.Reduce(Gd_deg.MemPt(), cGd_deg.MemPt(), Gd_deg.size(), MPI_INT, MPI_SUM, Master);
   
+  if (SampleTransitionP) MPI::COMM_WORLD.Reduce(AP_transition.MemPt(), cAP_transition.MemPt(), AP_transition.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
+    
   if (cmp_vertex){
     function2D<dcomplex> cVertex(VertexH.N3, VertexH.N4);
     int psize = VertexH.N3*VertexH.N4;
@@ -76,7 +80,7 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
       }
     }
   }
-  
+
   if (my_rank==Master){
     histogram = chistogram;
     histogram *= (1./mpi_size);
@@ -95,6 +99,10 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
     susc *= (1./mpi_size);
     asign *= (1./mpi_size);
     Gd_deg = cGd_deg;
+    if (SampleTransitionP){
+      AP_transition = cAP_transition;
+      AP_transition *=  (1./mpi_size);
+    }
   }
 }
 
@@ -116,9 +124,9 @@ void MPI_finalize()
 using namespace std;
 
 void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<dcomplex>& Gd, function2D<dcomplex>& Sd,
-	    function2D<double>& AverageProbability, double& asign, function1D<double>& nlc,
-	    function1D<double>& kaver, function2D<double>& susc, function2D<double>& Gtau,
-	    function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg, bool cmp_vertex, bool QHB2){}
+	    function2D<double>& AverageProbability, double& asign, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
+	    function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
+	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP){}
 
 void MPI_Init(int argc, char* argv[], int& my_rank, int& mpi_size, int& Master)
 {
