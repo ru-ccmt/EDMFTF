@@ -158,15 +158,15 @@ def lapw1(fday, case, WIEN, para, dftKS, dmfe, Qcmplx, fh_info):
         if Qcmplx:
             cmplx='c'
             pcmplx=' -c'
-        name='lapw1'+cmplx
+        name='lapw1'
         tim = time.strftime("%H:%M:%S")
-        print >> fday, '>%-10s ( %s )' % (name, tim)
+        print >> fday, '>%-10s ( %s )' % (name+cmplx, tim)
         fl = open(':log', 'a')
-        print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name
+        print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name+cmplx
         fl.close()
         
         cmd = dmfe.ROOT+'/x_dmft.py'+para+pcmplx+' '+name
-        print >> fh_info, ('#<'+name+'>: '), cmd
+        print >> fh_info, ('#<'+name+cmplx+'>: '), cmd
         fh_info.flush()
         info=subprocess.call(cmd,shell=True,stdout=fh_info)
     else:

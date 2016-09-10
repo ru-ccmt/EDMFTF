@@ -379,7 +379,7 @@ if __name__=='__main__':
         if para: print 'Parallel vector/energy files written.'
         PrepareDefinitionFile_lapw1('lapw1', w2k.case, updn, para, w2k.SCRATCH, k_band, cmplx)
         if not options.def_only:
-            runExternal(exe, dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
+            runExternal('lapw1', dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
         sys.exit(0)
 
     if args[0]=='lapwso':
