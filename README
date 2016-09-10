@@ -24,3 +24,10 @@ DMFT installation instructions:
 
       Forces and structural optimization :
   [5] Kristjan Haule, Gheorghe L. Pascut, arXiv:1602.02819.
+
+The code is developed by support from National Science Foundation : 
+  NSF-DMR 1405303 and  NSF DMR-0746395
+and by support of A. P. Sloan Foundation, Simons foundation, and Blavatnik foundation.
+
+The documentation at "http://hauleweb.rutgers.edu/tutorials/" is developed by the 
+support of DOE.

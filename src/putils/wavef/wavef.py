@@ -63,7 +63,12 @@ def ReadIndmfl(case):
         if len(dat)>3: Rmt2[ia] = float(dat[3])
         
         (shift,locrot) = divmodulo(locrot_shift,3)
-        if locrot<0: locrot=3
+        if locrot<0: 
+            if locrot==-2: 
+                locrot=3*nL
+            else:
+                locrot=3
+
         
         (Ls, qsplit, icps) = (zeros(nL,dtype=int), zeros(nL,dtype=int), zeros(nL,dtype=int))
         for il in range(nL):
