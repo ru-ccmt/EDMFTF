@@ -176,8 +176,6 @@ PROGRAM lapwso
   !pr_proc = nkp
 
 
-
-  
   do jatom=1,nato
      if (vector_para .or. myrank.eq.master) then
         ! write also on dummy vector file 

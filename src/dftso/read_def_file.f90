@@ -88,6 +88,8 @@ SUBROUTINE read_def_file(deffn, Qcomplex, iorbpot,ERRMSG,info)
   CLOSE (1)
   info=0
   ERRMSG=''
+  !call stop_MPI
+  !STOP 'debug'
   return
   
 910 continue

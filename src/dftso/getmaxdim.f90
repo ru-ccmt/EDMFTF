@@ -30,11 +30,13 @@ subroutine getMaxDim(nmat,nume,nkp,jspin,elin,elo, Qcomplex)
   if (ios.eq.0) then
      jspin=2
   else
-     close(10, status='delete')
-     close(55, status='delete')
      if (myrank.eq.master) then
+        close(10, status='delete')
+        close(55, status='delete')
         close(23, status='delete')
      else
+        close(10)
+        close(55)
         close(23)
      endif
   endif
