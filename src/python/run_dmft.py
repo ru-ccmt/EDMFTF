@@ -817,6 +817,7 @@ if __name__ == '__main__':
             print 'ERROR: Can not run CTQMC on real axis! Change case.indmfl:matsubara or params.dat:solver'
         solver=[]
         for i in iSigind.keys():
+            if len(icols_ind[i])==0: continue  # This atom is treated as open-core
             ic = icols_ind[i][0]
             iatom, l, qsplit = inl.cps[ic][0]  # Doesn't take into account cluster problems correctly
             #cftrans = YLM_convert_w2k_to_standard(inl.cftrans[ic], l, qsplit)

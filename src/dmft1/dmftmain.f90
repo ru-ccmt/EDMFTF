@@ -23,7 +23,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   LOGICAL      :: SO, Qcomplex, newform, Qident, Qrenormalize
   CHARACTER*1  :: mode
   INTEGER      :: kindex, nsymop
-  INTEGER      :: wndim, icix, wicix, size, imatsubara, irenormalize
+  INTEGER      :: wndim, icix, wicix, size, imatsubara, irenormalize, icmp_partial_dos
   REAL*8       :: EF_LDA, Ry2eV, cost, cosf, sint, sinf, theta, fi
   REAL*8       :: POST(3), BKRLOC(3,3), S(3)
   INTEGER      :: projector
@@ -266,7 +266,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   CALL ROTDEF(myrank.EQ.master)
 
 ! Reads current input file case.indmf1
-! 5 is connected to current input file case.indmf1
+! 5 is connected to current input file case.indmfl
   !print *, 'Start reading 5'
   READ(5,*) EMIN,EMAX,irenormalize,projector
   if (abs(projector).lt.4) then
@@ -277,23 +277,43 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
      nemax0=int(EMAX)
   endif
   !print *, 'Emin,Emax=', Emin, Emax
-  READ(5,*) imatsubara, gammac, gamma, nom_default, aom_default, bom_default
-  !print *, 'imatsubara=', imatsubara, gammac, gamma, Qmatrix, nom_default, aom_default, bom_default
+
+  icmp_partial_dos = 1
+  READ(5,*,iostat=ios) imatsubara, gammac, gamma, nom_default, aom_default, bom_default, icmp_partial_dos  ! We added a new flag, cmp_partial_dos
+  if (ios.eq.0) then ! icmp_partial_dos is specified
+     matsubara = .FALSE.
+     if (imatsubara.EQ.1) matsubara = .TRUE.
+     cmp_partial_dos = .FALSE.
+     if (icmp_partial_dos.EQ.1) cmp_partial_dos = .TRUE.
+  else
+     BACKSPACE(5)
+     READ(5,*, iostat=ios) imatsubara, gammac, gamma, nom_default, aom_default, bom_default                ! We might not specify that, to be compatible with other parts of the code
+     if (ios .ne. 0) then
+        print *, 'Wrong format for case.indmfl'
+        call stop_MPI
+        STOP 'ERROR dmft1'
+     endif
+     if (imatsubara.EQ.1) then
+        matsubara = .TRUE.        
+        cmp_partial_dos = .FALSE. ! By default, on imaginary axis we do not compute partial dos
+     else
+        matsubara = .FALSE.
+        cmp_partial_dos = .TRUE.     ! By default, we only compute partial dos on the real axis
+     endif
+  endif
+  
   read(5,*) natom
   if (irenormalize.EQ.0) then
       Qrenormalize = .FALSE.
   else
       Qrenormalize = .TRUE.
-  endif
-  if (imatsubara.EQ.0) then
-      matsubara = .FALSE.
-  else
-      matsubara = .TRUE.
-  endif
+   endif
+   
 
   if (Qprint) then
      write(6, 877) Emin,Emax  ! Energy window
      write(6, 887) natom      ! Projected density of states calculation for xxx atoms
+     write(6,*) 'cmp_partial_dos=', cmp_partial_dos
   endif
   !write(21,877) Emin,Emax
   !write(21,887) natom

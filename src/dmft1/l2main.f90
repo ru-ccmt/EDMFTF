@@ -8,7 +8,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   !--        'e' -> eigenvalues are printed
   !--        'u' -> printing transformation
   !--        'x' -> computes xqtl2, just for debugging
-  USE param,    ONLY: LMAX2, LOMAX, NRAD, nloat, nrf, nmat, nume, gamma, gammac, aom_default, bom_default, nom_default, IBLOCK, matsubara, Cohfacts, ComputeLogGloc, maxbands, nemin0, nemax0, max_nl
+  USE param,    ONLY: LMAX2, LOMAX, NRAD, nloat, nrf, nmat, nume, gamma, gammac, aom_default, bom_default, nom_default, IBLOCK, matsubara, Cohfacts, ComputeLogGloc, maxbands, nemin0, nemax0, max_nl, cmp_partial_dos
   USE structure,ONLY: VOL, RMT, iord, iz, nat, mult, pos, tau, rotij, tauij, jri, BR1, rot_spin_quantization
   USE case,     ONLY: cf, csize, maxsize, nl, cix, ll, Sigind, iatom, legend, maxdim, natom, ncix, shft, isort, crotloc, ifirst
   USE sym2,     ONLY: tmat, idet, iz_cartesian
@@ -20,6 +20,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   USE com_mpi,  ONLY: nprocs, myrank, master, cpuID, vectors, vector_para, VECFN, fvectors, FilenameMPI, FilenameMPI2, Gather_MPI, Reduce_MPI, FindMax_MPI, Gather_procs, nvector, Reduce_DM_MPI, Qprint
   USE kpts,     only: numkpt
   USE matpar,   only: atpar, alo, nlo, nlov, nlon, ilo, lapw, RI_MAT, P, DP, RF1, RF2
+  use DMFTProjector, only : CmpDMFTrans
+  use PrintG, only : PrintGloc
   IMPLICIT NONE
   !------- Input variables
   LOGICAL, intent(in)      :: Qcomplex, Qrenormalize
@@ -350,8 +352,10 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      allocate(Eimpm(maxdim,maxdim,ncix), Eimpmk(maxdim,maxdim,ncix))
      Eimpm=0
      Eimpmk=0
-     allocate( gloc(norbitals,nomega) ) !--- local green's function and momentum dependent green's function --!
-     gloc=0
+     if (cmp_partial_dos) then
+        allocate( gloc(norbitals,nomega) ) !--- local green's function and momentum dependent green's function --!
+        gloc=0
+     endif
      allocate(gtot(nomega))
      gtot=0
      if (cmp_DM) then
@@ -532,7 +536,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         !---   A(:,iband,is) contains eigenvectors -----------------------------!
 
         nbands = nemax-nemin+1
-        allocate( DMFTrans(nbands,nbands,maxdim2,maxdim2,norbitals) )
+        if (cmp_partial_dos) allocate( DMFTrans(nbands,nbands,maxdim2,maxdim2,norbitals) )
         allocate( DMFTU(nbands,maxdim2,norbitals) )
         
         if (abs(projector).eq.5) then
@@ -575,7 +579,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      
      
         allocate( STrans(maxsize,ncix,nbands,nbands) )  ! WWW
-        allocate( GTrans(nbands,nbands,norbitals) )
+        if (cmp_partial_dos) allocate( GTrans(nbands,nbands,norbitals) )
         
         if (.False.) then
            ! Finds all star members and corresponding group operations
@@ -763,8 +767,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  idt = idet(isym)
                  icix = cix(icase,lcase)
                  iorb = iorbital(icase,lcase)
-                 CALL CmpDMFTrans(DMFTrans(:,:,:,:,iorb), DMFTU, alml, ri_mat, projector, cfX, l1, iorb, cix_orb, nindo, iso, nemin, nbands, nind, maxdim2, icix, idt, icase, lcase, lmax2, nume, nrf, nrf, norbitals)
-                 if (mode.EQ.'x') then
+                 CALL CmpDMFTrans(DMFTrans, DMFTU, alml, ri_mat, projector, cfX, l1, iorb, cix_orb, nindo, iso, nemin, nbands, nind, maxdim2, icix, idt, icase, lcase, lmax2, nume, nrf, nrf, norbitals)
+                 if (mode.EQ.'x' .and. cmp_partial_dos) then
                     CALL CmpXqtl(xqtl2(:,:,:,iorb), DMFTrans(:,:,:,:,iorb), nbands, nind, maxdim2)
                  endif
               enddo
@@ -781,7 +785,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            time0=time1
 
            IF (mode.EQ.'g') THEN
-              CALL CompressGcTransformation4(GTrans, DMFTrans, nbands, nindo, norbitals, maxdim2)
+              if (cmp_partial_dos) CALL CompressGcTransformation4(GTrans, DMFTrans, nbands, nindo, norbitals, maxdim2)
               CALL GetImpurityLevels2(Eimpmk, Olapmk, DMFTU, STrans, E, EF, s_oo, nemin, nume, iSx, iorbital, ll, nl, csize, cix, natom, iso, ncix, maxdim, maxdim2, lmax2, norbitals, nbands, maxsize)
               Olapm(:,:,:) = Olapm(:,:,:) + Olapmk(:,:,:) * (mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
               Eimpm(:,:,:) = Eimpm(:,:,:) + Eimpmk(:,:,:) * (mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
@@ -813,7 +817,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            do iom=1,nomega                !-------------------- over frequency ---------------------------------!
               ALLOCATE( gij(nbands,nbands) )
               if (mode.EQ.'e') allocate( zek(nbands) )
-              if (mode.EQ.'g') allocate( gmk(maxdim,maxdim,ncix), gk(norbitals) )
+              if (mode.EQ.'g') allocate( gmk(maxdim,maxdim,ncix) )
+              if (mode.EQ.'g' .and. cmp_partial_dos) allocate( gk(norbitals) )
+              
               if (Cohfacts) allocate( evl(nbands,nbands), evr(nbands,nbands))
               gij=0                       !-------- band structure part of g^-1 --------------------------------!           
               ! Building of G^-1 or H_LDA
@@ -877,8 +883,10 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  gmloc(:,:,:,iom) = gmloc(:,:,:,iom) + gmk(:,:,:)*(mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
                  
                  ! G not resolved in m-quantum number. It is computed by using wave functions, u,\cdot{u},...
-                 CALL CmpGknc(gk, gij, GTrans, nindo, norbitals, ncix, nbands)
-                 gloc(:,iom) = gloc(:,iom) + gk(:)*(mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
+                 if (cmp_partial_dos) then
+                    CALL CmpGknc(gk, gij, GTrans, nindo, norbitals, ncix, nbands)
+                    gloc(:,iom) = gloc(:,iom) + gk(:)*(mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
+                 endif
                  
                  ! Total g
                  gtc=0
@@ -907,7 +915,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               ENDIF
               deallocate( gij )
               if (mode.EQ.'e') deallocate( zek )
-              if (mode.EQ.'g') deallocate( gmk, gk )
+              if (mode.EQ.'g') deallocate( gmk )
+              if (mode.EQ.'g' .and. cmp_partial_dos) deallocate( gk )
               if (Cohfacts) DEALLOCATE( evl, evr )
            enddo  !--  iom loop
            !$OMP END PARALLEL DO
@@ -925,7 +934,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         if (Cohfacts) then
            DEALLOCATE(Cohf)
         endif
-        deallocate( DMFTrans, DMFTU, STrans, GTrans )
+        deallocate( DMFTU, STrans )
+        if (cmp_partial_dos) deallocate( DMFTrans, GTrans )
 
         if (abs(projector).eq.5) then
            deallocate( phi_jl )
@@ -1000,6 +1010,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      allocate( Deltac(maxsize, ncix, nomega), Glc(maxsize, ncix, nomega), Eimpc(maxsize, ncix), Olapc(maxsize,ncix) )
      
      CALL GetDelta2(Deltac, Glc, Eimpc, Olapc, logGloc, matsubara, omega, sigma, s_oo, gamma, gmloc, Eimpm, Olapm, Sigind, csize, cixdim, noccur, ncix, maxsize, maxdim, nomega, projector, ComputeLogGloc)
+
      CALL PrintGloc(fh_dos, fh_gc, fh_dt, Glc, gloc, gtot, Deltac, omega, csize, csizes, nl, ll, legend, iatom, ncix, nomega, natom, norbitals, maxsize, Ry2eV)
      
      WRITE(6,'(A)',advance='no') 'Eimp='
@@ -1066,7 +1077,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   deallocate( csort )
   
   if (mode.EQ.'g') then
-     DEALLOCATE( gloc, gmloc, gtot )
+     if (cmp_partial_dos) DEALLOCATE( gloc )
+     DEALLOCATE( gmloc, gtot )
      deallocate( Olapm, Eimpm )
   elseif (mode.EQ.'e') then
      DEALLOCATE(Ekp, nbandsk, nemink, n_ik)

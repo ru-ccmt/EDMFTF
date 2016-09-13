@@ -223,7 +223,7 @@ def cmp_cftrans(qsplit, L, nsites, nspins):
                 Z = zeros((len(T0), len(T0)), dtype=complex)
                 T = bmat([[T0, Z], [Z, T0]])
     elif transtype == 'eg':
-        T = trafo.trafo(L, False) # False means not pseudo functions, but real functions
+        T0 = trafo.trafo(L, False) # False means not pseudo functions, but real functions
         if nspins==2:
             if L==2:
                 z1=zeros(len(T0))

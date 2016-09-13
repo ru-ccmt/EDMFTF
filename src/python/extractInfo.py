@@ -62,8 +62,12 @@ def FindLatticeNd(case, m_extn, siginds,icols_ind,fh_info, scf_name='scf2', cmpl
         for icix in icols_ind[i]:
             nl_all.append( nl[icix] )
             nd_all.append( nd[icix] )
-        nl_imp[i] = reduce(lambda x,y: x+y, nl_all)/len(nl_all)
-        nd_imp[i] = reduce(lambda x,y: x+y, nd_all)/len(nd_all)
+        if len(icols_ind[i])>0:
+            nl_imp[i] = reduce(lambda x,y: x+y, nl_all)/len(nl_all)
+            nd_imp[i] = reduce(lambda x,y: x+y, nd_all)/len(nd_all)
+        else:
+            nl_imp[i]=0
+            nd_imp[i]=0
     
     print >> fh_info, 'nl_imp=', nl_imp
     print >> fh_info, 'nd_imp=', nd_imp
@@ -73,9 +77,9 @@ def FindLatticeNd(case, m_extn, siginds,icols_ind,fh_info, scf_name='scf2', cmpl
 
 if __name__ == '__main__':
      w2k = utils.W2kEnvironment()    # W2k filenames and paths
-     m_extn='dn'
+     m_extn=''
      inl = indmffile.Indmfl(w2k.case) # case.indmfl file
      inl.read()                       # case.indmfl read
-     icols_ind={0: [1]}
+     icols_ind={0: []}
      (nl_imp, nd_imp) = FindLatticeNd(w2k.case, m_extn, inl.siginds, icols_ind, sys.stdout, 'scfdmft1', cmplx=True)
      print nl_imp, nd_imp

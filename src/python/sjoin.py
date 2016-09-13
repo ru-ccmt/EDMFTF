@@ -117,6 +117,9 @@ if __name__=='__main__':
     #allcols = sort(array(allcols).flatten())
     
     print 'allcols=', allcols
+
+    if len(allcols)==0: sys.exit(0)
+
     print 'max(allcols)=', max(allcols)
     noccur = zeros(max(allcols),dtype=int)
     #print 'len(noccur)=', len(noccur)

@@ -88,7 +88,7 @@ CONTAINS
   
   SUBROUTINE Reduce_MPI(gloc, gtot, gmloc, Olapm, Eimpm, norbitals, nomega, maxdim, ncix)                                                                     
     IMPLICIT NONE                                                                                                                                             
-    COMPLEX*16, intent(inout) :: gloc(norbitals,nomega)                                                                                                       
+    COMPLEX*16, allocatable, intent(inout) :: gloc(:,:)  ! gloc(norbitals,nomega)                                                                                                       
     COMPLEX*16, intent(inout) :: gtot(nomega)                                                                                                                 
     COMPLEX*16, intent(inout) :: gmloc(maxdim, maxdim, ncix, nomega)                                                                                          
     COMPLEX*16, intent(inout) :: Olapm(maxdim,maxdim,ncix), Eimpm(maxdim,maxdim,ncix)                                                                         
@@ -100,21 +100,29 @@ CONTAINS
     COMPLEX*16, allocatable :: wgmloc(:,:,:,:)                                                                                                                
                                                                                                                                                               
     if (myrank.eq.master) then                                                                                                                                
-       ALLOCATE( wgtot(nomega), wgloc(norbitals,nomega), wOlapm(maxdim,maxdim,ncix), wEimpm(maxdim,maxdim,ncix) )                                             
+       ALLOCATE( wgtot(nomega), wOlapm(maxdim,maxdim,ncix), wEimpm(maxdim,maxdim,ncix) )
+       if (allocated(gloc)) ALLOCATE( wgloc(norbitals,nomega) )
     endif
     CALL MPI_REDUCE(gtot,  wgtot,  nomega,           MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)                                               
     if (ierr.ne.0) print *, 'ERROR in MPI_REDUCE 1', ierr
-    CALL MPI_REDUCE(gloc,  wgloc,  norbitals*nomega, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)                                               
-    if (ierr.ne.0) print *, 'ERROR in MPI_REDUCE 2', ierr
+
+    if (allocated(gloc)) then
+       CALL MPI_REDUCE(gloc,  wgloc,  norbitals*nomega, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)                                               
+       if (ierr.ne.0) print *, 'ERROR in MPI_REDUCE 2', ierr
+    endif
+    
     CALL MPI_REDUCE(Olapm, wOlapm, maxdim*maxdim*ncix, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)                                             
     if (ierr.ne.0) print *, 'ERROR in MPI_REDUCE 3', ierr
     CALL MPI_REDUCE(Eimpm, wEimpm, maxdim*maxdim*ncix, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)                                             
     if (myrank.eq.master) then                                                                                                                                
        gtot = wgtot                                                                                                                                           
-       gloc = wgloc                                                                                                                                           
        Olapm = wOlapm                                                                                                                                         
        Eimpm = wEimpm                                                                                                                                         
-       DEALLOCATE( wgtot, wgloc, wOlapm, wEimpm )                                                                                                             
+       DEALLOCATE( wgtot, wOlapm, wEimpm )
+       if (allocated(gloc)) then
+          gloc = wgloc
+          DEALLOCATE( wgloc )
+       endif
     endif
                                                                                                                                                               
     if (myrank.eq.master) then                                                                                                                                

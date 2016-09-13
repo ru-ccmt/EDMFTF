@@ -24,6 +24,7 @@ MODULE param
   LOGICAL          :: ComputeLogGloc
   INTEGER          :: nemin0, nemax0
   INTEGER          :: max_nl
+  LOGICAL          :: cmp_partial_dos
 ! for x-dos set lxdos to 3
   parameter (lxdos= 3)
   parameter (nloat= 3)
