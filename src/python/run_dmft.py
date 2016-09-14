@@ -114,7 +114,7 @@ def dmft1(fday, case, fh_info, extn, MPI, ROOT, m_extn=''):
     for fe in glob.glob('dmft1.error*'):
         if getsize(fe) !=0:
             print 'ERROR in dmft1 from file:', fe, open(fe,'r').read()
-            sys.exit(1)
+            #sys.exit(1)
 
     if m_extn=='':
         shutil.copy2(case+'.cdos', case+'.cdos.'+extn)
@@ -817,7 +817,6 @@ if __name__ == '__main__':
             print 'ERROR: Can not run CTQMC on real axis! Change case.indmfl:matsubara or params.dat:solver'
         solver=[]
         for i in iSigind.keys():
-            if len(icols_ind[i])==0: continue  # This atom is treated as open-core
             ic = icols_ind[i][0]
             iatom, l, qsplit = inl.cps[ic][0]  # Doesn't take into account cluster problems correctly
             #cftrans = YLM_convert_w2k_to_standard(inl.cftrans[ic], l, qsplit)
