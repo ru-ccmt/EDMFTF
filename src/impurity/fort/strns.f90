@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! This module builds transformation matrix between cubis<->spheric harmonics !!
 !! and between (l,m,s) base and (l,j,jm) base                                 !!

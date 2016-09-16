@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifdef _MPI
 #include <mpi.h>
 using namespace std;

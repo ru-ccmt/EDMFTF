@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 
 subroutine ZProduct_MM(C,A,B,transa,transb, na1, na2, nb1, nb2, nc1, nc2)
   IMPLICIT NONE

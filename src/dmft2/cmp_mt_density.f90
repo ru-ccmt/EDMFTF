@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 SUBROUTINE cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, nbands, nbandsx, nbands_dft, lm_max, n0, nnlo, coord, ikp, time_bl,time_bl_w, time_reduc, time_reduc_w, time_radprod, time_radprod_w,time_m, time_m_w, time_rad, time_rad_w, time_ilm, time_ilm_w, time_lo, time_lo_w, time_force, time_force_w)
   USE defs,  ONLY: pi, imag
   USE param, ONLY: lmax2, nume, nloat, iblock, nmat, nrad, CHUNK, lomax, ngau

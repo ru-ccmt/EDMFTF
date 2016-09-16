@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef __TIMER__
 #define __TIMER__
 #include <ctime>

@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 
 void ClusterData::Read_for_HB1(ifstream& gout, double mu, double U)
 {

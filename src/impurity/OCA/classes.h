@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 struct Amp{
   double m, p;
 };

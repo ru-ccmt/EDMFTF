@@ -1,4 +1,5 @@
 from scipy import *
+# @Copyright 2007 Kristjan Haule
 
 def ReadTrans(filename, fh_info):
     """Read the self-energy index file Sigind and the local transformation matrix CF from a file"""

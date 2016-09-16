@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 SUBROUTINE GetSpinRotation(Rspin,rotij,crotloc,norbitals,natom,natm,iso,lmaxp,iatom,nl,cix,ll,iorbital)
   USE com_mpi, ONLY: myrank, master, Qprint
   USE structure, ONLY: BR1, rot_spin_quantization

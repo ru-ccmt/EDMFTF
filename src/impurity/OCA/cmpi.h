@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifdef _MPI
 void MPI_Init(int argc, char *argv[], int& my_rank, int& mpi_size)
 {

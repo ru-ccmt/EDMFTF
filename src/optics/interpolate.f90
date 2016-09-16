@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 
 SUBROUTINE findNext(x, ix, R, n)
   IMPLICIT NONE

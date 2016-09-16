@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 SUBROUTINE ReadFirstPart_of_in1(PRNTWF, SPRSWF, WFTAPE, efermi, NT, RKM, LNSMAX, NSLMAX, LMAX)
   !        read output-format parameters
   IMPLICIT NONE

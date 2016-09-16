@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbital, cix_orb, nindo, cixdim, iSx, noccur, cfX, crotloc_x_rotij, maxucase, maxdim2, norbitals, pr_proc, SIMPLE)
   USE com_mpi,  ONLY: myrank, master, vectors, nvector, vector_para, fvectors, AllReduce_MPI, Qprint
   USE com,      ONLY: MINWAV, MAXWAV, iso, emin, emax

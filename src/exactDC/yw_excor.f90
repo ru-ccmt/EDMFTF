@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 !*****************************************************************!
 ! This module implements exchange and LDA-correlation
 !  functional for Coulomb interaction screened by

@@ -1,3 +1,4 @@
+# @Copyright 2007 Kristjan Haule
 import sys
 from scipy import *
 from scipy import linalg

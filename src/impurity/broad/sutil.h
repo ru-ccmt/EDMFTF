@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef MY_UTILS
 #define MY_UTILS
 #include <cmath>

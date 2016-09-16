@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
+# 
 """Module analytically continues self-energy from imaginary axis to real axis
    Input:
        Mandatory:

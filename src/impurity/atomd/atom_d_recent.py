@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
+# 
 pycxx_available=True
 symeig_available=False
 

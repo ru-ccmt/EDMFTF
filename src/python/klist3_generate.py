@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 """ Generates k-list for w2k for plotting. Needs to set "legend" and "BS"
 """
 from scipy import *

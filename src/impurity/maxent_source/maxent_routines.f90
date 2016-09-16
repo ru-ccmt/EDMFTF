@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 !-------------------------------------
 !   Classic Maximum Entropy Method
 !-------------------------------------

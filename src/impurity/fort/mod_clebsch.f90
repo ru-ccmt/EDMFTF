@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 REAL*8 function iFactorial(j)
   IMPLICIT NONE
   INTEGER, intent(in) :: j

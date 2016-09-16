@@ -1,3 +1,4 @@
+# @Copyright 2007 Kristjan Haule
 import sys, re, os
 from scipy import *
 from pylab import *

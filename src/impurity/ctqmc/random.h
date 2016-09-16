@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #include <cstdio>
 #include <cstdlib>
 #include <gsl/gsl_rng.h>

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
+
 from scipy import *
 import struct, sys, re
 from scipy import linalg

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 
 '''
 sigen.py -- Sigma Index Generator

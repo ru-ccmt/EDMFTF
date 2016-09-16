@@ -1,3 +1,6 @@
+// @Copyright 2007 Kristjan Haule
+// 
+
 #include "CXX/Objects.hxx"
 #include "CXX/Extensions.hxx"
 #include <assert.h>

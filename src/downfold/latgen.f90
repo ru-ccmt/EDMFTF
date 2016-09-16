@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 SUBROUTINE struct_sizes(nat,nsym,ndif,lattic,AA,BB,CC,alpha,structf)
   IMPLICIT NONE
   CHARACTER*80, intent(in):: structf

@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #include "sfunction.h"
 
 void Multiply(function2D<double>& C, const function2D<double>& A, const function2D<double>& B)

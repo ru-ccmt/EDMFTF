@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 SUBROUTINE ReadThirdPart_of_in1(ITAPE,Emin,Emax,nband,sproj_limit,eshift_iter,fh_in1)
   IMPLICIT NONE
   REAL*8,  intent(out) :: Emin, Emax, sproj_limit, eshift_iter

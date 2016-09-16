@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 
 '''
 Classes to handle reading of WIEN2K files.

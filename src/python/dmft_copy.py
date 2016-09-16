@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 import sys
 import re, os, glob, shutil
 from os.path import getsize

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 from scipy import *
 import sys,os,re
 #from pylab import *

@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef FUNCTION_
 #define FUNCTION_
 #include <iostream>

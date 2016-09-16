@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 from scipy import *
 
 BS=[[1,1,0], [-1,1,0], [0,0,2]]

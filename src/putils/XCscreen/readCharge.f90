@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 
 SUBROUTINE checkChargeSize(file_clmsum,lmmaxx,lmax2,ncom,nrad,lmmax,lmmax1,jri,nat)
   IMPLICIT NONE

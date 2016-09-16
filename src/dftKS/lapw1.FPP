@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule 
+
 #ifdef _REAL
 #define tpcast(X) dble(X)  !! typecasting in fortran
 #define XSWAP DSWAP

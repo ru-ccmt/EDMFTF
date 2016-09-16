@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 
 import re, os
 from numpy import diff

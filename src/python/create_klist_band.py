@@ -1,3 +1,4 @@
+# @Copyright 2007 Kristjan Haule
 from scipy import *
 
 P = [ ('$Y$', [0,1,0]),

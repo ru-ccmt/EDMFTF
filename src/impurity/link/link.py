@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
+# 
+
 from scipy import *
 from scipy import linalg
 import sys

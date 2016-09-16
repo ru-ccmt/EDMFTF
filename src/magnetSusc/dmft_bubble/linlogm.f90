@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 module LinLogMesh
   !##########################
   !# Rreal axis mesh        #

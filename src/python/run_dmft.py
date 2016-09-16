@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 import sys, subprocess
 import re, os, glob, shutil, socket, time
 from os.path import getsize

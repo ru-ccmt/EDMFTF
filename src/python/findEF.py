@@ -1,5 +1,5 @@
 import re,sys,os
-
+# @Copyright 2007 Kristjan Haule
 def FindChemicalPotential(case, updn):
     # Looking for the LDA chemical potential
     Ry2eV = 13.60569193

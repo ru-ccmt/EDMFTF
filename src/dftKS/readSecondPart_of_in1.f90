@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 SUBROUTINE ReadSecondPart_of_in1(El,Elo,lapw,loor,ilo,nlo, Vr,ZZ,jri,mult,dx,r0,Efermi,aname,REL,fh_in1,fh_cout,fh_scf,nat,nrad,nloat,lmax,lomax,Qprint)
   IMPLICIT NONE
   REAL*8,  intent(out) :: El(1:lmax,nat), Elo(0:lomax,1:nloat,nat)

@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 module DMFTProjector
   contains
     SUBROUTINE CmpDMFTrans(DMFTrans, DMFTU, alml, ri_mat, projector, cfX, L, iorb1, cix_orb, nindo, iso, nemin, nbands, nind, maxdim2, icix, idt, icase, lcase, lmax2, nume, nrf, nrfmax, norbitals)

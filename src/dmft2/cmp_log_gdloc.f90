@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc)
   USE defs,  ONLY: pi, IMAG
   USE splines, ONLY: zspline3, zspline3der

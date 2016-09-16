@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
+
 import os
 from scipy import *
 import utils

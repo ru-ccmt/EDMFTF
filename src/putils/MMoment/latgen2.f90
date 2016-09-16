@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 SUBROUTINE LATGEN(BR1, BR2, VOL, ORTHO, ALPHA_IN, AA, BB, CC, LATTIC)
   !                                                                       
   !     LATGEN GENERATES TWO BRAVAIS MATRICES, DEFINES THE VOLUME OF      

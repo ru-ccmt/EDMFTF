@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 subroutine dinv(A, ndim)
   IMPLICIT NONE
   REAL*8, intent(inout) :: A(ndim,ndim)

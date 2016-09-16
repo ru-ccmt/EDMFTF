@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
+# 
+
 from sys import *
 from scipy import *
 from pylab import *

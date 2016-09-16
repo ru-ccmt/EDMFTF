@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 SUBROUTINE GetSpinRotation(Rspin,rotij,crotloc,BR1,norbitals,natom,natm,iso,lmax2,iatom,nl,cix,ll,iorbital)
   USE com_mpi, ONLY: Qprint
   IMPLICIT NONE

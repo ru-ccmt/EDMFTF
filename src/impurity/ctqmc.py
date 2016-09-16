@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
+# 
+
 import sys, re, os, glob, shutil, types
 from scipy import *
 from scipy import interpolate

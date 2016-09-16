@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 PROGRAM DMFT2
   USE param
   USE defs

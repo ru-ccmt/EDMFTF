@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef _COMMON_
 #define _COMMON_
 #include "zeroin.h"

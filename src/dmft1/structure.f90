@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 MODULE structure
   LOGICAL                  :: rel
   REAL*8                   :: aa,bb,cc,alpha(3),pia(3),vol

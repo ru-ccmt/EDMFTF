@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 import utils,indmffile,sys,re,os,shutil
 import optparse, subprocess
 from scipy import *

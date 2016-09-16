@@ -1,3 +1,6 @@
+# @Copyright 2007 Kristjan Haule
+# 
+
 from scipy import *
 
 def MeshJoin(u, dwt, xt):

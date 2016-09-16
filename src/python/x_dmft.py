@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 import sys, os, glob, re, numpy, shutil, subprocess
 from scipy import *
 from scipy import optimize, interpolate

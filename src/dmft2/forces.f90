@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 module Forces
   logical  :: Qforce                   ! whether we are computing forces at all
   logical, allocatable  :: forcea(:,:) ! focea(0:3,nat) : which atoms can have nonzero forces because they are at non-symmetric positions

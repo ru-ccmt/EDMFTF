@@ -1,3 +1,4 @@
+# @Copyright 2007 Kristjan Haule
 #!/usr/bin/env python
 import argparse
 from scipy import *

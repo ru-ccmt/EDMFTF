@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 program print_gk
   IMPLICIT NONE
   ! functions

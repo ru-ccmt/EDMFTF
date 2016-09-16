@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef _BLAS_
 #define _BLAS_
 #include <string>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 from scipy import *
 
 path=[[0,0,0],[-0.5,-0.5,0],[-1,0,0],[0,0,0]]

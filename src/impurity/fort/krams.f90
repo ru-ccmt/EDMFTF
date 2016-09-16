@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 
 SUBROUTINE kramarskronig(gr, fi, om, i0, nom)
   IMPLICIT NONE

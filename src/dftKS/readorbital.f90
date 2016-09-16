@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+!
 SUBROUTINE ReadOrbitalPotential(nat,runorb)
   use orb, only     : BEXT, VORB, NMOD, NSP, NATORB, IATOM, NLORB, LORB, init_orb
   IMPLICIT NONE

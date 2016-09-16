@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #include <cstdlib>
 #include <cmath>
 #include <iostream>

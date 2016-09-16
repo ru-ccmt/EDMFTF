@@ -1,3 +1,4 @@
+# @Copyright 2007 Kristjan Haule
 from scipy import *
 import sys, re
 from utils import W2kEnvironment, Ry_in_eV

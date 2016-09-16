@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 module greenk
   IMPLICIT NONE
   REAL*8, allocatable :: oml(:)

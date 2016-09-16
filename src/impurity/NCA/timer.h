@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef trtimer
 #define trtimer
 #include <cstdio>

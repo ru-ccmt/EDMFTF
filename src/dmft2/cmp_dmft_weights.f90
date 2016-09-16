@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 
 SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEweight, nedim, STrans, sigma, s_oo, wkp, omega, vnorm1, DM_EF, Temperature, wgamma, gamma, csize, nbands, DM_nemin, DM_nemax, maxsize, ncix, nomega, npomega, nume, matsubara, lgTrans, lg_deg, ntcix, nipc, ikp)
   USE defs,  ONLY: pi, IMAG

@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 SUBROUTINE OUTWIN(A, B, REL, V, Rnet, Nr, dh, ER, FL, Z, VAL,SLO,Nodes) 
   !         Integration of skalarrel. Schroedinger Equation
   ! ----------------------------------------------------------------

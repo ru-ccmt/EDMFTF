@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 SUBROUTINE Create_Atom_Arrays(csort, maxucase, isort, iatom, nat, natm, natom)
   USE com_mpi, ONLY: myrank, master, Qprint
   IMPLICIT NONE

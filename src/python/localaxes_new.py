@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 
 from numpy import asarray,mat,sum,dot,cross
 from scipy import linalg, optimize

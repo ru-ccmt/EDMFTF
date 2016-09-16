@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 import glob, os, sys
 
 def giveString(i, clen=3):

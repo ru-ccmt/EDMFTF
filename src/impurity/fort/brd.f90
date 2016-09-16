@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 
 SUBROUTINE MakeTanMesh(x, N, tanc, tanw, b0, b1)
   IMPLICIT NONE

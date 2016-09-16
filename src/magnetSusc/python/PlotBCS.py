@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 from scipy import *
 from pylab import *
 from scipy import interpolate

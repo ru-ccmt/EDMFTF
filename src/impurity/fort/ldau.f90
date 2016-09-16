@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 SUBROUTINE Hartree(Sinfty, Edc, Uc, Jc, occ, bndind, corind, da, ndim, subtractDC)
   !***************************************************************************************!
   !* This subroutine computes Hartree Self-energy for given charge density matrix mocc   *!

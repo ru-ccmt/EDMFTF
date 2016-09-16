@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 FUNCTION CountSelfenergy(fh_sig, ncorr)
   IMPLICIT NONE
   INTEGER, intent(in) :: fh_sig, ncorr

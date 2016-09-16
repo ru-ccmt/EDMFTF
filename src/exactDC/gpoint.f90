@@ -1,3 +1,4 @@
+! @Copyright 2007 Kristjan Haule
 SUBROUTINE tfpoint(thetas,phis,tweights,ln)
   !************************************************!
   !     GENERATES POINTS ON A UNIT SPHERE          !

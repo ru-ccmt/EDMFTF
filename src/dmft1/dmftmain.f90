@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 PROGRAM DMFTMAIN  ! Program DMFT calculates 
   USE param
   USE structure, ONLY: ReadStructure, WriteInfoStructure, DeallocateStructure, mult, ndif, iz, tau, rotloc, pos, rotij, tauij, BR1, BR2, LATGEN, ROTDEF, iord, nat, rot_spin_quantization

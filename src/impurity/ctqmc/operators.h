@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 
 void SortTimes(double t_start1, int fls1, double t_end1, int fle1, double t_start2, int fls2, double t_end2, int fle2, function1D<double>& tm, function1D<int>& op);
 

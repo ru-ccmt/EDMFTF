@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #include <cstdio>
 #include <cstdarg>
 #include <cstdlib>

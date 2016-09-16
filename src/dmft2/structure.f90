@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 MODULE structure
   INTEGER,ALLOCATABLE      :: iatnr(:),mult(:),isplit(:),jri(:)
   REAL*8,ALLOCATABLE       :: pos(:,:)

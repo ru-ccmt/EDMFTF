@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef __MY_DCOMPLEX__
 #define __MY_DCOMPLEX__
 #include <cmath>

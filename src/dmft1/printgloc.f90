@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 module PrintG
 contains
   SUBROUTINE PrintGloc(fh_dos, fh_gc, fh_dt, Glc, gloc, gtot, Deltac, omega, csize, csizes, nl, ll, legend, iatom, ncix, nomega, natom, norbitals, maxsize, Ry2eV)

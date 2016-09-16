@@ -8,7 +8,7 @@
 #  the State University of New Jersey
 #
 # @version 1.0.0
-# @author Kristjan Haule
+# @author Kristjan Haule and Viktor Oudovenko
 # @date 2016-02-15
 #
 ###

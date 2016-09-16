@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# @Copyright 2007 Kristjan Haule
 import re,glob,os,sys,copy,shutil
 
 fkeep0=['params.dat', 'info.iterate', 'wnohup.dat','dmft_info.out', 'ksum_info.out','sig.inp', 'dclean.py', 'optics.dat']

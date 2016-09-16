@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef _AVERAGE_
 #define _AVERAGE_
 

@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 subroutine chi2(chi, nrm, chi4, gweigh, vary, gwfix, fixed, sqmc, ifunr, ifuni, ders, expand, expand_sig,&
                 & nvary, nfix, nal, nom, nds)
   IMPLICIT NONE

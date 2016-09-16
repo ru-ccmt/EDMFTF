@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 
 double Segment_ComputeTryalExponentSum(function2D<NState>& state_evolution_left, int op_i, const NOperators& Operators, const function1D<NState>& praStates, const ClusterData& cluster, int dsize, long long istep)
 {

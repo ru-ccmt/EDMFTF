@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #ifndef __LOGGING__
 #define __LOGGING__
 

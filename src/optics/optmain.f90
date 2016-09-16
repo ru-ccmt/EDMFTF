@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+
 SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_, delta, Nd, gammac, gamma, alphaV, Ndirection, Qsym, Qsimple, nom, nat, iso, norbitals, ncix, natom, nkpt, nmat, nume, Qcomplex, lmax2, maxdim2, maxdim, maxsize, dwindow, InterbandOnly)
   USE com_mpi, ONLY: nprocs, myrank, master, Reduce_MPI, Reduce_MPI_dos
   IMPLICIT NONE

@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "parser.h"

@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 
 inline void NState::SetEqual(const NState& m)
 {

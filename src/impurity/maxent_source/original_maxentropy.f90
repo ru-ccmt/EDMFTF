@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 program maxentropy
   IMPLICIT NONE
   INTEGER :: nt, nw, seed

@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+
 SUBROUTINE eigsys(ham, zek, evl, evr, ndim)
 !!!----------------------------------------------------------------------!!!
 !!! This routine solves the generalized right/left eigenvalue problems   !!!

@@ -1,3 +1,6 @@
+! @Copyright 2007 Kristjan Haule
+! 
+
 module p_project
   IMPLICIT NONE
   REAL*8, allocatable ::  P_rfi(:,:)

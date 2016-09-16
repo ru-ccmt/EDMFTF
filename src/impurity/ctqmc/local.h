@@ -1,3 +1,5 @@
+// @Copyright 2007 Kristjan Haule
+// 
 
 void StartStateEvolution(function2D<NState>& state_evolution_left,
 			 function2D<NState>& state_evolution_right,

@@ -1,3 +1,5 @@
+! @Copyright 2007 Kristjan Haule
+! 
 
 ! mweight_ikp = (mweight(ikp)/tweight/nsymop)
   
