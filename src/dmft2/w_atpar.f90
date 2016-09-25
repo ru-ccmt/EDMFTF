@@ -183,17 +183,19 @@ CONTAINS
              WRITE(6,'(A,I2,2x,A,I1,2x,A,F12.8,2x,A,L1,2x,A,F10.5)') 'jatom=', jatom, 'l=', l, 'e(l)=', el(l), 'lapw=', lapw(l), '<dot_u|dot_u>=', ri_mat(2,2,l,jatom)
           ENDDO
           DO l=0,lomax
-             WRITE(6,'(A,I2,2x,A,I1,2x,A,I1,2x,A,3F15.8)') 'jatom=', jatom, 'l=', l, 'ilo=', ilo(l), 'elo(l)=', elo(l,:)
-             WRITE(6,'(A)',advance='no') '(rlo,loor): '
-             do jlo=1,ilo(l)
-                WRITE(6,'(A,L1,A,L1,A)',advance='no') '(',rlo(jlo,l),',',loor(jlo,l),')  '
-             enddo
-             WRITE(6,*)
-             WRITE(6,'(A12,A12,A12)',advance='no') '<u|u_lo>', '<udot|u_lo>', '<u_lo|u_lo>'
-             do jlo=1,ilo(l)
-                WRITE(6,'(F10.5,2x,F10.5,2x,F10.5,2x)',advance='no') ri_mat(2+jlo,1,l,jatom), ri_mat(2+jlo,2,l,jatom), ri_mat(2+jlo,2+jlo,l,jatom)
-             enddo
-             WRITE(6,*)
+             if (ilo(l).GT.0) then
+                WRITE(6,'(A,I2,2x,A,I1,2x,A,I1,2x,A,3F15.8)') 'jatom=', jatom, 'l=', l, 'ilo=', ilo(l), 'elo(l)=', elo(l,:)
+                WRITE(6,'(A)',advance='no') '(rlo,loor): '
+                do jlo=1,ilo(l)
+                   WRITE(6,'(A,L1,A,L1,A)',advance='no') '(',rlo(jlo,l),',',loor(jlo,l),')  '
+                enddo
+                WRITE(6,*)
+                WRITE(6,'(A12,A12,A12)',advance='no') '<u|u_lo>', '<udot|u_lo>', '<u_lo|u_lo>'
+                do jlo=1,ilo(l)
+                   WRITE(6,'(F10.5,2x,F10.5,2x,F10.5,2x)',advance='no') ri_mat(2+jlo,1,l,jatom), ri_mat(2+jlo,2,l,jatom), ri_mat(2+jlo,2+jlo,l,jatom)
+                enddo
+                WRITE(6,*)
+             endif
           ENDDO
        endif
        

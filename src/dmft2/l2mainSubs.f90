@@ -367,7 +367,9 @@ SUBROUTINE Set_A_Arrays(iorbital, nindo, cix_orb, iSx, noccur, cixdim, cfX, CF, 
 
   if (Qprint) then
      do iorb1=1,norbitals
+        nind1 = nindo(iorb1)
         do iorb2=1,norbitals
+           nind2 = nindo(iorb2)
            if ( cix_orb(iorb1).EQ.0 ) CYCLE
            if ( cix_orb(iorb1).NE.cix_orb(iorb2) ) CYCLE
            WRITE(6,'(A,I2,A,I2)') 'CF for iorb1=', iorb1, ' iorb2=', iorb2

@@ -1,32 +1,20 @@
 #!/usr/bin/env python
-# @Copyright 2007 Kristjan Haule
-
 from numpy import * 
-from scipy import linalg, optimize
+from scipy import linalg
 from scipy.linalg import norm
-import operator, optparse
-import debug, wienfile
 from utils import W2kEnvironment
 import sys
 from numpy.linalg import svd
 import w2k_nn
 
-'''Rotation Convention
-
-We use active rotations in this file.  Example: if a is the vector coordinate
-of an atom, then R.a should give something close to (1,0,0) or similar.  Here
-a is a column vector, and we multiply R from the left.
-'''
-
-def readcages2(case, nnn, atoms=''):
-    '''nnn - number of nearest neighbor atoms used to form cage'''
-    extn = '.outputnn_'
-    f = open(case+extn, 'r')
+def ReadNNFile(case):
+    f = open(case+'.outputnn_', 'r')
     lines = f.readlines()
     f.close()
-
     lines = [line.strip() for line in lines if (not line.startswith(' RMT(')) and (not line.startswith(' SUMS TO'))]
+    return lines
 
+def GetUserInput(lines):
     print 'ATOMIC INFORMATION FROM STRUCT FILE'
     print
 
@@ -34,52 +22,10 @@ def readcages2(case, nnn, atoms=''):
     for n,header in enumerate(headers):
         linenum, text = header
         print '%3d %s' % (n+1, text)
-
-    if not atoms:
-        atoms = raw_input('Enter indexes of atoms for which you want to determine local axes: ')
-    chosen_iatoms = expand_intlist(atoms)
-
-    # extract cage coordinates for each atom relative to the central atom
-    # these are given in units of lattice vectors
-    cages = []
-    for iatom in chosen_iatoms:
-        startline, text = headers[iatom-1]
-        x,y,z = [float(coord) for coord in text.split()[-3:]]  # coordinates of central atom
-        offset = 1
-        coordlines = lines[startline+offset:startline+offset+nnn]
-        cage = [[float(line[23:37])-x, float(line[37:51])-y, float(line[51:65])-z] for line in coordlines]
-        cages.append((text, cage))
-
-    # convert cage coordinates into orthonormal basis
-    S2C = get_bravais_matrix2(case)
-    bmat = S2C.transpose()
-    print 'Bravais Matrix:'
-    print '[',bmat[0].tolist(),',',bmat[1].tolist(),',',bmat[2].tolist(),']'
-    print 'S2C = {'+','.join(['{'+','.join([str(e) for e in v])+'}' for v in S2C])+'};'
-    print
-    #if print_mathematica:
-    #    print 'bmat = {'+','.join(['{'+','.join([str(e) for e in v])+'}' for v in bmat])+'};'
     
-
-    #for i,itaom in enumerate(chosen_iatoms):
-    #    text, cage = cages[i]
-    #    for atom in cage:
-    #        print atom, ";", dot(atom,S2C)
-
-    return [(text, [dot(S2C,atom) for atom in cage]) for text, cage in cages]
-
-
-def expand_intlist(input):
-    '''Expand out any ranges in user input of integer lists.
-    Example: input  = "1,2,4-6"
-             output = [1, 2, 4, 5, 6]'''
-    def parse1(x):
-        y = x.split('-')
-        return [int(x)] if len(y) == 1 else range(*[int(y[0]), int(y[1])+1])
-
-    return reduce(operator.add, [parse1(x) for x in input.split(',')])
-
-
+    atoms = raw_input('Enter the atom for which you want to determine local axes: ')
+    return int(atoms)
+    
 def get_bravais_matrix2(case):
     """Returns a matrix S2C, which converts vector in latice units to cartesian coordinates"""
     extn = '.rotlm_'
@@ -93,125 +39,180 @@ def get_bravais_matrix2(case):
     S2C = linalg.inv(BR1)*2*pi
     return S2C
 
-def sort_octahedral_cage(cage, coscut = 0.707):
-    '''Given an octahedral cage of atoms, sorts them so they are ordered
-    in the same manner as the vertices are defined (in the list `octahedron`).
+def FindCageBasis(iatom,S2C,lines):
+    """Find the best directions for the local coordinate system, which is non-orthogonal.
+    """
+    # supported cages which are currently detected
+    # (type, N, angles)
+    cases = [('cube',8,[arccos(1/3.)]*3+[arccos(-1/3.)]*3+[pi]), ('octahedra',6,[pi/2]*4+[pi]), ('tetrahedra',4,[arccos(-1/3.)]*3)]
 
-    Tries to place closest atoms in x-y plane.'''
-    norms = [linalg.norm(v) for v in cage]
-    unitvecs = [asarray(v)/linalg.norm(v) for v in cage]
+    
+    headers = [(n,line) for n,line in enumerate(lines) if ('ATOM:' in line) and ('EQUIV.' in line)]
 
-    # choose closest atom along x-axis
-    nx = norms.index(min(norms))
+    startline, text = headers[iatom-1]
+    x,y,z = [float(coord) for coord in text.split()[-3:]]  # coordinates of central atom
 
-    # find atom along minus-x axis
-    xangles = dot(unitvecs, unitvecs[nx])
-    [nminusx] = [n for n,angle in enumerate(xangles) if angle < -coscut]
+    # Reads all atoms around the central atom
+    neighs = [] # these are in lattice units
+    cneighs=[]  # these are in cartesian
+    for line in lines[startline+1:]:
+        #print line
+        if not line: break # empty line stops the environment of this atom
+        neigh = [float(line[23:37])-x, float(line[37:51])-y, float(line[51:65])-z]
+        cneigh =  dot(S2C,neigh) # convert coordinates into orthonormal basis
+        neighs.append(neigh)
+        cneighs.append( cneigh )
 
-    # the other four must lie in the yz plane
-    nyz = [n for n,angle in enumerate(xangles) if (angle < coscut) and (angle > -coscut)]
-    _,ny = min([(norms[n], n) for n in nyz])  # choose closest atom in yz plane as y-axis
+    
+    lis0=[] # precompute all distances
+    negs0=[] # precompute all unit vectors
+    for neigh in cneighs:
+        d = linalg.norm(neigh)
+        lis0.append( d )
+        negs0.append( neigh/d )
+        
+    # Now go over all atoms in the cage, and guess what type of cage it is
+    criteria=[]
+    lmin = lis0[0]
+    for (ctype,N,angles) in cases: # over possible environments: cube, octahedra, tetrahedra
+        lis = lis0[:N]
+        negs = negs0[:N]
+        # First, compute effective coordination number (see VESTA manual)
+        zw=0.
+        zi=0.
+        for li in lis:
+            w = exp(1-(li/lmin)**6)
+            zi += li*w
+            zw += w
+        lav = zi/zw
+        ws = 0
+        for li in lis:
+            ws += exp(1-(li/lav)**6)
+        # Second, compute all angles between all vectors
+        angs=[]
+        for i in range(N):
+            an=[]
+            for j in range(N):
+                if i==j: continue
+                cosp = dot(negs[i],negs[j])
+                if cosp>1: cosp=1
+                if cosp<-1: cosp=-1
+                phi = arccos(cosp)
+                an.append(phi)
+                #print i, j, phi*180/pi, cosp
+            angs.append(an)
+        angs = [array(sorted(ang)) for ang in angs] # These are all angles, sorted
+        #
+        angles = array(angles)
+        chi2 = 0 # Now we can compute bond angle variance, i.e., distance between expected angles and actual angles
+        for i in range(len(angs)):
+            chi2 += sum((angs[i]-angles)**2)
+        chi2 *= 1./(len(angs)*len(angles))
 
-    # find z, -y, -z vectors by taking cross products with y-vector and dotting with x-vector
-    xcrossangles = [dot(unitvecs[nx], cross(unitvecs[ny], unitvecs[n])) for n in nyz]
-    [nz] = [n for n,angle in zip(nyz, xcrossangles) if angle > coscut]  # y-axis cross z-axis is along x-axis
-    [nminusz] = [n for n,angle in zip(nyz, xcrossangles) if angle < -coscut]  # y-axis cross -z-axis is along -x-axis
-    [nminusy] = [n for n in range(len(cage)) if n not in [nx, nminusx, ny, nz, nminusz]]
+        criteria.append( (ctype, abs(ws-N), chi2) ) # now remember how good is this guess in terms of coordination number and angle variance
+        print 'trying ', ctype, ': <w>-N=', ws-N, 'chi2=', chi2, '<l>=', lav
+        #print 'phi='
+        #for i in range(len(angs)):
+        #    print angs[i]*180/pi
+    # On the basis of these criteria, we should be able to tell which environment we have
+    criteria = sorted(criteria, key=lambda ct: ct[2]) # sort according to the angle variance
+    # First take the cage, which has most similar angles.
+    if criteria[0][1]<0.1: # If the bond variance is not too bad, i.e., |<w>-N|< 0.1, we found the type of cage.
+        ctype = criteria[0]
+    elif criteria[1][1]<0.1 and criteria[1][2]<0.01: # If the bond variance was very bad for the first case, we go down the list
+        ctype = criteria[1]
+    else: # If the second is not OK, we boil out at the moment
+        print 'Could not detect the type of environment, Boiling out.'
+        sys.exit(0)
+    print 'Found the environment is', ctype
 
-    return [cage[nx], cage[ny], cage[nz], cage[nminusx], cage[nminusy], cage[nminusz]]
+    if ctype[0]=='octahedra':
+        # Now that we know it is octahedra, we take all vectors to atoms, and construct the best coordinate system that
+        # goes through these atoms
+        nis = negs0[:6] # all unit vectors
+        R0=[]
+        for i in range(3):
+            nu = nis.pop(0) # first unit vector
+            cosp = [dot(nu,ni) for ni in nis] # which one is opposite?
+            which = argmin(cosp) # this is index of the opposite
+            nv = nis.pop(which)  # nv is opposite to nu
+            n1 = nu-nv           # now take the average of the two, which are opposite
+            n1 *= 1./linalg.norm(n1) # and normalize
+            R0.append(n1)        # we have a good unit vector
+            #print n1, nu, nv, arccos(cosp[which])*180/pi
+        return R0
+    elif ctype[0]=='tetrahedra':
+        # Now that we know it is tetrahedra, we take vectors which go through the middle of the two atoms, and construct
+        # the best coordinate system with such vectors.
+        n0 = negs0[:4] # all unit vectors
+        nis=[]
+        for i in range(4):
+            for j in range(i+1,4):
+                ni = n0[i]+n0[j]           # new unit vectors are between each pair of vertices
+                ni *=  1./linalg.norm(ni)  # and normalize
+                nis.append(ni)
+        R0=[]
+        for i in range(3):
+            nu = nis.pop(0) # first unit vector
+            cosp = [dot(nu,ni) for ni in nis] # which one is opposite?
+            which = argmin(cosp) # this is index of the opposite
+            nv = nis.pop(which)  # nv is opposite to nu
+            n1 = nu-nv           # now take the average of the two, which are opposite
+            n1 *= 1./linalg.norm(n1) # and normalize
+            R0.append(n1)       # we have a good unit vector
+            #print n1, nu, nv, arccos(cosp[which])*180/pi
+        return R0
+    elif ctype=='cube':
+        # For each vector to atom, we should find 3 other atoms which have smallest angle between them
+        # Now we have four vectors with small angle, which define the phase of a cube.
+        # We then sum this four vectors, and get unit vector along x,y, or z
+        print 'Noy yet implemented'
+        sys.exit(0)
+    else:
+        print 'Noy yet implemented'
+        sys.exit(0)
 
-def sort_square_cage(cage, coscut = 0.707):
-    '''Places z axis perpendicular to square arrangement of atoms.
-    x-axis passes through corner of square.'''
-    norms = [linalg.norm(v) for v in cage]
-    unitvecs = [asarray(v)/linalg.norm(v) for v in cage]
-
-    # choose closest atom along x-axis
-    nx = norms.index(min(norms))
-
-    # find atom along minus-x axis
-    relative_angles = dot(unitvecs, unitvecs[nx])
-    [nminusx] = [n for n,angle in enumerate(relative_angles) if angle < -coscut]
-
-    # find remaining two atoms (which must lie on y-axis)
-    nys = [n for n,angle in enumerate(relative_angles) if (angle < coscut) and (angle > -coscut)]
-    _,ny = min([(norms[n], n) for n in nys]) # place next closest atom on positive y-axis
-    [nminusy] = set(range(4)) - set([nx, nminusx, ny])
-
-    return [cage[nx], cage[ny], cage[nminusx], cage[nminusy]]
-
-def sort_cubic_cage(cage, coscut = 0.707):
-    pass
-
-def octahedral_group():
-    '''Generates 3x3 representation of octahedral group in {x,y,z} basis.'''
-    angles = [0, pi/2, pi, 3*pi/2]
-
-    # brute force: generate all 64 combinations of rotations
-    # and filter out redundant matrices to get the 24 elements
-    rep = []
-    for a in angles:
-        for b in angles:
-            for c in angles:
-                R0 = mat(rotation(0,0,a)) * mat(rotation(b,0,0)) * mat(rotation(0,0,c)) # z-x-z convention
-                R = [[int(round(e)) for e in row] for row in asarray(R0)]  # coerce rotation matrix to integer entries
-                if R not in rep:  # filter out redundant matrices
-                    rep.append(R)
-    return rep
-
-def square_group():
-    '''Generates 3x3 representations of symmetries of square.'''
-    C4angles = [0, pi/2, pi, 3*pi/2]
-    C2angles = [0, pi]
-    rep = []
-    for a in C2angles:
-        for c in C4angles:
-            R0 = mat(rotation(0,0,c)) * mat(rotation(a,0,0))
-            R = [[int(round(e)) for e in row] for row in asarray(R0)]  # coerce rotation matrix to integer entries
-            if R not in rep:  # filter out redundant matrices
-                rep.append(R)
-    return rep
-
-
-def print_cage(sortedcage, R):
-    print len(sortedcage)
-    print 'cage'
-    format = '  O ' + '%10f '*3
-    for v in dot(sortedcage, R.T):
-        print format % tuple(v)
-
-
+def ResortToDiagonal(R):
+    # We now resort, so that the rotation is close to identity
+    # This is not necessary, but is convenient
+    permutations=[(0,1,2),(0,2,1),(1,0,2),(1,2,0),(2,1,0),(2,0,1)]
+    ii, wi = 0, 1000
+    for ip,p in enumerate(permutations):
+        Rt = array( [R[p[0],:], R[p[1],:], R[p[2],:]] )
+        wj = sum([abs(abs(Rt[i,i])-1.) for i in range(3)])
+        if wj<wi:
+            ii=ip
+            wi=wj
+    p=permutations[ii]
+    Rt = array( [R[p[0],:], R[p[1],:], R[p[2],:]] )
+    Rt *= linalg.det(Rt)
+    return Rt
+                
 if __name__ == '__main__':
     case=W2kEnvironment().case
 
     # executes nn in python module to obtain case.outputnn_ and case.rotlm_
     w2k_nn.w2knn(case)
     
-    sortfunc = sort_octahedral_cage
+    # reads information from case.outputnn_
+    lines = ReadNNFile(case)
+    # get conversion from lattice to cartesian coordinates
+    S2C = get_bravais_matrix2(case)
+    # gets users input
+    iatom  = GetUserInput(lines)
 
-    # reads case.outputnn_ and case.rotlm_
-    cages=readcages2(case,6)
-
-    for text, cage in cages:
-        #print text, 'cage=', cage
-
-        # cage must be sorted so atoms are listed in same order
-        # as vertices of polyhedron
-        sortedcage = sortfunc(cage)
-        
-        nv=[]
-        for v in sortedcage:
-            nv.append( v/sqrt(dot(v,v)) )
-            
-        R0 = array([nv[0],nv[1],nv[2]])
-
-        U,S,V = linalg.svd(R0)
-        #print 'S=', S
-        R = dot(U,V)
-        #print
-        print  text
-        print 'Rotation to input into case.indmfl by locrot=-1 : '
-        print "%12.8f "*3 % tuple(R[0,:])
-        print "%12.8f "*3 % tuple(R[1,:])
-        print "%12.8f "*3 % tuple(R[2,:])
-        print
+    # Main part of the algorithm
+    R0 = FindCageBasis(iatom,S2C,lines)
+    # Now orthogonalizing the set of vectors
+    U,S,V = linalg.svd(R0)
+    R = dot(U,V)
+    
+    R = ResortToDiagonal(R)
+    
+    print
+    print 'Rotation to input into case.indmfl by locrot=-1 : '
+    print
+    print "%12.8f "*3 % tuple(R[0,:])
+    print "%12.8f "*3 % tuple(R[1,:])
+    print "%12.8f "*3 % tuple(R[2,:])
+    print

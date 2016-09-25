@@ -235,7 +235,8 @@ def cmp_cftrans(qsplit, L, nsites, nspins):
             else:
                 Z = zeros((len(T0), len(T0)), dtype=complex)
                 T = bmat([[T0, Z], [Z, T0]])
-                
+        else:
+            T = T0
             
     else:
         raise Exception, 'ERROR: Transformation `'+transtype+'` not yet implemented.'

@@ -174,6 +174,7 @@ if __name__=='__main__':
     if options.m_extn:
         # Reading output of dmft1
         for icix in colsdn.keys():
+            if len(colsdn[icix])==0: continue
             filename = re.sub(r'\?', str(icix), options.indlt)
             filename += options.m_extn
             data = loadtxt( filename ).transpose()
