@@ -154,11 +154,11 @@ def lapw0(fday, case, WIEN, para, fh_info):
     AStep(fday, case, 'lapw0', 'in0', WIEN, para, fh_info)
         
 def lapw1(fday, case, WIEN, para, dftKS, dmfe, Qcmplx, fh_info):
+    cmplx = pcmplx = ''
+    if Qcmplx:
+        cmplx='c'
+        pcmplx=' -c'
     if dftKS:
-        cmplx = pcmplx = ''
-        if Qcmplx:
-            cmplx='c'
-            pcmplx=' -c'
         name='lapw1'
         tim = time.strftime("%H:%M:%S")
         print >> fday, '>%-10s ( %s )' % (name+cmplx, tim)
