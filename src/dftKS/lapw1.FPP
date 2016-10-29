@@ -28,7 +28,7 @@ PROGRAM LAPW1
   use totpot, only  : KPxyz, POTK
   use structure, only: iord
   use readPotential, ONLY: read_V_vns_interstital_nk, read_V_vns_interstital_pot_real, read_V_vns_interstital_pot_cmplx
-  use param, ONLY: nume, nume2, filename_energy, filename_vector
+  use param, ONLY: nume, nume2, filename_energy, filename_vector, nmatmax
   use mpi, ONLY: Qprint, start_MPI, stop_MPI, nprocs, myrank, master, vector_para, mpi_bcast_nkk, mpi_bcast_V_vns_interstitial, mpi_SendReceive, WriteProcesses
   IMPLICIT NONE
   CHARACTER*5        MNAM
@@ -134,10 +134,13 @@ PROGRAM LAPW1
      kpoint = kpoints(ikp)
      ! We could use pr_procr, but we rather use pr_prc due to mpi communication. All processes have to be enter equal number of times so that we can call MPI_Barrier. The work is done only if needed.
      if (kpoint .le. numkpt) then 
-        call INIT_MATRICES(0, 0,nmatmax1, Qprint)
+        !call INIT_MATRICES(0, 0,nmatmax1, Qprint)
+        nmatmax1=nmatmax
+#ifndef _REAL
+        nmatmax1=int(nmatmax1/sqrt(2.d0))
+#endif
         !  set up array warp and generate plane wave list
         call generate_reciprocal(RKM,K3(:,kpoint),nat,nmatmax1,nmat_only)
-
         if(nmat_only) then
            CALL ERRCLR(ERRFN)
            call stop_MPI
@@ -145,7 +148,7 @@ PROGRAM LAPW1
         endif
         numemin=min(nume,(nv+nlo))
         if(dokorig) numemin=nv+nlo     ! fix for NMR
-        call INIT_MATRICES(nv+nlo, numemin,nmatmax1, Qprint)
+        call INIT_MATRICES(nv+nlo, numemin,Qprint)
         if (nlo.GT.0) CALL LOPW(nat)
         NVAA = NV
         !  construct secular equation

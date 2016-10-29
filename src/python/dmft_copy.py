@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# @Copyright 2007 Kristjan Haule
 import sys
 import re, os, glob, shutil
 from os.path import getsize
@@ -18,7 +17,7 @@ if len(sys.argv)<2:
 cpdr = sys.argv[1]
 
 if not os.path.exists(cpdr):
-    print 'The directory '+cprd+' does not exists!'
+    print 'The directory '+cpdr+' does not exists!'
     sys.exit(1)
 
 if len(sys.argv)==2:
@@ -30,7 +29,11 @@ else:
 
 #if len(sys.argv)<=3:
     
-strcase = glob.glob(cpdr+'/*.struct')[0]
+strcase = glob.glob(cpdr+'/*.struct')
+if not strcase:
+    print 'No structure file present. Nothing to copy...!'
+    sys.exit(0)
+strcase = strcase[0]
 if not strcase:
     print 'Can not find structure file!'
     sys.exit(1)
@@ -47,7 +50,7 @@ case = fileBaseName
 
 print 'case=', case
 
-w0 = [case+'.struct',case+'.in0',case+'.clmsum', case+'.inm']
+w0 = [case+'.struct',case+'.in0',case+'.clmsum', case+'.inm', case+'.inM']
 w1 = [case+'.in1', case+'.in1c', case+'.klist', case+'.inso', case+'.in2c']
 w2 = [case+'.in2', case+'.kgen']
 wc = [case+'.inc', case+'.scf2']

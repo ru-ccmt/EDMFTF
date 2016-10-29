@@ -9,7 +9,7 @@ module param
   PARAMETER          (LOMAX=   3) 
   PARAMETER          (NGAU= 2350)
   PARAMETER          (NKPTSTART= 100)
-  PARAMETER          (NMATMAX=   13000)
+  PARAMETER          (NMATMAX=   13000)   ! largest possible matrix size ! should change !
   PARAMETER          (NRAD=  881)
   PARAMETER          (NSLMAX=  5)
   PARAMETER          (NSYM=   48)
@@ -198,17 +198,11 @@ end module reallocate
 module matrices
   use param
   integer hsrows
-  !      sequential code:
   !        HS - Hamilton matrix (hermitian matrix, stored below diagonal in conjugated form)
   !           - Overlap matrix  (hermitian matrix, stored above diagonal)
   !        HSDIAG - Diagonal elements of Overlap matrix
   !               - several times swapped with 
   !                 diagonal elements of Hamilton matrix
-  !      parallel code:
-  !        H - Hamilton matrix (hermitian matrix, stored above diagonal)
-  !        S - Overlap matrix (hermitian matrix, stored above diagonal)
-  !      HS, HSDIAG, H, S are set up in HAMILT, HNS 
-  !                       and solved in SECLR4, SECLR5
 #ifdef _REAL  
   DOUBLE PRECISION, allocatable ::  HS(:, :)
   DOUBLE PRECISION, allocatable ::  HSDIAG(:)
@@ -223,34 +217,35 @@ module matrices
   DOUBLE PRECISION, pointer ::  RK(:)
   INTEGER, pointer :: KZZ(:,:)
 CONTAINS
-  SUBROUTINE INIT_MATRICES(N, NUME2_,nmatmax1, Qprint)
+  SUBROUTINE INIT_MATRICES(N, NUME2_,Qprint)
     use reallocate, only: doreallocate
     use param, only : nume2
     IMPLICIT NONE        
     INTEGER, intent(in)  :: N, NUME2_
-    INTEGER, intent(out) :: nmatmax1
     LOGICAL, intent(in)  :: Qprint
-    nmatmax1=nmatmax
-#ifndef _REAL    
-    nmatmax1=int(nmatmax1/sqrt(2.d0))
-#endif    
+!    nmatmax1=nmatmax
+!#ifndef _REAL    
+!    nmatmax1=int(nmatmax1/sqrt(2.d0))
+!#endif    
     if( n.eq.0 .and. nume2_.eq.0) then
-       allocate( RK(NMATMAX1+1) )
-       allocate( Kn(3,NMATMAX1+1) )
-       allocate( KZZ(3,NMATMAX1+1) )
-       RK=0.0D0
-       Kn(:,:)=0.d0
-       KZZ=0
+       !allocate( RK(NMATMAX1+1) )
+       !allocate( Kn(3,NMATMAX1+1) )
+       !allocate( KZZ(3,NMATMAX1+1) )
+       !RK=0.0D0
+       !Kn(:,:)=0.d0
+       !KZZ=0
+       WRITE(6,*) 'ERROR : We should not come here !'
+       STOP 'ERROR LAPW1'
     else
        if (Qprint) write(6,*) 'Matrix size ', N
        HSROWS = N
        nume2 = nume2_
-       call doreallocate( RK,N+1 )
+       call doreallocate( RK, N+1 )
        call doreallocate( Kn, 3,N+1 )
-       call doreallocate( KZZ,3,N+1 ) ! em
-       allocate( HS(N,N) )            ! em1
-       allocate( HSDIAG(N) )          ! em1
-       allocate( Z(N,NUME2) )         ! em
+       call doreallocate( KZZ,3,N+1 )
+       allocate( HS(N,N) )
+       allocate( HSDIAG(N) )
+       allocate( Z(N,NUME2) )
        if (Qprint) then
 #ifdef _REAL       
           write(6,'(a20,f12.1,a)') 'allocate HS',HSROWS**2*8.0/(1024.0*1024.0),' MB '
@@ -263,7 +258,7 @@ CONTAINS
        HS=0.0D0
        HSDIAG=0.0D0
        Z=0.0D0
-       allocate( EIGVAL(N) )          ! em
+       allocate( EIGVAL(N) )
        EIGVAL=0.0D0
     end if
 
