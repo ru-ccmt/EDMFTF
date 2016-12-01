@@ -150,9 +150,12 @@ PROGRAM lapwso
   if (vector_para) then
      allocate( kpoints(0:pr_proc) )
      kpoints(0)=0     ! this is just for convenience in the below k-point loop
-     do i=0,pr_proc   ! k-points are distributed in the simplest way: we know the first point (ikps(1)) and the number of points (ikps(2))
+     do i=0,pr_proc-1 ! k-points are distributed in the simplest way: we know the first point (ikps(1)) and the number of points (ikps(2))
+                      ! BUG corrected Nov 30, 2016  (Walber). This loop was going up to pr_proc rather than pr_proc-1, and it would coredump
         kpoints(i+1) = ikps(1)+i+1
      enddo
+     !kpoints(1) = ikps(1)+1
+     !kpoints(pr_proc) = ikps(1)+pr_proc
   else
      ! We do not have the redistribution of k-points over processors yet. We need to provide it here.
      pr_proc  = floor(nkp/DBLE(nprocs)+0.999)  ! The maximum number of points calculated per processor     

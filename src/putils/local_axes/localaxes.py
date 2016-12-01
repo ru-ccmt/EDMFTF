@@ -44,7 +44,7 @@ def FindCageBasis(iatom,S2C,lines):
     """
     # supported cages which are currently detected
     # (type, N, angles)
-    cases = [('cube',8,[arccos(1/3.)]*3+[arccos(-1/3.)]*3+[pi]), ('octahedra',6,[pi/2]*4+[pi]), ('tetrahedra',4,[arccos(-1/3.)]*3)]
+    cases = [('cube',8,[arccos(1/3.)]*3+[arccos(-1/3.)]*3+[pi]), ('octahedra',6,[pi/2]*4+[pi]), ('tetrahedra',4,[arccos(-1/3.)]*3), ('square-piramid',5,[pi/2]*4)]
 
     
     headers = [(n,line) for n,line in enumerate(lines) if ('ATOM:' in line) and ('EQUIV.' in line)]
@@ -108,18 +108,22 @@ def FindCageBasis(iatom,S2C,lines):
         for i in range(len(angs)):
             chi2 += sum((angs[i]-angles)**2)
         chi2 *= 1./(len(angs)*len(angles))
-
+        #chi2 = sqrt(chi2)
+        
         criteria.append( (ctype, abs(ws-N), chi2) ) # now remember how good is this guess in terms of coordination number and angle variance
-        print 'trying ', ctype, ': <w>-N=', ws-N, 'chi2=', chi2, '<l>=', lav
+        print 'trying ', ctype, ': <w>-N=', ws-N, 'chi2=', chi2, '<l>=', lav, 'combined-criteria', abs(ws-N)**2 + 0.5*(2*pi)**2*chi2
         #print 'phi='
         #for i in range(len(angs)):
         #    print angs[i]*180/pi
     # On the basis of these criteria, we should be able to tell which environment we have
-    criteria = sorted(criteria, key=lambda ct: ct[2]) # sort according to the angle variance
+    criteria = sorted(criteria, key=lambda ct: ct[1]**2 + 0.5*(2*pi)**2*ct[2] ) # sort according to the  (angle-variance*2*pi)^2+(bond-variance)^2
     # First take the cage, which has most similar angles.
-    if criteria[0][1]<0.1: # If the bond variance is not too bad, i.e., |<w>-N|< 0.1, we found the type of cage.
+    print 'According to angle variance and bond-angle we are trying', criteria[0][0], 'with <w>=', criteria[0][1], 'and <phi>=', criteria[0][2]
+    max_bond_variance=0.5
+    max_angle_variance=0.1
+    if criteria[0][1]<max_bond_variance and criteria[0][2]<max_angle_variance: # If the bond variance is not too bad, i.e., |<w>-N|< 0.1, we found the type of cage.
         ctype = criteria[0]
-    elif criteria[1][1]<0.1 and criteria[1][2]<0.01: # If the bond variance was very bad for the first case, we go down the list
+    elif criteria[1][1]<max_bond_variance and criteria[1][2]<max_angle_variance: # If the bond variance was very bad for the first case, we go down the list
         ctype = criteria[1]
     else: # If the second is not OK, we boil out at the moment
         print 'Could not detect the type of environment, Boiling out.'
@@ -198,6 +202,7 @@ if __name__ == '__main__':
     lines = ReadNNFile(case)
     # get conversion from lattice to cartesian coordinates
     S2C = get_bravais_matrix2(case)
+    print 'S2C=', S2C.tolist()
     # gets users input
     iatom  = GetUserInput(lines)
 

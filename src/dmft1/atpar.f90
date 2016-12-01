@@ -152,51 +152,78 @@ contains
     !
     DO l=0,lomax ! 170
        irf=2
+       ! If lapw=True, then we compute   u_{new} = a^lo u + b^lo dotu + c^lo u^{LO}
+       !   and   alo(l,is,jlo,1) contains a^lo
+       !         alo(l,is,jlo,2) contains b^lo
+       !         alo(l,is,jlo,jlo+2) contains c^lo
+       !
+       !   In this case we always have irf=jlo+2, which is either 3 or 4.
+       !
+       ! If lapw=False, then we compute  u_{jlo=1} = a^lo u + b^lo dotu
+       !  and    alo(l,is,1,1)  contains a^lo
+       !         alo(l,is,1,2)  contains b^lo
+       !         alo(l,is,1,3:) is set to zero
+       !
+       !  then for jlo=2 or 3 we have real local orbital in APW+lo   u_{jlo=2 or 3} = a^lo u + c^lo u^{LO}
+       !  and   alo(l,is,jlo,1)   contains a^lo
+       !        alo(l,is,jlo,2)   is set to zero
+       !        alo(l,is,jlo,jlo+1) contains c^lo
+       !
+       !  In this case we have irf=jlo+1, which is 3 or 4.
+       !
        do jlo=1,ilo(l) ! 170
-          irf=irf+1
-          if (.not.loor(jlo,l)) CYCLE ! This is not real LO, but just apw+lo
-          !if (.not.((.not.lapw(l)).and.(jlo.eq.1))) then ! if (lapw(l) .or. jlo.gt.1)
-          ! We get here any time except for APW+lo, where u_lo is constructed from u and dotu.
-          DELE=2.0D-3                                                       
-          DELEI=0.25D0/DELE                                                 
-          FL=L                                                              
-          EI=elo(l,jlo)/2.d0                                                         
-          !                                                                       
-          !     CALCULATE FUNCTION AT EI 
-          IF(rlo(jlo,l)) THEN
-             ei=elo(l,nloat)/2.d0
-             kappa=l
-             ! output: uv,duv,nodes
-             CALL diracout(A,B,rel,vr,r0(jatom),dx(jatom),jri(jatom),ei,fl,kappa,uv,duv,nodes,zz(jatom),nrad)
-             ! output: b
-             CALL dergl(a,b,r0(jatom),dx(jatom),jri(jatom))
-             DO m = 1, jri(jatom)
-                r_m = r0(jatom)*exp(dx(jatom)*(m-1))
-                b(m) = b(m)*r_m/(2.d0*clight+(elo(l,jlo)-2.d0*vr(m)/r_m)/(2.d0*clight))
-                b(m)=b(m)*clight
-             ENDDO
-          ELSE
-             CALL outwin(A,B,NODES,UV,DUV,rel,vr,r0(jatom),dx(jatom),jri(jatom),ei,fl,zz(jatom),nrad)
-          ENDIF
-          !                                                                       
-          OVLP = rint13(REL,A,B,A,B,nrad,dx(jatom),jri(jatom),r0(jatom)) 
-          TRX=1.0d0/SQRT(OVLP)
-          IMAX=jri(JATOM)
-          rf1(1:IMAX,l,is,irf) = A(1:IMAX)*TRX
-          rf2(1:IMAX,l,is,irf) = B(1:IMAX)*TRX
-          P(l,is,irf)  = UV*TRX
-          DP(l,is,irf) = DUV*TRX
-          !call abcd(alo,l,jatom,P,DP,pei(l),pi12lo,pe12lo,is,jlo,lapw(l))
-          qprint=myrank.EQ.master
-          if (myrank.EQ.master) WRITE(6,*)
-       enddo
-       do jlo=1,ilo(l)
-          irf = jlo+2
-          plo = p(l,is,irf)
-          dplo=dp(l,is,irf)
-          pi12lo = rint13(REL,rf1(:,l,is,1),rf2(:,l,is,1),rf1(:,l,is,irf),rf2(:,l,is,irf),nrad,dx(jatom),jri(jatom),r0(jatom)) 
-          pe12lo = rint13(REL,rf1(:,l,is,2),rf2(:,l,is,2),rf1(:,l,is,irf),rf2(:,l,is,irf),nrad,dx(jatom),jri(jatom),r0(jatom))
-          call abc0(alo(l,jlo,1,is),alo(l,jlo,2,is),alo(l,jlo,2+jlo,is),l,jlo,lapw(l),P(l,is,1),DP(l,is,1),P(l,is,2),DP(l,is,2),pei(l),plo,dplo,pi12lo,pe12lo,nrad,lomax,nloat,lmax2,Rmt(jatom),qprint)
+          !if (.not.loor(jlo,l)) CYCLE ! This is not real LO, but just apw+lo    ! Bug Nov 30, 2016 (Walber). This simplistic line does not work for actinides. Need to use the complicated line below.
+          if (  lapw(l) .or. jlo.gt.1  ) then 
+             ! We go here inside for real local orbital, i.e., everytime except when computing APW+lo.
+             !  namely,  APW+lo is computed when lapw=False and jlo=1, then the first component (jlo=1) contains APW+lo functions, which are constructed from  a^{lo} u + b^{lo} dotu , but not from any real local orbital.
+             ! 
+             irf=irf+1
+             DELE=2.0D-3                                                       
+             DELEI=0.25D0/DELE                                                 
+             FL=L                                                              
+             EI=elo(l,jlo)/2.d0                                                         
+             !                                                                       
+             !     CALCULATE FUNCTION AT EI 
+             IF(rlo(jlo,l)) THEN
+                ei=elo(l,nloat)/2.d0
+                kappa=l
+                ! output: uv,duv,nodes
+                CALL diracout(A,B,rel,vr,r0(jatom),dx(jatom),jri(jatom),ei,fl,kappa,uv,duv,nodes,zz(jatom),nrad)
+                ! output: b
+                CALL dergl(a,b,r0(jatom),dx(jatom),jri(jatom),nrad)  ! BUG corrected Nov 30, 2016 (Walber) . Added last variable nrad.
+                DO m = 1, jri(jatom)
+                   r_m = r0(jatom)*exp(dx(jatom)*(m-1))
+                   b(m) = b(m)*r_m/(2.d0*clight+(elo(l,jlo)-2.d0*vr(m)/r_m)/(2.d0*clight))
+                   b(m)=b(m)*clight
+                ENDDO
+             ELSE
+                CALL outwin(A,B,NODES,UV,DUV,rel,vr,r0(jatom),dx(jatom),jri(jatom),ei,fl,zz(jatom),nrad)
+             ENDIF
+             !                                                                       
+             OVLP = rint13(REL,A,B,A,B,nrad,dx(jatom),jri(jatom),r0(jatom)) 
+             TRX=1.0d0/SQRT(OVLP)
+             IMAX=jri(JATOM)
+             rf1(1:IMAX,l,is,irf) = A(1:IMAX)*TRX
+             rf2(1:IMAX,l,is,irf) = B(1:IMAX)*TRX
+             P(l,is,irf)  = UV*TRX
+             DP(l,is,irf) = DUV*TRX
+             
+             plo = p(l,is,irf)
+             dplo=dp(l,is,irf)
+             pi12lo = rint13(REL,rf1(:,l,is,1),rf2(:,l,is,1),rf1(:,l,is,irf),rf2(:,l,is,irf),nrad,dx(jatom),jri(jatom),r0(jatom)) 
+             pe12lo = rint13(REL,rf1(:,l,is,2),rf2(:,l,is,2),rf1(:,l,is,irf),rf2(:,l,is,irf),nrad,dx(jatom),jri(jatom),r0(jatom))
+             
+             qprint=myrank.EQ.master
+             !if (myrank.EQ.master) WRITE(6,*)
+             alo(l,jlo,:,is)=0.d0
+             call abc0(alo(l,jlo,1,is),alo(l,jlo,2,is),alo(l,jlo,irf,is),l,jlo,lapw(l),P(l,is,1),DP(l,is,1),P(l,is,2),DP(l,is,2),pei(l),plo,dplo,pi12lo,pe12lo,nrad,lomax,nloat,lmax2,Rmt(jatom),qprint)
+          else
+             ! For APW+lo we do not need any local orbital. Instead alo(l,1,1:2,is) are determined by u_{new}=a^lo u + b^lo dotu.
+             qprint=myrank.EQ.master
+             !if (myrank.EQ.master) WRITE(6,*)
+             alo(l,jlo,:,is)=0.d0
+             call abc0(alo(l,jlo,1,is),alo(l,jlo,2,is),alo(l,jlo,2+jlo,is),l,jlo,lapw(l),P(l,is,1),DP(l,is,1),P(l,is,2),DP(l,is,2),pei(l),plo,dplo,pi12lo,pe12lo,nrad,lomax,nloat,lmax2,Rmt(jatom),qprint)
+          endif
        enddo
     ENDDO ! 170  continue
     !... CALCULATION OF RADIAL INTEGRALS

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# @Copyright 2007 Kristjan Haule
 import sys, subprocess
 import re, os, glob, shutil, socket, time
 from os.path import getsize
@@ -151,6 +150,9 @@ def AStep(fday, case, name, inp_name, WIEN, para, fh_info, cmplx=''):
 
 def lapw0(fday, case, WIEN, para, fh_info):
     para=''
+    if os.path.isfile(case+'.in0_grr'):
+        AStep(fday, case, 'lapw0 -grr', 'in0_grr', WIEN, para, fh_info)
+    
     AStep(fday, case, 'lapw0', 'in0', WIEN, para, fh_info)
         
 def lapw1(fday, case, WIEN, para, dftKS, dmfe, Qcmplx, fh_info):
@@ -506,11 +508,15 @@ def FindEtot(case,m_extn):
     fs.close()
     ETOT = FindLine(dat, ':ENE', 8)
 
-    fs=open('Eorb_imp.dat','r')
-    dat = fs.readlines()[::-1]
-    fs.close()
-    XEORB = FindLine(dat, ':XEORB',1)
-    EORB = FindLine(dat, ':EORB',1)
+    if os.path.isfile('Eorb_imp.dat'):
+        fs=open('Eorb_imp.dat','r')
+        dat = fs.readlines()[::-1]
+        fs.close()
+        XEORB = FindLine(dat, ':XEORB',1)
+        EORB = FindLine(dat, ':EORB',1)
+    else:
+        XEORB = EORB = 0.
+        
 
     fs = open(case+'.scf2','r')
     dat = fs.readlines()[::-1]
@@ -818,7 +824,6 @@ if __name__ == '__main__':
             print 'ERROR: Can not run CTQMC on real axis! Change case.indmfl:matsubara or params.dat:solver'
         solver=[]
         for i in iSigind.keys():
-            if len(icols_ind[i])==0: continue  # This atom is treated as open-core
             ic = icols_ind[i][0]
             iatom, l, qsplit = inl.cps[ic][0]  # Doesn't take into account cluster problems correctly
             #cftrans = YLM_convert_w2k_to_standard(inl.cftrans[ic], l, qsplit)

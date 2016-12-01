@@ -1,3 +1,4 @@
+0) One should not get erorr when Eorb_imp.dat is missing.
 0) szero should check $U$, $n0$ and $J$ and produce best guess for DC. It does not make sence that DC is by default set to zero, and if one does not specify it, takes infinite amount of time to converged.
 0) During installation check for /usr/bin/time executable. If it does not exists, use someting alternative.
 1) Break up the LDA and DMFT loops such that both programs run concurently and simultaneously.

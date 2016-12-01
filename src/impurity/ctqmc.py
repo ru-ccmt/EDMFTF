@@ -446,6 +446,7 @@ class IMP_CTQMC(object):
             print >> self.fh_info, 'lmbda=', lmbda, 'epsilon=', epsilon
             (Edc0,Phidc0)=dmft_DC.ComputeExactDC(nf_, lmbda, epsilon, self.icase, self.fh_info, projector='projectorw.dat',trans=self.dir+'Trans.dat')
             print >> self.fh_info, 'The Exact Double-counting is: Vdc=', Edc0, 'PhiDC=', Phidc0
+
         elif DCs=='FLL' or DCs=='default' or DCs=='FLL_l':
             nf_ = nf
             if DCs=='FLL_l' and nf_: 
@@ -469,6 +470,12 @@ class IMP_CTQMC(object):
             print 'ERROR: Unkown double-counting', DCs
             sys.exit(1)
             
+        if params.has_key('dDC'):
+            Edc0 += array(params['dDC'][0])
+            Phidc0 += sum([params['dDC'][0][i]*nf_[i] for i in range(len(nf_))])
+            print >> self.fh_info, 'The Double-counting corrected to: Vdc=', Edc0, 'PhiDC=', Phidc0
+
+
         Edc = Edc_old # we want to keep Edc<-1000 for orbitals which are projected out!
         for i in range(len(Edc)):
             if (Edc_old[i]>-1000.): # this is true for all orbitals which are kept!

@@ -1050,7 +1050,12 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      CALL PrintLocalDensityMatrix(DM, 21, s_oo, cixdim)
 
      WRITE(*,'(A,f15.12,1x,A,f15.10)') 'Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
-     WRITE(21,'(A,f15.12,1x,A,f15.10)') '# Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
+     !WRITE(21,'(A,f15.12,1x,A,f15.10)') '# Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
+     WRITE(21,'(A)') '  rho-rho_expected in dmft2:'
+     WRITE(21,'(A,f15.12,1x,A,f15.10)') ':DRHO  ', xwt-elecn
+     if (abs(xwt-elecn).gt.0.1 ) then
+        WRITE(21,'(A)') 'WARNING : Electron charge density is very different than expected. You should change recomputeEF and set it to 1 (switch in on)'
+     endif
 
      WRITE(21,725) ETOT2+dEtot
      WRITE(21,'(A,1x,A,F20.9,3x,A)') ':XSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-logGloc+eimp_nd+DeltaG, '# Tr(log(G))-Tr(log(G_loc))+Tr((eimp+Vdc)G)+Tr(G(D-w*dD))'
