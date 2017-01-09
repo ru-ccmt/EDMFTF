@@ -34,7 +34,7 @@ def scf(case, m_extn, outfile='.scf'):
     if m_extn and os.path.exists(case+'.scf2'+m_extn):
         lineo, io = SearchScf(0,':NATO',dat)
         nat = int(lineo.split(':')[2].split()[0])
-    
+        
         dat_up = open(case+'.scf2','r').readlines()
         dat_dn = open(case+'.scf2'+m_extn,'r').readlines()
         fu=case+'.scf2'
@@ -81,22 +81,30 @@ def scf(case, m_extn, outfile='.scf'):
         chtot = 0.5*(chup+chdn)
         dat += lineu[:40]+("%14.6f"%chtot)
     
-        lineu, _iu = SearchScf(iu_,'# Ratio',dat_up)
-        lined, _id = SearchScf(id_,'# Ratio',dat_dn)
+
+        lineu, _iu = SearchScf(iu_,':DRHO',dat_up)
+        lined, _id = SearchScf(id_,':DRHO',dat_dn)
+            
         dat += '\n------- '+fu+'  -------\n'
         dat += dat_up[iu_+1:_iu]
         dat += '\n------- '+fd+'  -------\n'
         dat += dat_dn[id_+1:_id]
         iu_,id_ = _iu,_id
-        drho_up = float(lineu[23:39])        
-        drat_up = float(lineu[56:])
-        drho_dn = float(lined[23:39])        
-        drat_dn = float(lined[56:])
+        
+        drho_up = float(lineu.split()[1])
+        drho_dn = float(lined.split()[1])
+        #drho_up = float(lineu[23:39])        
+        #drat_up = float(lineu[56:])
+        #drho_dn = float(lined[23:39])        
+        #drat_dn = float(lined[56:])
         drho = 0.5*(drho_up+drho_dn)
-        drat = 0.5*(drat_up+drat_dn)
-        dat += lineu[:23]+("%15.12f "%drho)+lineu[39:56]+("%15.12f "%drat)+'\n\n'
-
+        #drat = 0.5*(drat_up+drat_dn)
+        dat += lineu[:5]+("%20.12f "%drho)+'\n\n'
+        if (abs(drho) > 0.5):
+            print "WARNING : Electron charge density is very different than expected. You should change recomputeEF and set it to 1 (switch in on)"
+            
         dat += line_s1+'\n'+line_s2+'\n'+line_s3+'\n'+line_s4+'\n'+line_s5+'\n'+line_s6+'\n'+line_s7+'\n\n'
+        
 
         # merging forces
         lineu, iu_ = SearchScf(0,'VALENCE-FORCE',dat_up)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 import sys, subprocess
 import re, os, glob, shutil, socket, time
 from os.path import getsize
@@ -607,6 +608,7 @@ if __name__ == '__main__':
               #'DCs'          : 'fixn',    # old name for nominal DC
               'max_dmft_iterations': 1,    # number of iteration of the dmft-loop only
               'max_lda_iterations' : 1,    # number of iteration of the LDA-loop only
+              'max_lda_iterations_optimize' : 1000,    # number of iteration of the LDA-loop when structure should be optimized
               'finish'        : 50,        # number of iterations of the charge loop
               'da'            : 0.0,       # experimental
               'wbroad'        : 0.0,       # broadening of sigma on the imaginary axis
@@ -794,6 +796,7 @@ if __name__ == '__main__':
         if len(p['DCs'])>5 and p['DCs'][:6]=='exactd':
             UlamJ = RCoulombU.GetDielectricFunctions(UJ_icase)  # Computes dielectric function epsilon and sets yukawa lambda=1e-6
         else:
+            print 'UJ_icase=', UJ_icase
             UlamJ = RCoulombU.GetLambdas(UJ_icase) # Computes yukawa lambda and dielectric function so that they match user defined U & J.
             
         for imp,icase in enumerate(impurity_projector): # Saves into impurity
@@ -824,6 +827,7 @@ if __name__ == '__main__':
             print 'ERROR: Can not run CTQMC on real axis! Change case.indmfl:matsubara or params.dat:solver'
         solver=[]
         for i in iSigind.keys():
+            if len(icols_ind[i])==0: continue  # This atom is treated as open-core
             ic = icols_ind[i][0]
             iatom, l, qsplit = inl.cps[ic][0]  # Doesn't take into account cluster problems correctly
             #cftrans = YLM_convert_w2k_to_standard(inl.cftrans[ic], l, qsplit)
@@ -903,9 +907,9 @@ if __name__ == '__main__':
             (nl_imp,nd_imp) = FindLatticeNd(w2k.case, m_extn, inl.siginds, icols_ind, fh_info, scf_name='scf2')
             
 
-        if p['DCs']=='exact_l' and nl_imp is not None: 
-            Update_Vdc(icols,solver)
-            print >> fh_info, icycle, 'JUST UPDATED Vdc with nl_imp=', nl_imp
+        #if p['DCs']=='exact_l' and nl_imp is not None: 
+        #    Update_Vdc(icols,solver)
+        #    print >> fh_info, icycle, 'JUST UPDATED Vdc with nl_imp=', nl_imp
     
         #####################
         # DMFT loop         #
@@ -999,7 +1003,7 @@ if __name__ == '__main__':
         (RelaxingStructure, mix_method) = fstc.AreWeRelaxingStructure2(w2k.case)
         if RelaxingStructure:
             fstc.TOTtoFOR(w2k.case)
-            p['max_lda_iterations']=1000
+            p['max_lda_iterations']=p['max_lda_iterations_optimize']
             print >> fh_info, 'Mixing method corresponds to structural optimization.'
             print >> fh_info, ' changing TOT to FOR in case.in2 files'
             print >> fh_info, ' increasing max_lda_iterations to ', p['max_lda_iterations']

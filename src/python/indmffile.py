@@ -70,7 +70,8 @@ class IndmfBase:
     cp = correlated problem (either single-site or cluster)
 
     The data structures are dictionaries:
-    self.atoms[iatom] = (locrot, locrot_veclist, shift_vec)
+    self.atoms[iatom] = (locrot_shift, new_xyz, shift_vec)
+    self.locrot[iatoms] = (locrot,shift)
     self.cps[icp] = [(iatom_1, L_1, qsplit_1), (iatom_2, L_2, qsplit_2), ...]
     self.ucps[iucp] = [icp_1, icp_2, ...]
 
@@ -98,6 +99,7 @@ class IndmfBase:
             ('om_emax',    1.0  ),  # (eV)
             ('broken_sym', 0    ),  # FM, AFM or ferrimagnetic run
             ('atoms',      {}   ),
+            ('locrot',     {}   ),
             ('cps',        {}   ), 
             ('ucps',       {}   ),
             ('symclasses', {}   ),  # group cps forming each ucp into symmetry classes (e.g. spin-up vs. spin-down)
@@ -144,7 +146,12 @@ class IndmfBase:
         self.matsubara, self.broadc, self.broadnc, self.om_npts, self.om_emin, self.om_emax = [float(e) for e in lines.next().split()]
         self.matsubara = int(self.matsubara)  # recast these to integers
         self.om_npts   = int(self.om_npts) 
-
+        self.Qrenorm   = int(self.Qrenorm)
+        self.projector = int(self.projector)
+        if self.projector==5:
+            self.hybr_emin = int(self.hybr_emin)
+            self.hybr_emax = int(self.hybr_emax)
+            
     def parse_atomlist(self, lines):
         self.Lsa=[]
         self.icpsa=[]
@@ -158,12 +165,6 @@ class IndmfBase:
             if len(dat)>3:
                 Rmt2 = float(dat[3])
                 
-            #locrot = locrot_shift % 3
-            #shift  = locrot_shift / 3
-            #if locrot_shift<0: 
-            #    locrot=3
-            #    shift= (locrot_shift+3)/3
-
             (shift,locrot) = divmodulo(locrot_shift,3)
             if locrot<0:
                 if locrot==-2: 
@@ -171,11 +172,6 @@ class IndmfBase:
                 else:
                     locrot=3
                     
-            #print 'shift=', shift, 'locrot=', locrot
-            
-
-            # Ls, qsplits, icps = array([[int(x) for x in lines.next().split()] for i in range(nL)]).T
-            
             (Ls, qsplits, icps) = (zeros(nL,dtype=int), zeros(nL,dtype=int), zeros(nL,dtype=int))
             for il in range(nL):
                 (Ls[il], qsplits[il], icps[il]) = map(int, lines.next().split()[:3])
@@ -183,13 +179,13 @@ class IndmfBase:
             self.Lsa.append( Ls )
             self.icpsa.append( icps )
             
-            new_zx = [[float(x) for x in lines.next().split()] for loro in range(abs(locrot))]
-            vec_shift = [float(x) for x in lines.next().split()] if shift else None
+            new_xyz = [[float(x) for x in lines.next().split()] for loro in range(abs(locrot))]
+            shift_vec = [float(x) for x in lines.next().split()] if shift else None
 
-            #print 'new_zx=', new_zx
-            #print 'vec_shift=', vec_shift
-
-            self.atoms[iatom] = (locrot, new_zx, vec_shift, Rmt2)
+            #print 'new_xyz=', new_xyz
+            #print 'shift_vec=', shift_vec
+            self.locrot[iatom] = (locrot, shift)
+            self.atoms[iatom] = (locrot_shift, new_xyz, shift_vec, Rmt2)
             for icp, L, qsplit in zip(icps, Ls, qsplits):
                 if self.cps.has_key(icp):
                     self.cps[icp] += [(iatom, L, qsplit)]
@@ -215,10 +211,10 @@ class IndmfBase:
         lines.append((str(len(icatoms)), "number of correlated atoms"))
 
         for iatom in icatoms:
-            locrot, locrot_veclist, shift_vec, Rmt2 = self.atoms[iatom]
+            locrot_shift, new_xyz, shift_vec, Rmt2 = self.atoms[iatom]
             orbs = [(icp,L,qsplit) for icp,iat,L,qsplit in corbs if iat==iatom]
 
-            locrot_shift = 3+locrot if shift_vec else locrot
+            #locrot_shift = 3+locrot if shift_vec else locrot
             if Rmt2>0:
                 atom_header = ("%-3d %3d %3d  %f" % (iatom, len(orbs), locrot_shift, Rmt2), "iatom, nL, locrot Rmt2")
             else:
@@ -229,10 +225,10 @@ class IndmfBase:
                 orbstring = ("%3d %3d %3d" % (L, qsplit, icp), "L, qsplit, cix")
                 lines.append(orbstring)
 
-            locrot_labels = ["new z-axis", "new x-axis"][:len(locrot_veclist)]
+            locrot_labels = ["new x-axis", "new y-axis", "new z-axis"][:len(new_xyz)]
 
-            for vec,label in zip(locrot_veclist, locrot_labels):
-                lines.append( ("%10.7f %10.7f %10.7f" % tuple(vec), label) )
+            for vec,label in zip(new_xyz, locrot_labels):
+                lines.append( ("%11.8f %11.8f %11.8f" % tuple(vec), label) )
 
             if shift_vec:
                 lines.append( ("%4s %4s %4s" % tuple(shift_vec), "real-space shift in atom position") )
@@ -335,12 +331,12 @@ class Indmf(IndmfBase):
 
         # currently there's no user interface to input local rotations
         for iatom in catoms:
-            locrot = 0
-            locrot_veclist = []
+            locrot_shift = 0
+            new_xyz = []
             shift_vec = []
             Rmt2=0
-            self.atoms[iatom] = (locrot, locrot_veclist, shift_vec, Rmt2)
-
+            self.atoms[iatom] = (locrot_shift, new_xyz, shift_vec, Rmt2)
+            self.locrot[iatom] = (0,0)
         print
         while True:
             print "For each atom, specify correlated orbital(s) (ex: d,f):"
@@ -552,44 +548,45 @@ class Indmfl(IndmfBase):
             self.cftrans[icp] = raw_cftrans[:,0::2] + raw_cftrans[:,1::2]*1j
 
     def write_head(self, lines):
-
-        if abs(self.projector)<4: # This is the old scheme, where hybridization is cut-off by energy
-            emin = self.hybr_emin+self.EF
-            emax = self.hybr_emax+self.EF
+        if abs(self.projector)<4:
             styp="%f "
             sdoc = "hybridization Emin and Emax, measured from FS, renormalize for interstitials, projection type"
-        else:    # In the new scheme, we cut-off at certain band index
-            import findNbands
-            import glob
-            import sys
-            strfile = self.case+'.struct'
-            enefiles = glob.glob(self.case+'.energyso')+glob.glob(self.case+'.energyso_'+'*')
-            if not enefiles:  # Not spin-orbit run
-                enefiles = glob.glob(self.case+'.energy') + glob.glob(self.case+'.energy_'+'*')
-            enefiles = filter(lambda fil: os.path.getsize(fil)>0, enefiles) # Remove empty files
-            
-            print 'all enefiles=', enefiles
-            
-            #for fil in enefiles:
-            #    if re.match(self.case+'.energyso', fil): # Spin-orbit on, remove non-spin-orbit files
-            #        enefiles = filter(lambda fil: re.match(self.case+'.energyso', fil) is not None, enefiles) # Remove empty files
-            #        break
-            
-            if len(enefiles)==0:
-                print "ERROR : The case.energy* files should be present in this directory when using projector 5. Exiting...."
-                sys.exit(1)
-            
-            (nemin,nemax) = findNbands.findNbands(self.hybr_emin+self.EF,self.hybr_emax+self.EF,enefiles,strfile)
-            emin,emax = nemin,nemax
+        else:
             styp="%d "
             sdoc = "hybridization band index nemin and nemax, renormalize for interstitials, projection type"
-        
-        if abs(self.projector)==5:
-            import wavef
-            Rm2=[self.atoms[iatom][3] for iatom in self.atoms.keys()] 
-
-            print 'Rm2=', Rm2, 'atms=', self.atoms.keys(), 'Lsa=', self.Lsa
-            wavef.main(self.case, self.atoms.keys(), self.Lsa, self.icpsa, Rm2)
+            
+        if self.only_write_stored_data:
+            emin,emax = self.hybr_emin,self.hybr_emax
+        else:
+            if abs(self.projector)<4: # This is the old scheme, where hybridization is cut-off by energy
+                emin = self.hybr_emin+self.EF
+                emax = self.hybr_emax+self.EF
+            else:    # In the new scheme, we cut-off at certain band index
+                import findNbands
+                import glob
+                import sys
+                strfile = self.case+'.struct'
+                enefiles = glob.glob(self.case+'.energyso')+glob.glob(self.case+'.energyso_'+'*')
+                if not enefiles:  # Not spin-orbit run
+                    enefiles = glob.glob(self.case+'.energy') + glob.glob(self.case+'.energy_'+'*')
+                enefiles = filter(lambda fil: os.path.getsize(fil)>0, enefiles) # Remove empty files
+                
+                print 'all enefiles=', enefiles
+                
+                if len(enefiles)==0:
+                    print "ERROR : The case.energy* files should be present in this directory when using projector 5. Exiting...."
+                    sys.exit(1)
+                
+                (nemin,nemax) = findNbands.findNbands(self.hybr_emin+self.EF,self.hybr_emax+self.EF,enefiles,strfile)
+                emin,emax = nemin,nemax
+                
+                #if abs(self.projector)==5:
+                
+                import wavef
+                Rm2=[self.atoms[iatom][3] for iatom in self.atoms.keys()] 
+            
+                print 'Rm2=', Rm2, 'atms=', self.atoms.keys(), 'Lsa=', self.Lsa
+                wavef.main(self.case, self.atoms.keys(), self.Lsa, self.icpsa, Rm2)
             
         lines += [
             ( (styp+styp+"%d %d") % (emin, emax, self.Qrenorm, self.projector), sdoc),
@@ -599,10 +596,11 @@ class Indmfl(IndmfBase):
 
             
 
-    def write(self, filename = None):
+    def write(self, filename = None, only_write_stored_data=False):
         # generate text in two chunks, stored in text and text2
         #   text contains basic information about correlated problems
         #   text2 contains all the siginds, legends and crystal-field transformation matrices
+        self.only_write_stored_data = only_write_stored_data
         lines = []
         self.write_head(lines)
         self.write_atomlist(lines)
@@ -638,7 +636,7 @@ class Indmfl(IndmfBase):
             # print local transform matrix (real & imag)
             text2.append('#---------------- # Transformation matrix follows -----------')
             for row in self.cftrans[icp]:
-                text2.append(' '.join(["%11.8f %-11.8f" % (elem.real, elem.imag) for elem in row]))
+                text2.append(' '.join(["%11.8f %11.8f  " % (elem.real, elem.imag) for elem in row]))
 
         # join with first half; add \n to each line in text2
         text += [line+'\n' for line in text2]

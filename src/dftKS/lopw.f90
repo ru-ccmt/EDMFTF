@@ -139,7 +139,7 @@ SUBROUTINE LOPW(NAT)
 !6000 FORMAT (5X,I5,F15.8,3I5,10X,3F10.5,5X)
   !
   RETURN
-900 if(ipass.lt.5) then
+900 if(ipass.lt.10) then
      ipass=ipass+1
      if (Qprint) write(6,901) n,ipass,check
      if (Qprint) write(21,901) n,ipass,check

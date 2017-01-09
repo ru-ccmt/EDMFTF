@@ -159,13 +159,17 @@ def PrepareDefinitionFile_dmft2(idmf, mode, case, cixs, updn, dnup, so, para, sc
     else:
         sodum=dnup
 
+    updn_m_ext = updn+m_ext
+    if m_ext and updn and m_ext==updn:  # if both are set to ither up or dn
+        updn_m_ext = m_ext              # we should not repeat
+        
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 2, "'"+case+".indmf"+idmf+"'",    "'old'",     "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 3, "'"+case+".in1c"+"'",          "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 4, "'"+case+".inso"+"'",          "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 5, "'"+case+".in2"+cmplx+"'",     "'old'",     "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 6, "'"+case+".outputdmf"+idmf+updn+"'","'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 7, "'"+case+'.indmfl'+m_ext+"'",        "'old'",     "'formatted'", 0)
-    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 8, "'"+case+".clmval"+updn+m_ext+"'",   "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 8, "'"+case+".clmval"+updn_m_ext+"'",   "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 9, "'"+scratch+"/"+case+".vector"+so+updn+para+"'", "'old'","'unformatted'",9000)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (10, "'"+scratch+"/"+case+".vector"+so+dnup+para+"'", "'unknown'","'unformatted'",9000)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (12, "'"+case+".norm"+so+"'",       "'unknown'", "'formatted'",0)
@@ -174,7 +178,7 @@ def PrepareDefinitionFile_dmft2(idmf, mode, case, cixs, updn, dnup, so, para, sc
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (15, "'"+case+".bnds"+m_ext+"'",    "'unknown'","'unformatted'",0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (18, "'"+case+".vsp"+updn+"'",      "'old'",     "'formatted'",0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (20, "'"+case+".struct"+"'",        "'old'",     "'formatted'",0)
-    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (21, "'"+case+".scf2"+updn+m_ext+"'",     "'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (21, "'"+case+".scf2"+updn_m_ext+"'",     "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (22, "'"+case+".rotlm"+"'",         "'unknown'", "'formatted'",0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (IND_CDOS, "'"+case+".cdos3"+m_ext+"'",           "'unknown'", "'formatted'",0)    
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (29, "'"+case+".energy"+sodum+"'",  "'unknown'", "'formatted'",0)
@@ -202,7 +206,7 @@ def PrepareDefinitionFile_lapw1(widmf, case, updn, para, scratch, band, cmplx):
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (21, "'"+case+".scf1"+updn+"'",               "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (55, "'"+case+".vec"+"'",                     "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (71, "'"+case+".nsh"+updn+"'",                "'unknown'", "'formatted'", 0)
-    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (71, "'"+case+".nsh"+updn+"'",                "'unknown'", "'formatted'", 0)
+    #print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (71, "'"+case+".nsh"+updn+"'",                "'unknown'", "'formatted'", 0)
     #print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (200,"'"+scratch+"/"+case+".storeHinv"+updn+"'",  "'replace'", "'unformatted'", 9000)
     writehs=False
     nmr=False

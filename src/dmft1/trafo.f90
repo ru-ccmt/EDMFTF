@@ -51,8 +51,8 @@ subroutine trafo(l,pseudo,T)
         T(sh+0,sh+1) = -1./s2    !ksi
         T(sh+1,sh-1) =  img/s2   !eta=xz
         T(sh+1,sh+1) =  img/s2   !eta
-        T(sh+2,sh-2) = -1./s2    !zeta=xy
-        T(sh+2,sh+2) =  1./s2    !zeta
+        T(sh+2,sh-2) = -img/s2   !zeta=xy
+        T(sh+2,sh+2) =  img/s2   !zeta
      endif
   else if(L.eq.3)then
      s3=sqrt(3.)

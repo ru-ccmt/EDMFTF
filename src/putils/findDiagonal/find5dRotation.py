@@ -28,7 +28,6 @@ def StringToMatrix(cfstr):
     mm=matrix(mm)
     return mm
 
-
 def RealPhase(vec):
     for j in range(len(vec)):
         v = vec[j]
@@ -55,7 +54,7 @@ def findMax(v):
     ind.sort(lambda a,b: cmp(av[b],av[a]))
     return ind
 
-def GiveTrans(Hc, T2C):
+def GiveNewT2C(Hc, T2C):
     
     ee = linalg.eigh(Hc)
     Es = ee[0]
@@ -118,7 +117,7 @@ def GiveTrans(Hc, T2C):
     final = array(final)
     final2 = RealPhase(final)
     final=copy.deepcopy(final2)
-    return (final, T2C, Hc)
+    return final
 
 def Check(final, T2C, Hc):
     # the modified final transofrmation is rotated back to t2g-eg base to see how weell diagonal remains
@@ -185,22 +184,17 @@ if __name__ == '__main__':
     fpar=sys.argv[1]
     execfile(fpar)
     
-    Hc1=StringToMatrix(strHc)
-    print 'shape(Hc)=', shape(Hc1)
+    Hc = StringToMatrix(strHc)
+    print 'shape(Hc)=', shape(Hc)
     T2C0=StringToMatrix(strT2C)
     print 'shape(T2C0)=', shape(T2C0)
-    T2C = T2C0[:len(Hc1),:]
+    T2C = T2C0[:len(Hc),:]
     print 'shape(T2C)=', shape(T2C)
-    T2Crest = T2C0[len(Hc1):,:]
+    T2Crest = T2C0[len(Hc):,:]
     print 'shape(T2Crest)=', shape(T2Crest)
     
-    (final1, T2C, Hc1) = GiveTrans(Hc1, T2C)
+    final = GiveNewT2C(Hc, T2C)
     
     print 'Rotation to input : '
-    mprint( final1 )
-    #print
-    #mprint( final2 )
-    #print
-    #print 'rest='
+    mprint( final )
     mprint( T2Crest )
-    

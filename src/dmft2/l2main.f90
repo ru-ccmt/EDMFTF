@@ -1052,7 +1052,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      WRITE(*,'(A,f15.12,1x,A,f15.10)') 'Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
      !WRITE(21,'(A,f15.12,1x,A,f15.10)') '# Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
      WRITE(21,'(A)') '  rho-rho_expected in dmft2:'
-     WRITE(21,'(A,f15.12,1x,A,f15.10)') ':DRHO  ', xwt-elecn
+     WRITE(21,'(A,f20.12,1x,A,f15.10)') ':DRHO  ', xwt-elecn
      if (abs(xwt-elecn).gt.0.1 ) then
         WRITE(21,'(A)') 'WARNING : Electron charge density is very different than expected. You should change recomputeEF and set it to 1 (switch in on)'
      endif

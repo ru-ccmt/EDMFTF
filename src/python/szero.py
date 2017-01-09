@@ -77,7 +77,7 @@ if __name__=='__main__':
     (options, args) = parser.parse_args()
     
     if options.nom==None and options.T>0:
-        options.nom = (200./options.T-1)/(2.*pi)
+        options.nom = (300./options.T-1)/(2.*pi)
         
     env = utils.W2kEnvironment()
     case = env.case
@@ -105,13 +105,21 @@ if __name__=='__main__':
     else:
         if not inl.matsubara:
             print '..... Could not find '+options.insig+'. Generating default real axis mesh.'
-            # omega = arange(-options.L, options.L*(1+2./options.nom), 2*options.L/options.nom)
-            #omega = default_realaxis_mesh()
             omega = GiveTanMesh(options.x, options.L,options.Nom/2)
         else:
-            print '..... Could not find '+options.insig+'. Do not know the temperature. Can not create self-energy!'
-            print '..... Boiling out.....'
-            sys.exit(1)
+            Found=False
+            if os.path.isfile('params.dat'):
+                execfile('params.dat')
+                if iparams0.has_key('beta'): 
+                    Found=True
+                    beta = iparams0['beta'][0]
+                    if options.nom==None: options.nom = (300*beta-1)/(2.*pi)
+                    print '..... creating new matsubara mesh of size '+str(options.nom)+' of T='+str(1./beta)
+                    omega = (arange(1,options.nom,1)*2-1)*pi/beta
+            if not Found:
+                print '..... Could not find '+options.insig+'. Do not know the temperature. Can not create self-energy!'
+                print '..... Boiling out.....'
+                sys.exit(1)
         
     print '..... Going over all correlated blocks'
     cols=[]
@@ -133,7 +141,16 @@ if __name__=='__main__':
 
 
     print 'om=', omega
-    
+
+    if options.Edc==0 and os.path.isfile('params.dat'):
+        execfile('params.dat')
+        if iparams0.has_key('U') and iparams0.has_key('J') and iparams0.has_key('nf0'):
+            U = iparams0['U'][0]
+            J = iparams0['J'][0]
+            nf = iparams0['nf0'][0]
+            options.Edc = U*(nf-0.5)-0.5*J*(nf-1.)
+            
+        
     # writing to the file
     fo = open(options.outsig, 'w')
     print >> fo, '# s_oo=', (ones(Nc)*options.Edc).tolist()

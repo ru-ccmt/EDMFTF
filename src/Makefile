@@ -47,7 +47,7 @@ install :
 	cp magnetSusc/dmft_bubble/dmft_real_bubble ${DESTDIR}/
 	cp magnetSusc/dmftgk/dmftgk ${DESTDIR}/
 	cp magnetSusc/python/*.py ${DESTDIR}/
-	cp putils/findDiagonal/find5dRotation.py ${DESTDIR}/
+	cp putils/findDiagonal/*.py ${DESTDIR}/
 	cp putils/MMoment/*.so ${DESTDIR}/
 	cp putils/MMoment/local2global.py ${DESTDIR}/
 	cp putils/MMoment/MagneticMoment.py ${DESTDIR}/
