@@ -92,54 +92,44 @@ def dmft1(fday, case, fh_info, extn, MPI, ROOT, m_extn=''):
         print '  stop error: the required input file '+name+'.def for the next step could not be found!'
         print >> fday, '  stop error: the required input file '+name+'.def for the next step could not be found!'
         
-    tim = time.strftime("%H:%M:%S")
+    print >> fday, '>%-10s' % name,  '( '+time.strftime("%H:%M:%S")+' )'
+    fday.flush()
 
     fl = open(':log', 'a')
     print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name
     fl.close()
     
-    print >> fh_info, 'Running ---- ksum -----'
-    cmd = utime+' '+MPI+ ' ./dmft '+name+'.def >> dmft1_info.out '
-    print >> fh_info, '#<dmft1>: ', cmd
+    print >> fh_info, 'Running ---- dmft1 -----'
+    cmd = utime+' '+MPI+ ' ./dmft '+name+'.def >> '+name+'_info.out '
+    print >> fh_info, '#<'+name+'>: ', cmd
     fh_info.flush()
-    #print cmd
     subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
-    #out, err = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    #print >> fh_info, out, err
-    #fh_info.flush()
     
-    #fe = open('dmft1_log','w'); print >> fe, err;  fe.close()
-    #print err.splitlines()[0]
-    print >> fday, '>%-10s ( %s ) ' % (name, tim )
-    fday.flush()
     for fe in glob.glob('dmft1.error*'):
         if getsize(fe) !=0:
             print 'ERROR in dmft1 from file:', fe, open(fe,'r').read()
             #sys.exit(1)
 
-    if m_extn=='':
-        shutil.copy2(case+'.cdos', case+'.cdos.'+extn)
-        shutil.copy2(case+'.gc1', case+'.gc1.'+extn)
-        shutil.copy2(case+'.dlt1', case+'.dlt1.'+extn)
+    #if m_extn=='':
+    #    shutil.copy2(case+'.cdos', case+'.cdos.'+extn)
+    #    shutil.copy2(case+'.gc1', case+'.gc1.'+extn)
+    #    shutil.copy2(case+'.dlt1', case+'.dlt1.'+extn)
 
 ################################################
 ## The charge self-consistency part
 ################################################
 
-def AStep(fday, case, name, inp_name, WIEN, para, fh_info, cmplx=''):
+# Typical Wien2k step
+def AStep(fday, case, name, inp_name, WIEN, para, fh_info, opts=''):
     if not os.path.isfile(case+'.'+inp_name) and not os.path.isfile(case+'.'+inp_name+'c'):
         print '  stop error: the required input file '+case+'.'+inp_name+' for the next step could not be found!'
         print >> fday, '  stop error: the required input file '+case+'.'+inp_name+' for the next step could not be found!'
     
     tim = time.strftime("%H:%M:%S")
-    print >> fday, '>%-10s ( %s )' % (name, tim)
+    print >> fday, '>%-10s ( %s )' % (name+' '+opts, tim)
     #fday.flush()
-
-    pcmplx=''
-    if cmplx: pcmplx=' -'+cmplx
-        
-    cmd = WIEN+'/x'+para+' -f '+case+pcmplx+' '+name
-    #print cmd
+    
+    cmd = WIEN+'/x'+para+' -f '+case+' '+opts+' '+name
     print >> fh_info, ('#<'+name+'>: '), cmd
     fh_info.flush()
     
@@ -152,35 +142,53 @@ def AStep(fday, case, name, inp_name, WIEN, para, fh_info, cmplx=''):
 def lapw0(fday, case, WIEN, para, fh_info):
     para=''
     if os.path.isfile(case+'.in0_grr'):
-        AStep(fday, case, 'lapw0 -grr', 'in0_grr', WIEN, para, fh_info)
-    
+        AStep(fday, case, 'lapw0', 'in0_grr', WIEN, para, fh_info, '-grr')
     AStep(fday, case, 'lapw0', 'in0', WIEN, para, fh_info)
+
         
-def lapw1(fday, case, WIEN, para, dftKS, dmfe, Qcmplx, fh_info):
-    cmplx = pcmplx = ''
-    if Qcmplx:
-        cmplx='c'
-        pcmplx=' -c'
+def lapw1(fday, case, WIEN, para, dftKS, dmfe, wopt, fh_info):
+    pcmplx = '-c' if wopt['cmplx'] else ''
     if dftKS:
         name='lapw1'
-        tim = time.strftime("%H:%M:%S")
-        print >> fday, '>%-10s ( %s )' % (name+cmplx, tim)
-        fl = open(':log', 'a')
-        print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name+cmplx
-        fl.close()
-        
-        cmd = dmfe.ROOT+'/x_dmft.py'+para+pcmplx+' '+name
-        print >> fh_info, ('#<'+name+cmplx+'>: '), cmd
-        fh_info.flush()
-        info=subprocess.call(cmd,shell=True,stdout=fh_info)
+        sname = 'lapw1'+wopt['cmplx']
+        if not wopt['updn']:   # just one type of core file, so V_{KS} is not polarized
+            print >> fday, '>%-10s' % sname, '( '+time.strftime("%H:%M:%S")+' )'
+            fl = open(':log', 'a')
+            print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+sname
+            fl.close()
+            cmd = dmfe.ROOT+'/x_dmft.py'+para+' '+pcmplx+' '+name
+            print >> fh_info, ('#<'+sname+'>: '), cmd
+            fh_info.flush()
+            info=subprocess.call(cmd,shell=True,stdout=fh_info)
+        else:                  # V_{KS} is polarized, need to lapw1 steps
+            print >> fday, '>%-10s' % (sname+' --up'), '( '+time.strftime("%H:%M:%S")+' )'
+            fl = open(':log', 'a')
+            print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+sname+'up'
+            fl.close()
+            cmd = dmfe.ROOT+'/x_dmft.py'+para+' '+pcmplx+' --up '+name
+            print >> fh_info, ('#<'+sname+'>: '), cmd
+            fh_info.flush()
+            info=subprocess.call(cmd,shell=True,stdout=fh_info)
+            
+            print >> fday, '>%-10s' % (sname+' --dn'), '( '+time.strftime("%H:%M:%S")+' )'
+            fl = open(':log', 'a')
+            print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+sname+'dn'
+            fl.close()
+            cmd = dmfe.ROOT+'/x_dmft.py'+para+' '+pcmplx+' --dn '+name
+            print >> fh_info, ('#<'+sname+'>: '), cmd
+            fh_info.flush()
+            info=subprocess.call(cmd,shell=True,stdout=fh_info)
     else:
-        AStep(fday, case, 'lapw1', 'in1', WIEN, para, fh_info, cmplx)
-
+        if not wopt['updn']: # just one type of core file, so V_{KS} is not polarized
+            AStep(fday, case, 'lapw1', 'in1', WIEN, para, fh_info, pcmplx)
+        else:                # V_{KS} is polarized, need to lapw1 steps
+            AStep(fday, case, 'lapw1', 'in1', WIEN, para, fh_info, pcmplx+' -up')
+            AStep(fday, case, 'lapw1', 'in1', WIEN, para, fh_info, pcmplx+' -dn')
+        
 def lapwso(fday, case, WIEN, para, dftKS, dmfe, fh_info):
     if dftKS:
         name='lapwso'
-        tim = time.strftime("%H:%M:%S")
-        print >> fday, '>%-10s ( %s )' % (name, tim)
+        print >> fday, '>%-10s' % name, '( '+time.strftime("%H:%M:%S")+' )'
         fl = open(':log', 'a')
         print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name
         fl.close()
@@ -192,9 +200,18 @@ def lapwso(fday, case, WIEN, para, dftKS, dmfe, fh_info):
     else:
         AStep(fday, case, 'lapwso', 'inso', WIEN, para, fh_info)
 
-def lcore(fday, case, WIEN, fh_info):
-    AStep(fday, case, 'lcore', 'inc', WIEN, '', fh_info)
+def lcore(fday, case, WIEN, wopt, fh_info):
+    if not wopt['updn']:
+        AStep(fday, case, 'lcore', 'inc', WIEN, '', fh_info)
+    else:
+        if os.path.exists(case+'.inc') : os.remove(case+'.inc')
+        os.symlink(case+'.incup', case+'.inc')
 
+        AStep(fday, case, 'lcore', 'inc', WIEN, '', fh_info, ' -up')
+        os.remove(case+'.inc')
+        os.symlink(case+'.incdn', case+'.inc')
+        AStep(fday, case, 'lcore', 'inc', WIEN, '', fh_info, ' -dn')
+        
 def mixer(fday, case, WIEN, fh_info):
     AStep(fday, case, 'mixer', 'inm', WIEN, '', fh_info)
 
@@ -208,18 +225,19 @@ def dmft2(fday, case, fh_info, MPI, m_extn=''):
         print '  stop error: the required input file '+name+'.def for the next step could not be found!'
         print >> fday, '  stop error: the required input file '+name+'.def for the next step could not be found!'
         
-    tim = time.strftime("%H:%M:%S")
-    cmd = utime+' '+MPI + ' ./dmft2 '+name+'.def >> dmft2_info.out '
-    print >> fh_info, ('#<'+name+'>: '), cmd
-    fh_info.flush()
+    print >> fday, '>%-10s' % name, '( '+time.strftime("%H:%M:%S")+' )'
+    fday.flush()
     
     fl = open(':log', 'a')
     print >> fl, time.strftime("%a %b %d %H:%M:%S %Z %Y")+'>     '+name
     fl.close()
     
+    cmd = utime+' '+MPI + ' ./dmft2 '+name+'.def >> dmft2_info.out '
+    
+    print >> fh_info, ('#<'+name+'>: '), cmd
+    fh_info.flush()
+    
     info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
-    print >> fday, '>%-10s ( %s )' % (name, tim)
-    fday.flush()
     
     for fe in glob.glob(name+'.error*'):
         if getsize(fe) !=0:
@@ -237,7 +255,7 @@ def dmft2(fday, case, fh_info, MPI, m_extn=''):
 
     
 def scf1(fday, case, WIEN):
-    for i in ['clmsum','vsp','vns','vrespsum']:
+    for i in ['clmsum','vsp','vns','vrespsum','vspdn','vnsdn','vspup','vnsup','clmup','clmdn']:
         name = case+'.'+i
         if os.path.exists(name) and os.path.getsize(name)>0:
             shutil.copy2(name, name+'_old')		#save last cycle
@@ -258,7 +276,10 @@ def Diff(fday, case, dEF):
         if re.match(r':DIS', line):
             DChr.append(float(line.split()[-1]))
             #print line.split()[-1]
-    drho = DChr[-1]
+    if size(DChr)>1:
+        drho = DChr[-1]
+    else:
+        drho = 1.0
     if size(DEne)>1:
         dene = abs(DEne[-1]-DEne[-2])
     else:
@@ -415,15 +436,51 @@ def YLM_convert_w2k_to_standard(CF, l, qsplit):
 
     return CFnew
 
-def combineud(case, ROOT, fh_info):
-    cmd = ROOT+'/combineud '+case
-    print >> fh_info, '#<combineud>: ', cmd
-    fh_info.flush()
+def combineud(case, ROOT, wopt, fh_info):
+    # This averaging is necessary to not double-count the exchange splitting.
+    # The exchange splitting is already taken into account in DMFT, and we do
+    # not want it also here on DFT level (in the valence charge)
+   
+    if (False):
+        shutil.move(case+'.clmvalup', case+'.clmval_up')
+        shutil.move(case+'.clmvaldn', case+'.clmval_dn')
+        if os.path.exists(case+'.clmval'): os.remove(case+'.clmval')
+        os.symlink(case+'.clmval_up', case+'.clmval')
+        os.symlink(case+'.clmval_up', case+'.clmvaldn')
 
-    info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
-    shutil.move(case+'.clmval', case+'.clmval_up')
-    shutil.move(case+'.clmvaldn', case+'.clmval_dn')
-    shutil.move(case+'.clmval_aver', case+'.clmval')
+        cmd = ROOT+'/combineud '+case+' 0.5'
+        info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
+        shutil.move(case+'.clmval_aver', case+'.clmvalup')
+
+        os.remove(case+'.clmval')
+        os.remove(case+'.clmvaldn')
+        os.symlink(case+'.clmval_dn', case+'.clmval')
+        os.symlink(case+'.clmval_dn', case+'.clmvaldn')
+
+        cmd = ROOT+'/combineud '+case+' 0.5'
+        info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
+        shutil.move(case+'.clmval_aver', case+'.clmvaldn')
+    else:
+        cmd = ROOT+'/combineud '+case
+        if wopt['updn']:
+            if wopt['updn']: cmd += ' 0.5'  # We need to take only 1/2 of the average charge as up and 1/2 as down charge
+            if os.path.isfile(case+'.clmval'): os.remove(case+'.clmval')
+            os.symlink(case+'.clmvalup', case+'.clmval')
+            
+        print >> fh_info, '#<combineud>: ', cmd
+        fh_info.flush()
+        
+        info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
+        
+        if not wopt['updn']:
+            shutil.move(case+'.clmval',   case+'.clmval_up')
+            shutil.move(case+'.clmvaldn', case+'.clmval_dn')
+            shutil.move(case+'.clmval_aver', case+'.clmval')
+        else:
+            shutil.move(case+'.clmvalup', case+'.clmval_up')
+            shutil.move(case+'.clmvaldn', case+'.clmval_dn')
+            shutil.copy(case+'.clmval_aver', case+'.clmvaldn')
+            shutil.move(case+'.clmval_aver', case+'.clmvalup')
 
 def SSplit(ROOT, matsubara, iparams, ntail, fh_info, m_extn=''):
     cmd = ROOT+'/ssplit.py'
@@ -448,26 +505,42 @@ def SJoin(ROOT, fh_info, p, m_extn=''):
     print >> fh_info, '#<sjoin>: ', cmd
     info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
 
-def Prepare_dmft2(dmfe, p, para, m_extn, fh_info, recomputeEF, mode='c'):
+def Prepare_dmft1(dmfe, p, para, wopt, fh_info):
+    __updn = '--up'  if wopt['updn'] else ''
+    print >> fh_info, '--------- Preparing GF calculation ---------'
+    cmd = dmfe.ROOT+'/x_dmft.py -d' + para + ' dmft1 '+__updn+' >> dmft1_info.out 2>&1'
+    print >> fh_info, '#<prep-dmft1>: ', cmd
+    info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
+    if wopt['m_extn']:
+        __updn = '--dn'  if wopt['updn'] else ''
+        print >> fh_info, '--------- Preparing GC calculation '+wopt['m_extn']+' ---------'
+        cmd = dmfe.ROOT+'/x_dmft.py -d' + para + ' dmft1 -l dn '+__updn+' >> dmft1_info.out 2>&1'
+        print >> fh_info, '#<prep-dmft1dn>: ', cmd
+        info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
+
+def Prepare_dmft2(dmfe, p, para, wopt, fh_info, recomputeEF, mode='c'):
     print >> fh_info, '--------- Preparing Charge calculation ---------'
-    cmd = dmfe.ROOT+'/x_dmft.py -d '+'--mode '+mode+' -m '+str(recomputeEF)+' -x '+str(p['mixEF'])+' -w '+str(p['WL'])+para+' dmft2 >> ksum_info.out 2>&1'
+    __updn = ' --up'  if wopt['updn'] else ''
+    cmd = dmfe.ROOT+'/x_dmft.py -d '+'--mode '+mode+' -m '+str(recomputeEF)+' -x '+str(p['mixEF'])+' -w '+str(p['WL'])+__updn+para+' dmft2 >> dmft2_info.out 2>&1'
     print >> fh_info, '#<prep-dmft2>: ', cmd
     info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
-
-    if m_extn:
-        print >> fh_info, '--------- Preparing CHR calculation '+m_extn+'---------'
-        cmd = dmfe.ROOT+'/x_dmft.py -d '+'--mode '+mode+' -m 0 '+para+' dmft2 -l dn >> ksum_infodn.out 2>&1'
+    
+    if wopt['m_extn']:
+        print >> fh_info, '--------- Preparing CHR calculation '+wopt['m_extn']+'---------'
+        __updn = ' --dn'  if wopt['updn'] else ''
+        cmd = dmfe.ROOT+'/x_dmft.py -d '+'--mode '+mode+' -m 0'+__updn+para+' dmft2 -l dn >> dmft2_info.out 2>&1'
         print >> fh_info, '#<prep-dmft2>: ', cmd
         info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
 
-def CreateEorb(case, m_extn, siginds, p, icols_ind):
+def CreateEorb(case, wopt, siginds, icols_ind):
     fsg = open('sig.inp','r')
-    exec(fsg.next()[1:].lstrip())  # s_oo from sig.inp
-    exec(fsg.next()[1:].lstrip())  # Edc  from sig.inp
-    
-    fsc = open(case+'.scf2','r')
+    exec(fsg.next()[1:].lstrip())  # s_oo from sig.inp                                                                                                                   $
+    exec(fsg.next()[1:].lstrip())  # Edc  from sig.inp                                                                                                                   $
+
+    up__ = 'up' if wopt['updn'] else ''
+    fsc = open(case+'.scf2'+up__,'r')
     dat = fsc.readlines()
-    
+
     nd=[]
     dim=[]
     for l in range(len(dat)):
@@ -475,7 +548,7 @@ def CreateEorb(case, m_extn, siginds, p, icols_ind):
             dd = dat[l].split()
             nd.append( float(dd[1]) )
             dim.append( int(dd[3]) )
-    if m_extn:
+    if wopt['m_extn']:
         fsc = open(case+'.scf2dn','r')
         dat = fsc.readlines()
         nd_=[]
@@ -486,7 +559,6 @@ def CreateEorb(case, m_extn, siginds, p, icols_ind):
                 nd_.append( float(dd[1]) )
                 dim_.append( int(dd[3]) )
         nd = 0.5*(array(nd)+array(nd_))
-
     return (nd,Edc[0])
 
 def ConvertFromLatticeToImp(nd, icols_ind):
@@ -496,7 +568,7 @@ def ConvertFromLatticeToImp(nd, icols_ind):
         nc.append( sum(ndc)/len(ndc) )
     return nc
 
-def FindEtot(case,m_extn):
+def FindEtot(case,wopt):
     def FindLine(dat, strng, item):
         for line in dat:
             if re.match(strng, line) is not None:
@@ -519,14 +591,15 @@ def FindEtot(case,m_extn):
         XEORB = EORB = 0.
         
 
-    fs = open(case+'.scf2','r')
+    up__ = 'up' if wopt['updn'] else ''
+    fs = open(case+'.scf2'+up__,'r')
     dat = fs.readlines()[::-1]
     fs.close()
     SUM = FindLine(dat, ':SUM ', 6)
     XSUM = FindLine(dat, ':XSUM', 6)
     YSUM = FindLine(dat, ':YSUM', 6)
-    if m_extn:
-        fsn = open(case+'.scf2'+m_extn,'r')
+    if wopt['m_extn']:
+        fsn = open(case+'.scf2'+wopt['m_extn'],'r')
         datn = fsn.readlines()[::-1]
         fsn.close()
         SUM_ = FindLine(datn, ':SUM ', 6)
@@ -576,14 +649,16 @@ def Update_Vdc(icols,solver):
     fot.writelines(dat)
     fot.close()
 
-def FermiF(dmfe, case, p, para, m_extn, fh_info, fday, matsubara):
+def FermiF(dmfe, w2k, p, para, wopt, fh_info, fday, matsubara):
     # In case of ferromagnetic or ferrimagnetic metal, we need to compute common EF for up and dn spins
-    Prepare_dmft2(dmfe, p, para, m_extn, fh_info, 1, 'e')
+    case = w2k.case
+    scratch = w2k.SCRATCH
+    Prepare_dmft2(dmfe, p, para, wopt, fh_info, 1, 'e')
     SSplit(dmfe.ROOT, matsubara, p['iparams0'], p['ntail'], fh_info)
     dmft2(fday,case,fh_info,dmfe.MPI2)
-    SSplit(dmfe.ROOT, matsubara, p['iparams0'], p['ntail'], fh_info, m_extn)
-    dmft2(fday,case,fh_info,dmfe.MPI2,m_extn)
-    cmd = dmfe.ROOT+'/fermif '+w2k.case+'.bnds '+w2k.case+'.bnds'+m_extn
+    SSplit(dmfe.ROOT, matsubara, p['iparams0'], p['ntail'], fh_info, wopt['m_extn'])
+    dmft2(fday,case,fh_info,dmfe.MPI2,wopt['m_extn'])
+    cmd = dmfe.ROOT+'/fermif '+scratch+'/'+w2k.case+'.bnds '+scratch+'/'+w2k.case+'.bnds'+wopt['m_extn']
     print >> fh_info, ('#<fermif>: '), cmd
     fh_info.flush()
     tim = time.strftime("%H:%M:%S")
@@ -622,8 +697,8 @@ if __name__ == '__main__':
               'sleeptime'     : 2,         # If broyden file are present at the submit time, user has some time to kill the job
               'cc'            : 1e-5,      # the charge density precision to stop the LDA+DMFT run
               'ec'            : 1e-5,      # the energy precision to stop the LDA+DMFT run
-              'so'            : False,     # spin-orbit coupling
-              'c'             : False,     # non-centrosymmetric
+              #'so'            : False,     # spin-orbit coupling
+              #'c'             : False,     # non-centrosymmetric
               'rCF'           : None,      # Reduction of the crystal field splitting, if necessary
               'recomputeEF'   : 1,         # Recompute EF in dmft2 step. If recomputeEF=2, it tries to find an insulating gap.
               'mixEF'         : 1.0,       # Chemical potential can be mixed with mixEF<1.0
@@ -693,14 +768,22 @@ if __name__ == '__main__':
         print help
         sys.exit(0)
     
-    para = ''
-    if p['dftKS'] : para = ' -p'  # Parallel run with internal lapw1. We could use either '-p' to have many vector files, or just '', to have single vector file. Not clear what is faster...
-    if os.path.isfile('.machines') and os.path.getsize('.machines')>0 : 
-        para = ' -p'              # Using w2k parallelization. For not neccessary for SO.
-        p['dftKS'] = False        # Switching off internal lapw1
+    # list of options for wien2k
+    wopt={'cmplx':'', 'so':'', 'm_extn':'', 'updn':''}  
+    # cmplx : no-inversion, 
+    # so    : spin-orbit coupling present
+    # m_extn: dmft is spin polarized
+    # updn  : core-is-spin-polarized
 
     dmfe = utils.DmftEnvironment()  # DMFT paths
     w2k = utils.W2kEnvironment()    # W2k filenames and paths
+
+    para = ''
+    if p['dftKS'] and dmfe.MPI2:
+        para = ' -p'  # Parallel run with internal lapw1. We could use either '-p' to have many vector files, or just '', to have single vector file. Not clear what is faster...
+    if os.path.isfile('.machines') and os.path.getsize('.machines')>0 : 
+        para = ' -p'              # Using w2k parallelization. For not neccessary for SO.
+        p['dftKS'] = False        # Switching off internal lapw1
 
     # Processing 'case.indmfl' file
     inl = indmffile.Indmfl(w2k.case) # case.indmfl file
@@ -722,29 +805,25 @@ if __name__ == '__main__':
     if len(glob.glob('dmft2_info.out'))!=0 : os.remove('dmft2_info.out')
     
     inldn = None
-    m_extn = 'dn' if os.path.exists(w2k.case+'.indmfl'+'dn') else ''
-    if m_extn:
+    if os.path.exists(w2k.case+'.indmfl'+'dn'): wopt['m_extn'] = 'dn'
+    if wopt['m_extn']:
         print >> fh_info, 'INFO: case.indmfldn present => magnetic calculation with two dmft2 steps'
-        inldn = indmffile.Indmfl(w2k.case, 'indmfl'+m_extn)
+        inldn = indmffile.Indmfl(w2k.case, 'indmfl'+wopt['m_extn'])
         inldn.read()
-
-    # For parallel execution of the impurity solver
-    # mpi_prefix = dmfe.MPI
 
     # Reading parameters from params.dat
     p.refresh(fh_info)
 
     # Reads structure file
-    #struct = Struct(w2k.case+'.struct', fh_info)
     struct = Struct(w2k.case, fh_info)
 
     # Check spin-orbit coupling
     if os.path.isfile(w2k.case+".inso") and os.path.getsize(w2k.case+".inso")>0 :
-        print 'Found '+w2k.case+'.inso file, hence assuming so-coupling exists. Switching -so switch!'
-        p['so'] = True
+        print >> fh_info, 'Found '+w2k.case+'.inso file, hence assuming so-coupling exists. Switching -so switch!'
+        wopt['so']='so'
     if os.path.isfile(w2k.case+".in1c") and os.path.getsize(w2k.case+".in1c")>0 :
-        print 'Found '+w2k.case+'.in1c file, hence assuming non-centrosymmetric structure. Switching -c switch!'
-        p['c'] = True
+        print >> fh_info, 'Found '+w2k.case+'.in1c file, hence assuming non-centrosymmetric structure. Switching -c switch!'
+        wopt['cmplx']='c'
         
     # corelated indexes
     cixs = inl.siginds.keys()        # all columns for cix
@@ -815,7 +894,6 @@ if __name__ == '__main__':
         for i in iSigind.keys():
             ic = icols_ind[i][0]
             iatom, l, qsplit = inl.cps[ic][0]  # Doesn't take into account cluster problems correctly
-            #cftrans = YLM_convert_w2k_to_standard(inl.cftrans[ic], l, qsplit)
             cftrans = inl.cftrans[ic]
             iSigind_ = iSigind_enumerate(iSigind[i],icols[i],fh_info)
             if shape(iSigind[i])[0]==2*shape(cftrans)[0] and shape(iSigind[i])[1]==2*shape(cftrans)[1]:
@@ -830,7 +908,6 @@ if __name__ == '__main__':
             if len(icols_ind[i])==0: continue  # This atom is treated as open-core
             ic = icols_ind[i][0]
             iatom, l, qsplit = inl.cps[ic][0]  # Doesn't take into account cluster problems correctly
-            #cftrans = YLM_convert_w2k_to_standard(inl.cftrans[ic], l, qsplit)
             cftrans = inl.cftrans[ic]
             iSigind_ = iSigind_enumerate(iSigind[i],icols[i],fh_info)
             if shape(iSigind[i])[0]==2*shape(cftrans)[0] and shape(iSigind[i])[1]==2*shape(cftrans)[1]:
@@ -840,24 +917,20 @@ if __name__ == '__main__':
     else:
         print 'ERROR: No solver specified! Bolling out.'
 
-
-    #print >> fh_info, 'LDA_DMFT_ROOT is set to', dmfe.ROOT
-    #print >> fh_info, 'Trying to copy:', dmfe.ROOT+'/dmft', 'here.'
     shutil.copy2(dmfe.ROOT+'/dmft', '.')  # For parallel execution, executable has to be on the current directory
     shutil.copy2(dmfe.ROOT+'/dmft2', '.') # For parallel execution, executable has to be on the current directory
 
-    print >> fh_info, '--------- Preparing GF calculation ---------'
-    cmd = dmfe.ROOT+'/x_dmft.py -d' + para + ' dmft1 >> dmft1_info.out 2>&1'
-    print >> fh_info, '#<prep-dmft1>: ', cmd
-    info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
-    if m_extn:
-        print >> fh_info, '--------- Preparing GC calculation '+m_extn+' ---------'
-        cmd = dmfe.ROOT+'/x_dmft.py -d' + para + ' dmft1 -l dn >> dmft1_info.out 2>&1'
-        print >> fh_info, '#<prep-dmft1dn>: ', cmd
-        info=subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
-    
-    Prepare_dmft2(dmfe, p, para, m_extn, fh_info, p['recomputeEF'])
 
+    if os.path.isfile(w2k.case+".incup") and os.path.isfile(w2k.case+".incdn") and os.path.getsize(w2k.case+".incup")>0 and os.path.getsize(w2k.case+".incdn")>0:
+        wopt['updn']=True # Computing J_Hunds by constrained-DMFT, hence need different core density for up and dn spin.
+        print >> fh_info, 'Found '+w2k.case+'.incup file, hence assuming core is spin polarized, and switching updn=up/dn on'
+        if not os.path.isfile(w2k.case+'.clmup') or os.path.getsize(w2k.case+'.clmup')==0:
+            print >> fh_info, 'ERROR: Missing '+w2k.case+'.clmup /clmdn files, which are needed when '+w2k.case+'.incup /incdn files are present'
+            sys.exit(1)
+            
+    Prepare_dmft1(dmfe, p, para, wopt, fh_info)
+    Prepare_dmft2(dmfe, p, para, wopt, fh_info, p['recomputeEF'])
+    
     shutil.copy2('sig.inp', 'sig.inp.0')
     
     if p['finish']>1: # Charge self-consistent
@@ -870,27 +943,25 @@ if __name__ == '__main__':
         
         
         if os.path.isfile(w2k.case+'.broyd1'):
-            print w2k.case+'.broyd* files present! You did not save_lapw a previous clculation.' 
-            print 'You have '+str(p['sleeptime'])+' seconds to kill this job ( ^C   or   kill '+str(os.getpid())+' )'
-            print 'or the script will rm *.broyd* and continue (use -NI to avoid automatic rm)'
-            time.sleep(p['sleeptime'])
+            print w2k.case+'.broyd* files present! I will remove previous broyd files.' 
+            # print 'You have '+str(p['sleeptime'])+' seconds to kill this job ( ^C   or   kill '+str(os.getpid())+' )'
+            # print 'or the script will rm *.broyd* and continue (use -NI to avoid automatic rm)'
+            # time.sleep(p['sleeptime'])
             cmd = 'rm -f *.broyd*'
             subprocess.call(cmd,shell=True,stdout=fh_info,stderr=fh_info)
             print >> fday, w2k.case+'.broyd* files removed!'
         
-        next='lapw0'
-        print >> fday, '\n   start'+(' '*8)+ time.asctime()+' with '+next+' ('+str(1)+'/'+str(p['riter'])+' to go)'
-
+        print >> fday, '\n   start'+(' '*8)+ time.asctime()+' with lapw0 ('+str(1)+'/'+str(p['riter'])+' to go)'
         
         # Starting with LAPW
         print >> fday, '\n   cycle %s \t%s %s/%s to go\n' % (0,time.asctime(),p['finish'],(p['finish'])%p['riter'])
         lapw0(fday,w2k.case,w2k.WIENROOT,para, fh_info); fday.flush()
-        lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,p['c'],fh_info); fday.flush()
-        if p['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe, fh_info)
+        lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,wopt,fh_info); fday.flush()
+        if wopt['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe, fh_info)
         fday.flush()
         
 
-    if para and (not p['dftKS']): convert_processes.convert(p['so'], fh_info)
+    if para and (not p['dftKS']): convert_processes.convert(wopt['so'], fh_info)
     
     #####################
     # Major charge loop #
@@ -904,13 +975,8 @@ if __name__ == '__main__':
     while icycle < p['finish']:
 
         if (icycle>0): # Does not exists yet. Will find it after dmft1
-            (nl_imp,nd_imp) = FindLatticeNd(w2k.case, m_extn, inl.siginds, icols_ind, fh_info, scf_name='scf2')
+            (nl_imp,nd_imp) = FindLatticeNd(w2k.case, wopt['m_extn'], inl.siginds, icols_ind, fh_info, scf_name='scf2')
             
-
-        #if p['DCs']=='exact_l' and nl_imp is not None: 
-        #    Update_Vdc(icols,solver)
-        #    print >> fh_info, icycle, 'JUST UPDATED Vdc with nl_imp=', nl_imp
-    
         #####################
         # DMFT loop         #
         #####################
@@ -922,22 +988,26 @@ if __name__ == '__main__':
             extn = str(icycle+1)+'.'+str(itt+1)  # Extension of output files
             p.refresh(fh_info)
             
-            # Recomputing the chemical potential
+            # Recomputing the chemical potential, but only if more than one DMFT step. Otherwise EF was recomputed in charge-SC step.
             if itt>1 and p['recomputeEF']:
-                Prepare_dmft2(dmfe, p, para, m_extn, fh_info, p['recomputeEF'], 'm')
-                SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info)
-                dEF =  dmft2(fday, w2k.case, fh_info, dmfe.MPI2); fday.flush()
-                
+                if p['Ferro'] and wopt['m_extn']:
+                    # In case of ferromagnetic or ferrimagnetic metal, we need to compute common EF for up and dn spins
+                    FermiF(dmfe, w2k, p, para, wopt, fh_info, fday, inl.matsubara)
+                else:
+                    Prepare_dmft2(dmfe, p, para, wopt, fh_info, 1, 'm')
+                    SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info)
+                    dEF =  dmft2(fday, w2k.case, fh_info, dmfe.MPI2); fday.flush()
+
             # Computing Green's function
             if p['runGF']:
                 SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info)
                 dmft1(fday, w2k.case, fh_info, extn, dmfe.MPI2, dmfe.ROOT)
-                if m_extn:
-                    SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info, m_extn)
-                    dmft1(fday, w2k.case, fh_info, extn, dmfe.MPI2, dmfe.ROOT, m_extn)
-                (nl_imp,nd_imp) = FindLatticeNd(w2k.case, m_extn, inl.siginds, icols_ind, fh_info, scf_name='scfdmft1',cmplx=True)
+                if wopt['m_extn']:
+                    SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info, wopt['m_extn'])
+                    dmft1(fday, w2k.case, fh_info, extn, dmfe.MPI2, dmfe.ROOT, wopt['m_extn'])
+                (nl_imp,nd_imp) = FindLatticeNd(w2k.case, wopt['m_extn'], inl.siginds, icols_ind, fh_info, scf_name='scfdmft1',cmplx=True)
             
-            SJoin(dmfe.ROOT, fh_info, p, m_extn)
+            SJoin(dmfe.ROOT, fh_info, p, wopt['m_extn'])
             
             if os.path.isfile('EF.dat'):
                 EF = float(open('EF.dat').read())
@@ -947,19 +1017,14 @@ if __name__ == '__main__':
             
             # ------------ Impurity solver -------------------
             if p['runIMP']:
-                #tim = time.strftime("%H:%M:%S")
-                #print >> fday, '>%-10s ( %s )' % ('impurity', tim)
-                #fday.flush()
-                
                 nimp += 1
-                
                 UpdateAtom = (p['UpdateAtom']!=0 and mod(nimp,p['UpdateAtom'])==0)
                 
                 for iat in iSigind.keys():   # Over all inequivalent impurity problems
                     ni=SolveImpurity(EF, solver[iat], iat, extn, p, UpdateAtom, nl_imp[iat], fh_info, fh_pinfo, fday)
                     n_imp[iat] += ni
                     
-                SGather(dmfe.ROOT, fh_info, p, m_extn)
+                SGather(dmfe.ROOT, fh_info, p, wopt['m_extn'])
                 
                 IEorb = 0.0
                 XEorb = 0.0
@@ -1014,25 +1079,26 @@ if __name__ == '__main__':
 
             recomputeEF = p['recomputeEF']
 
-            if p['Ferro'] and m_extn and recomputeEF:
+            if p['Ferro'] and wopt['m_extn'] and recomputeEF:
                 # In case of ferromagnetic or ferrimagnetic metal, we need to compute common EF for up and dn spins
-                FermiF(dmfe, w2k.case, p, para, m_extn, fh_info, fday, inl.matsubara)
+                FermiF(dmfe, w2k, p, para, wopt, fh_info, fday, inl.matsubara)
                 recomputeEF = 0
             
-            Prepare_dmft2(dmfe, p, para, m_extn, fh_info, recomputeEF, 'c')
+            Prepare_dmft2(dmfe, p, para, wopt, fh_info, recomputeEF, 'c')
             SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info)
             dEF = dmft2(fday,w2k.case,fh_info,dmfe.MPI2); fday.flush()
-            if m_extn:
-                SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info, m_extn)
-                dmft2(fday,w2k.case,fh_info,dmfe.MPI2,m_extn)
+            if wopt['m_extn']:
+                SSplit(dmfe.ROOT, inl.matsubara, p['iparams0'], p['ntail'], fh_info, wopt['m_extn'])
+                dmft2(fday,w2k.case,fh_info,dmfe.MPI2,wopt['m_extn'])
                 fday.flush()
-                combineud(w2k.case, dmfe.ROOT, fh_info)
+                combineud(w2k.case, dmfe.ROOT, wopt, fh_info)
             
-            nd,Vdc = CreateEorb(w2k.case,m_extn, inl.siginds, p, icols_ind)
+            nd,Vdc = CreateEorb(w2k.case, wopt, inl.siginds, icols_ind)
+
             nc = ConvertFromLatticeToImp(nd, icols_ind)
 
-            lcore(fday,w2k.case,w2k.WIENROOT,fh_info);       fday.flush()
-            scf(w2k.case, m_extn)
+            lcore(fday,w2k.case,w2k.WIENROOT,wopt,fh_info);       fday.flush()
+            scf  (w2k.case, wopt)
             scf1 (fday,w2k.case,w2k.WIENROOT);
             mixer(fday,w2k.case,w2k.WIENROOT,fh_info);       fday.flush()
             scfm (fday,w2k.case,w2k.WIENROOT);               fday.flush()
@@ -1040,12 +1106,15 @@ if __name__ == '__main__':
             
             # Writting to info.iterate file
             if os.path.isfile('EF.dat'): EF = float(open('EF.dat').read())
-            (ETOT,SUM,XSUM,YSUM,EORB,XEORB) = FindEtot(w2k.case,m_extn)
+            (ETOT,SUM,XSUM,YSUM,EORB,XEORB) = FindEtot(w2k.case,wopt)
             
             fh_pinfo.write( '%3d %3s.%4s %12.6f %12.6f %15.6f %15.6f %15.6f ' % (istep0, icycle, ita, EF, Vdc, ETOT, ETOT-SUM+XSUM, ETOT-SUM+YSUM-EORB+XEORB) )
             for iat in iSigind.keys():   # Over all inequivalent impurity problems
-                fEimp = open('imp.'+str(iat)+'/Eimp.inp', 'r')
-                (Eimp,Olap,Edc) = [array([float(x) for x in line.split('#')[0].split()]) for line in fEimp.readlines()]  # throw out comments
+                if os.path.exists('imp.'+str(iat)+'/Eimp.inp'):
+                    fEimp = open('imp.'+str(iat)+'/Eimp.inp', 'r')
+                    (Eimp,Olap,Edc) = [array([float(x) for x in line.split('#')[0].split()]) for line in fEimp.readlines()]  # throw out comments
+                else: # If runGF=False, this is not available
+                    Eimp=array([0,0])
                 fh_pinfo.write( '%12.6f %12.6f %12.6f %12.6f ' % (nc[iat], n_imp[iat], Eimp[0], Eimp[-1]) )
             fh_pinfo.write('\n')
             fh_pinfo.flush()
@@ -1069,8 +1138,8 @@ if __name__ == '__main__':
             print >> fday, '\n:ITT%-2d   cycle %s \t%s %s/%s to go\n' % (istep2, istep1,time.asctime(),p['finish']-istep1,(p['finish']-istep1)%p['riter'])
             
             lapw0(fday,w2k.case,w2k.WIENROOT,para, fh_info); fday.flush()
-            lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,p['c'],fh_info); fday.flush()
-            if p['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe, fh_info)
+            lapw1(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe,wopt,fh_info); fday.flush()
+            if wopt['so']: lapwso(fday,w2k.case,w2k.WIENROOT,para,p['dftKS'],dmfe, fh_info)
                 
             fday.flush()
             

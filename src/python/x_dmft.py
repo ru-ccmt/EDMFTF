@@ -107,11 +107,14 @@ def PrepareDefinitionFile_dmft1(idmf, mode, case, cixs, updn, dnup, so, para, sc
     IND_IMP = 380
 
     fdef = open('dmft'+idmf+'.def', 'w')
-    
+    idmf_updn = idmf+updn
+    if idmf[-2:]==updn:
+        idmf_updn = idmf
+
     print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 2, "'"+case+".indmf"+idmf+"'",         "'old'",     "'formatted'", 0)
     print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 4, "'"+case+".inso"+"'",               "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 5, "'"+case+".indmfl"+m_ext+"'",             "'old'",     "'formatted'", 0)
-    print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 6, "'"+case+".outputdmf"+idmf+updn+"'","'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 6, "'"+case+".outputdmf"+idmf_updn+"'","'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 7, "'"+case+".in1c"+"'",               "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 8, "'"+case+".scf2"+updn+"'",          "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-20s, %-10s, %-13s, %-4d" % ( 9, "'"+scratch+"/"+case+".vector"+so+updn+para+"'", "'old'","'unformatted'",9000)
@@ -162,12 +165,15 @@ def PrepareDefinitionFile_dmft2(idmf, mode, case, cixs, updn, dnup, so, para, sc
     updn_m_ext = updn+m_ext
     if m_ext and updn and m_ext==updn:  # if both are set to ither up or dn
         updn_m_ext = m_ext              # we should not repeat
+    idmf_updn = idmf+updn
+    if idmf[-2:]==updn:
+        idmf_updn = idmf
         
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 2, "'"+case+".indmf"+idmf+"'",    "'old'",     "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 3, "'"+case+".in1c"+"'",          "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 4, "'"+case+".inso"+"'",          "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 5, "'"+case+".in2"+cmplx+"'",     "'old'",     "'formatted'", 0)
-    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 6, "'"+case+".outputdmf"+idmf+updn+"'","'unknown'", "'formatted'", 0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 6, "'"+case+".outputdmf"+idmf_updn+"'","'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 7, "'"+case+'.indmfl'+m_ext+"'",        "'old'",     "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 8, "'"+case+".clmval"+updn_m_ext+"'",   "'unknown'", "'formatted'", 0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % ( 9, "'"+scratch+"/"+case+".vector"+so+updn+para+"'", "'old'","'unformatted'",9000)
@@ -175,7 +181,7 @@ def PrepareDefinitionFile_dmft2(idmf, mode, case, cixs, updn, dnup, so, para, sc
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (12, "'"+case+".norm"+so+"'",       "'unknown'", "'formatted'",0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (13, "'"+case+".recprlist"+"'",     "'unknown'", "'formatted'", 9000)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (14, "'"+case+".kgen"+"'",          "'unknown'", "'formatted'", 0)
-    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (15, "'"+case+".bnds"+m_ext+"'",    "'unknown'","'unformatted'",0)
+    print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (15, "'"+scratch+"/"+case+".bnds"+m_ext+"'",    "'unknown'","'unformatted'",0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (18, "'"+case+".vsp"+updn+"'",      "'old'",     "'formatted'",0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (20, "'"+case+".struct"+"'",        "'old'",     "'formatted'",0)
     print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (21, "'"+case+".scf2"+updn_m_ext+"'",     "'unknown'", "'formatted'", 0)
@@ -281,6 +287,7 @@ def checkSigmas(cixs, sig='sig.inp'):
             print 'ERROR: You can continue to run the code, but the ouput is likely wrong!'
 
 
+
 def runExternal(widmf, ROOT, MPI, nom, ntail, dmft_exe='dmft', m_ext='',performSplit=True):
     "Runs external executable"
     if performSplit:
@@ -384,7 +391,8 @@ if __name__=='__main__':
         if para: print 'Parallel vector/energy files written.'
         PrepareDefinitionFile_lapw1('lapw1', w2k.case, updn, para, w2k.SCRATCH, k_band, cmplx)
         if not options.def_only:
-            runExternal('lapw1', dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
+            __updn = '' if options.m_ext else updn  # if m_ext adds up/dn then updn should not. Otherwise it should.... maybe you can find a better solution.
+            runExternal('lapw1'+__updn, dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
         sys.exit(0)
 
     if args[0]=='lapwso':
@@ -431,7 +439,8 @@ if __name__=='__main__':
     elif args[0] == 'dmft1':
         idmf = '1'
         mode = 'g'               # mode for computing eigenvalues
-        
+        #__updn = '' if options.m_ext else updn  # if m_ext adds up/dn then updn should not. Otherwise it should.... maybe you can find a better solution.
+        #dn = options.m_ext+__updn
         PrepareDefinitionFile_dmft1(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, '', options.m_ext)
         PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn)
         

@@ -3,7 +3,7 @@
 from numpy import *
 import os
 
-def scf(case, m_extn, outfile='.scf'):
+def scf(case, wopt, outfile='.scf'):
     def SearchScf(ist,KEY,dat):
         for i in range(ist,len(dat)):
             line=dat[i].strip()
@@ -24,22 +24,25 @@ def scf(case, m_extn, outfile='.scf'):
     
     # First merger case.scf0, case.scf1 and case.scfso
     dat=[]
-    for i in ['0','1','so']:
+    scfs = ['0','1','so']
+    if wopt['updn']: scfs = ['0','1up','1dn','so']
+    for i in scfs:
         if os.path.exists(case+'.scf'+i):
             dat += '\n------- '+case+'.scf'+i+' --------\n'
             dat += open(case+'.scf'+i,'r').readlines()
-
+    
     # case.scf2 is complicated when both up & dn are present
     # We need to average over case.scf2 and case.scf2dn
-    if m_extn and os.path.exists(case+'.scf2'+m_extn):
+    if wopt['m_extn'] and os.path.exists(case+'.scf2'+wopt['m_extn']):
         lineo, io = SearchScf(0,':NATO',dat)
         nat = int(lineo.split(':')[2].split()[0])
         
-        dat_up = open(case+'.scf2','r').readlines()
-        dat_dn = open(case+'.scf2'+m_extn,'r').readlines()
-        fu=case+'.scf2'
-        fd=case+'.scf2'+m_extn
-
+        up__ = 'up' if wopt['updn'] else ''
+        dat_up = open(case+'.scf2'+up__,'r').readlines()
+        dat_dn = open(case+'.scf2'+wopt['m_extn'],'r').readlines()
+        fu=case+'.scf2'+up__
+        fd=case+'.scf2'+wopt['m_extn']
+    
         line_s1 = GetSum(':SUM ', dat_up, dat_dn)
         line_s2 = GetSum(':XSUM ', dat_up, dat_dn)
         line_s3 = GetSum(':YSUM ', dat_up, dat_dn)
@@ -49,7 +52,7 @@ def scf(case, m_extn, outfile='.scf'):
         line_s7 = GetSum(':VSUM ', dat_up, dat_dn)
         
         dat += '\n------- '+fu+' and '+fd+' --------\n'
-
+    
         lineu, iu_ = SearchScf(0,':NOE ',dat_up)
         lined, id_ = SearchScf(0,':NOE ',dat_dn)
         dat += '\n------- '+fu+'  -------\n'
@@ -81,7 +84,7 @@ def scf(case, m_extn, outfile='.scf'):
         chtot = 0.5*(chup+chdn)
         dat += lineu[:40]+("%14.6f"%chtot)
     
-
+    
         lineu, _iu = SearchScf(iu_,':DRHO',dat_up)
         lined, _id = SearchScf(id_,':DRHO',dat_dn)
             
@@ -105,7 +108,7 @@ def scf(case, m_extn, outfile='.scf'):
             
         dat += line_s1+'\n'+line_s2+'\n'+line_s3+'\n'+line_s4+'\n'+line_s5+'\n'+line_s6+'\n'+line_s7+'\n\n'
         
-
+    
         # merging forces
         lineu, iu_ = SearchScf(0,'VALENCE-FORCE',dat_up)
         lined, id_ = SearchScf(0,'VALENCE-FORCE',dat_dn)
@@ -134,11 +137,13 @@ def scf(case, m_extn, outfile='.scf'):
         dat += '\n---------- Eorb_imp.dat --------------\n'
         dat += open('Eorb_imp.dat','r').readlines()
         
-    for i in ['1s','2s','c']:
+    scfs = ['1s','2s','c']
+    if wopt['updn']: scfs = ['cup','cdn']
+    for i in scfs:
         if os.path.exists(case+'.scf'+i):
             dat += '\n------- '+case+'.scf'+i+' --------\n'
             dat += open(case+'.scf'+i,'r').readlines()
-            
+
     fs = open(case+outfile, 'a')
     fs.writelines(dat)
     fs.close()
@@ -160,6 +165,6 @@ if __name__ == '__main__':
     w2k = utils.W2kEnvironment()    # W2k filenames and paths
     inldn = None
     m_extn = 'dn' if os.path.exists(w2k.case+'.indmfl'+'dn') else ''
-
-    scf(w2k.case,m_extn, '.scf_test')
+    wopt={'m_extn':m_extn, 'updn':True}
+    scf(w2k.case, wopt, '.scf_test')
     
