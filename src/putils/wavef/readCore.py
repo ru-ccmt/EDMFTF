@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 from scipy import *
 import utils
 import sys, os
@@ -7,10 +6,11 @@ import struct1
 import re
 from w2k_atpar import readpotential, readlinearizatione, atpar, rint13, rint13g
 from pylab import *
+import optparse
 
-def read_core(case, struct):
+def read_core(case, struct,updn=''):
     # reading case.inc
-    fc = open(case+'.inc', 'r')
+    fc = open(case+'.inc'+updn, 'r')
     n_kappa_occup =[]
     iprint=[]
     for jatom in range(struct.nat):
@@ -29,7 +29,7 @@ def read_core(case, struct):
     print 'iprint=', iprint
     
     # reading case.corewf
-    fi = open(case+'.corewf','r')
+    fi = open(case+'.corewf'+updn,'r')
     wavec=[]
     cType=[]
     cEne=[]
@@ -73,9 +73,26 @@ def read_core(case, struct):
     return (wavec, cType, cEne, iprint, n_kappa_occup)
 
 if __name__ == '__main__':
+
+    usage = """usage: %prog [ options ] mode
+       Prints the core wave function from case.corewf[up|dn| ]
+       --up  updn = up
+       --dn  updn = dn
+    """
+    parser = optparse.OptionParser(usage)
+    parser.add_option("--up", dest="up", action='store_true', default=False, help="magnetic LDA calculation with vector-up first")
+    parser.add_option("--dn", dest="dn", action='store_true', default=False, help="magnetic LDA calculation with vector-dn first")
+    # Next, parse the arguments
+    (options, args) = parser.parse_args()
+    updn=''
+    if options.up:
+        updn = 'up'
+    if options.dn:
+        updn = 'dn'
+
     w2k = utils.W2kEnvironment()
     struct = struct1.Struct(w2k.case)
-    (wavec, cType, cEne, iprint, n_kappa_occup) = read_core(w2k.case, struct)
+    (wavec, cType, cEne, iprint, n_kappa_occup) = read_core(w2k.case, struct,updn)
 
     for jatom in range(struct.nat):
         if iprint[jatom]:
@@ -94,7 +111,7 @@ if __name__ == '__main__':
                 norm = rint13g(1.0,1.0,Ag,Bg,Ag,Bg,dx,r0)
                 
                 plot(Rx, Ag, label=cType[jatom][ic])
-                savetxt('corewf_'+str(jatom)+'_'+str(ic)+'.dat', transpose(vstack((Rx,Ag,Bg))) )
+                savetxt('corewf'+updn+'_'+str(jatom)+'_'+str(ic)+'.dat', transpose(vstack((Rx,Ag,Bg))) )
                 print cType[jatom][ic], 'norm=', norm
     title('Core wave fnunctions')
     legend(loc='best')

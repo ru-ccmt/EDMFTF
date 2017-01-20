@@ -102,7 +102,7 @@ CONTAINS
 
 END MODULE struct
 
-subroutine ReadCLMVAL(fclmval1, fclmval2, fclmvala)
+subroutine ReadCLMVAL(fclmval1, fclmval2, fclmvala, pfc)
   use struct, ONLY: nat, jrj
   IMPLICIT NONE
   CHARACTER*100, intent(in) :: fclmval1, fclmval2, fclmvala
@@ -112,6 +112,7 @@ subroutine ReadCLMVAL(fclmval1, fclmval2, fclmvala)
   CHARACTER*100 :: str1, str2
   COMPLEX*16 :: RHOK1,RHOK2
   INTEGER :: KZZ(3)
+  REAL*8  :: pfc
   INTEGER, ALLOCATABLE :: JRI(:)
   REAL*8, ALLOCATABLE :: RHOLM1(:), RHOLM2(:)
   
@@ -163,7 +164,7 @@ subroutine ReadCLMVAL(fclmval1, fclmval2, fclmvala)
         READ(fhv2,'(/)')
         
         WRITE(fhv3,'(3X,A12,I3,3X,A2,I2/)') 'CLM(R) FOR L', Li, 'M=', Mi
-        WRITE(fhv3,'(3X,4E19.12)') ( 0.5*(RHOLM1(I)+RHOLM2(I)), I=1,IMAX )
+        WRITE(fhv3,'(3X,4E19.12)') ( 0.5*pfc*(RHOLM1(I)+RHOLM2(I)), I=1,IMAX )
         WRITE(fhv3,'(/)')
      end DO
      READ(fhv1,'(///)')
@@ -185,7 +186,7 @@ subroutine ReadCLMVAL(fclmval1, fclmval2, fclmvala)
   DO J=1,NWAVE
      READ(fhv1,'(3X,3I5,2E19.12)')  (KZZ(JX),JX=1,3),RHOK1
      READ(fhv2,'(3X,3I5,2E19.12)')  (KZZ(JX),JX=1,3),RHOK2
-     WRITE(fhv3, '(3X,3I5,2E19.12)')   (KZZ(JX),JX=1,3),0.5*(RHOK1+RHOK2)
+     WRITE(fhv3, '(3X,3I5,2E19.12)')   (KZZ(JX),JX=1,3),0.5*pfc*(RHOK1+RHOK2)
   ENDDO
     
   close(fhv1)
@@ -203,8 +204,9 @@ program CombineUpDn
   !DEFINE BUFFER HOLDS THE COMMAND LINE ARGUMENT
   CHARACTER*100 :: case
   !
-  CHARACTER*100 :: struct_file, fclmval1, fclmval2, fclmvala
+  CHARACTER*100 :: struct_file, fclmval1, fclmval2, fclmvala, cpfc
   INTEGER :: iargc
+  REAL*8  :: pfc
   !GET THE PARAMETERS FROM THE COMMAND LINE ARGUMENT
   
   if (iargc().LT.1) then
@@ -213,6 +215,12 @@ program CombineUpDn
   endif
   
   CALL GETARG(1,case)
+  
+  pfc=1.0d0
+  if (iargc().GT.1) then
+     CALL GETARG(2,cpfc)
+     READ(cpfc,*) pfc
+  endif
   
   struct_file = TRIM(case)//'.struct'
   fclmval1 = TRIM(case)//'.clmval'
@@ -223,8 +231,9 @@ program CombineUpDn
   !print *, fclmval1
   !print *, fclmval2
   !print *, fclmvala
+  print *, 'pfc=', pfc
   
   CALL init_struct(struct_file)
-  CALL ReadCLMVAL(fclmval1, fclmval2, fclmvala)
+  CALL ReadCLMVAL(fclmval1, fclmval2, fclmvala, pfc)
   CALL dealc_struct()
 end program CombineUpDn

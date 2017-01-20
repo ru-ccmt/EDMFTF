@@ -50,10 +50,10 @@ case = fileBaseName
 
 print 'case=', case
 
-w0 = [case+'.struct',case+'.in0',case+'.clmsum', case+'.inm', case+'.inM']
+w0 = [case+'.struct',case+'.in0',case+'.clmsum', case+'.inm', case+'.inM', case+'.clmup', case+'.clmdn']
 w1 = [case+'.in1', case+'.in1c', case+'.klist', case+'.inso', case+'.in2c']
 w2 = [case+'.in2', case+'.kgen']
-wc = [case+'.inc', case+'.scf2']
+wc = [case+'.inc', case+'.scf2', case+'.incup', case+'.incdn']
 
 if opt in ['-l', '-a']:
     for f in w0+w1+w2+wc:
