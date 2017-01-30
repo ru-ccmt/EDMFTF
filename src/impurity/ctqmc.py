@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # @Copyright 2007 Kristjan Haule
 # 
-
 import sys, re, os, glob, shutil, types
 from scipy import *
 from scipy import interpolate
@@ -492,7 +491,7 @@ class IMP_CTQMC(object):
         
         print >> self.fh_info, 'nimp, TrSigmaG=', ntot, TrSigmaG
         
-        (Phi_DMFT, lnGimp, Fimp, Vdc_nd) = GiveImpFunctional(self.dir,self.PARAMS,Edc,self.fh_info)
+        (Phi_DMFT, lnGimp, Fimp, Vdc_nd, zeorb) = GiveImpFunctional(self.dir,self.PARAMS,Edc,self.fh_info)
         
         self.fh_info.flush()
         
@@ -507,8 +506,10 @@ class IMP_CTQMC(object):
         print >> fE, '#  Phi_DMFT-Phi_DC=', Phi_DMFT-Phidc0
         print >> fE, '#  Tr(log(-Gimp))=', lnGimp
         print >> fE, '#  Fimpurity+TS=', Fimp
+        print >> fE, '#  E_pot+E_kin-Tr(w*dD/dw)=', zeorb
         print >> fE, ':IEORB ', (Epotential-Phidc0)/Ry2eV
         print >> fE, ':XEORB ', (Phi_DMFT-Phidc0)/Ry2eV
+        print >> fE, ':ZEORB ', (zeorb-Phidc0)/Ry2eV
         fE.close()
 
         fE = open(self.dir+'/sig.out', 'w')

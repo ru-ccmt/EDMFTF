@@ -69,7 +69,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   INTEGER    :: LM_MAX, ikp, is, itape, icix, iom, max_nbands, norbitals, maxdim2, nbands, nbandsx, nbands_dft, nomega, npomega, fh_sig, fh_dos, nip, nipc
   INTEGER    :: ift1, ift2, ift3, iff1t, iff2t, iff3t, ia1, ia2, jx, qmax, iikp, iks, itape1, ivector, iind, ir, l, Nri, icase, nedim, info
   REAL*8     :: OVRDIV, TC, EFGFACT, EFG20, EFG22, EFG2M, QXX, QYY, QZZ, QXY, VXX, VYY, VZZ, vnorm1, twgh, wgamma, rx
-  REAL*8     :: volin, beta, logG, logGloc, dens, eimp_nd, DeltaG, dEtot, EF, TrGSigVdc
+  REAL*8     :: volin, beta, logG, logGloc, dens, eimp_nd, eimp_nd2, DeltaG, dEtot, EF, TrGSigVdc
   LOGICAL    :: RENORM_SIMPLE, Qforce_j
   complex*16 :: wkp
   COMPLEX*16, ALLOCATABLE :: cfX(:,:,:,:), DMFTU(:,:,:,:), STrans(:,:,:,:), Aweight(:,:), Olapm0(:,:,:), SOlapm(:,:,:), AEweight(:,:)
@@ -741,17 +741,19 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      print *, 'TrLogG=', (FTOT2+DM_EF*elecn)*Ry2eV, 'eV'
      if (matsubara) then
         ! THIS SHOULD BE EXTENDED TO REAL AXIS
-        CALL cmpLogGdloc(logGloc, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc)
+        CALL cmpLogGdloc(logGloc, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc)
      else
         logGloc=0.
         DeltaG=0.
-        eimp_nd=0
+        eimp_nd=0.
+        eimp_nd2=0.
      endif
      
      logGloc = logGloc*2./iso
      DeltaG = DeltaG*2./iso
      WRITE(*,*) 'TrLog(Gloc)[eV]=', logGloc*Ry2eV
      WRITE(*,*) 'Eimp*Nd[eV]=', eimp_nd*Ry2eV
+     WRITE(*,*) '(Eimp+s_oo)*Nd[eV]=', eimp_nd2*Ry2eV
      WRITE(*,*) 'Tr((Delta-w*dDelta)G)=', DeltaG*Ry2eV
      WRITE(6,'(A,f15.12,1x,A,f15.10)') 'Ratio to renormalize=', (elecn/xwt), 'rho-rho_expected=', (xwt-elecn)
      if (Rho_Renormalize) then
@@ -1060,9 +1062,9 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      WRITE(21,725) ETOT2+dEtot
      WRITE(21,'(A,1x,A,F20.9,3x,A)') ':XSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-logGloc+eimp_nd+DeltaG, '# Tr(log(G))-Tr(log(G_loc))+Tr((eimp+Vdc)G)+Tr(G(D-w*dD))'
      WRITE(21,'(A,1x,A,F20.9,3x,A)') ':YSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-TrGSigVdc,       '# Tr(log(G))+mu*N-Tr((Sig-Vdc)*G)'
-     WRITE(21,'(A,1x,A,F20.9,3x,A)') ':ZSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-logGloc,         '# Tr(log(G))-Tr(log(G_loc))'
+     WRITE(21,'(A,1x,A,F20.9,3x,A)') ':ZSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-logGloc+eimp_nd, '# Tr(log(G))-Tr(log(G_loc))+Tr((eimp+Vdc)G)'
      WRITE(21,'(A,1x,A,F20.9,3x,A)') ':WSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-logGloc+DeltaG,  '# Tr(log(G))-Tr(log(G_loc))+Tr(G(D-w*dD))'
-     WRITE(21,'(A,1x,A,F20.9,3x,A)') ':QSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-logGloc+eimp_nd, '# Tr(log(G))-Tr(log(G_loc))+Tr((eimp+Vdc)G)'
+     WRITE(21,'(A,1x,A,F20.9,3x,A)') ':QSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn-logGloc+eimp_nd2,'# Tr(log(G))-Tr(log(G_loc))+Tr((eimp+Vdc+s_oo)G)'
      WRITE(21,'(A,1x,A,F20.9,3x,A)') ':VSUM :', 'SUM OF EIGENVALUES =  ', FTOT2+DM_EF*elecn, '# Tr(log(G))+mu*N'
      WRITE(6,'(A,1x,F15.6,2x,A,1x,F15.6,2x,A,1x,F15.6)') 'TrLog(-G)=', FTOT2+DM_EF*elecn, 'TrLog(-Gloc)=', logGloc
      WRITE(6,882)  ETOT2

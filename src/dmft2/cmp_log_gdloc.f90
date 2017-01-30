@@ -1,14 +1,14 @@
 ! @Copyright 2007 Kristjan Haule
 ! 
 
-SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc)
+SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc)
   USE defs,  ONLY: pi, IMAG
   USE splines, ONLY: zspline3, zspline3der
   USE muzero,ONLY: nomq, jomq, iomq, womq, n0_om
   USE dmfts, ONLY: iso, natom, iatom, isort, cix, nl
   USE structure, ONLY: natm
   IMPLICIT NONE
-  REAL*8, intent(out)    :: logG, eimp_nd, DeltaG, forb(3,natm), TrGSigVdc
+  REAL*8, intent(out)    :: logG, eimp_nd, eimp_nd2, DeltaG, forb(3,natm), TrGSigVdc
   COMPLEX*16, intent(in) :: Gdloc(ntcix,nomega,nipc), s_oo(maxsize,ncix)
   REAL*8, intent(in)     :: Edimp(ntcix), DM(maxdim,maxdim,ncix), Nds(nipc,ntcix)
   INTEGER, intent(in)    :: Sigind(maxdim,maxdim,ncix), Sigind_orig(maxdim,maxdim,ncix), cixdim(ncix), csize(ncix) !, cix(natom,4)
@@ -103,6 +103,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_o
      epsinf=0
      deg=0
      eimp_nd=0
+     eimp_nd2=0
      ndtot=0
      do icix=1,ncix
         do ip=1,cixdim(icix)
@@ -169,7 +170,8 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_o
         tlogGX = FreeE0(epsinf(it2),Temperature)
         second_order_correction = Bi(it2)* ( (ferm(C0/Temperature)-ferm(epsinf(it2)/Temperature))/(C0-epsinf(it2)) - 2*Temperature*dble(sec) )
         logG = logG + (2*Temperature*(tlogGD-tlogG0) + tlogGX + second_order_correction )*deg(it2)
-        eimp_nd = eimp_nd + Edimp(it2)*ndtot(it2)
+        eimp_nd = eimp_nd + Edimp(it2)*ndtot(it2)     ! Tr(eimp*n)
+        eimp_nd2 = eimp_nd2 + epsinf(it2)*ndtot(it2)  ! Tr((eimp+s_oo)*n)
         !print *, 'sginf=', second_order_correction*deg(it2)*Ry2eV
         WRITE(*,'(I3,1x,6F22.14)') it2, tlogGD, tlogG0, dble(sec), tlogGX, second_order_correction, logG
 
@@ -260,23 +262,23 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_o
      WRITE(6,*) 'Nds for each orbital:'
      WRITE(6,'(A)',advance='no'), '   c:'
      do it2=1,ntcix
-        WRITE(6,'(f11.8,1x)',advance='no') Nds(1,it2)
+        WRITE(6,'(f13.8,1x)',advance='no') Nds(1,it2)
      enddo
      WRITE(6,*)
      if (nipc.eq.4) then
         WRITE(6,'(A)',advance='no') '   x:'
         do it2=1,ntcix
-           WRITE(6,'(f11.8,1x)',advance='no') Nds(2,it2)
+           WRITE(6,'(f13.8,1x)',advance='no') Nds(2,it2)
         enddo
         WRITE(6,*)
         WRITE(6,'(A)',advance='no') '   y:'
         do it2=1,ntcix
-           WRITE(6,'(f11.8,1x)',advance='no') Nds(3,it2)
+           WRITE(6,'(f13.8,1x)',advance='no') Nds(3,it2)
         enddo
         WRITE(6,*)
         WRITE(6,'(A)',advance='no') '   z:'
         do it2=1,ntcix
-           WRITE(6,'(f11.8,1x)',advance='no') Nds(4,it2)
+           WRITE(6,'(f13.8,1x)',advance='no') Nds(4,it2)
         enddo
         WRITE(6,*)
      endif
@@ -284,7 +286,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_o
      do ip=1,nipc
         WRITE(6,'(A,A,A)',advance='no') '   ',label(ip-1),':'
         do it2=1,ntcix
-           WRITE(6,'(f11.8,1x)',advance='no') GS_static(ip-1,it2)*Ry2eV
+           WRITE(6,'(f13.8,1x)',advance='no') GS_static(ip-1,it2)*Ry2eV
         enddo
         WRITE(6,*)
      enddo
@@ -292,7 +294,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_o
      do ip=1,nipc
         WRITE(6,'(A,A,A)',advance='no') '   ',label(ip-1),':'
         do it2=1,ntcix
-           WRITE(6,'(f11.8,1x)',advance='no') GS_dynamic(ip-1,it2)*Ry2eV
+           WRITE(6,'(f13.8,1x)',advance='no') GS_dynamic(ip-1,it2)*Ry2eV
         enddo
         WRITE(6,*)
      enddo
@@ -300,7 +302,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_o
      do ip=1,nipc
         WRITE(6,'(A,A,A)',advance='no') '   ',label(ip-1),':'
         do it2=1,ntcix
-           WRITE(6,'(f11.8,1x)',advance='no') GS_static(ip-1,it2)+GS_dynamic(ip-1,it2)
+           WRITE(6,'(f13.8,1x)',advance='no') GS_static(ip-1,it2)+GS_dynamic(ip-1,it2)
         enddo
         WRITE(6,*)
      enddo

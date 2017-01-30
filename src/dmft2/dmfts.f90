@@ -43,7 +43,7 @@ CONTAINS
     ! locals
     REAL*8,PARAMETER    :: Ry2eV= 13.60569253d0
     INTEGER :: irenormalize, imatsubara, wat, i, j, j1, shift, icix, size, ident, m1, m2
-    INTEGER :: latom, jatom, locrot, wicix, minsigind, wfirst, iat, im
+    INTEGER :: latom, jatom, locrot, wicix, minsigind_p, maxsigind_p, minsigind_m, wfirst, iat, im
     REAL*8  :: xx(3), xz(3), thetaz, phiz, thetax, phix, ddd, check
     REAL*8, allocatable :: wtmpx(:)
     LOGICAL :: Qident
@@ -220,29 +220,34 @@ CONTAINS
        do i=1,wndim
           READ(fhr,*) (Sigind(i,j,icix),j=1,wndim)
           Sigind_orig(i,:,icix) = abs(Sigind(i,:,icix))
-          do j=1,wndim
-             Sigind(i,j,icix)=abs(Sigind(i,j,icix))
-          enddo
+          !do j=1,wndim
+          !   Sigind(i,j,icix)=abs(Sigind(i,j,icix))
+          !enddo
        enddo
 
-       minsigind=100
+       minsigind_p=10000
+       maxsigind_p=0
+       minsigind_m=10000
        do i=1,wndim
           do j=1,wndim
-             if (Sigind(i,j,icix).ne.0) then
-                minsigind = min(minsigind,Sigind(i,j,icix))
+             if (Sigind(i,j,icix).gt.0) then
+                minsigind_p = min(minsigind_p,Sigind(i,j,icix))
+                maxsigind_p = max(maxsigind_p,Sigind(i,j,icix))
              endif
+             if (Sigind(i,j,icix).lt.0) minsigind_m = min(minsigind_m,-Sigind(i,j,icix))
              if (Sigind_orig(i,j,icix).gt.ntcix) then
                 ntcix=Sigind_orig(i,j,icix)
              endif
           enddo
        enddo
-
-       if (minsigind.ne.1) then
+       maxsigind_p = maxsigind_p-minsigind_p+1
+       if (maxsigind_p.lt.0) maxsigind_p = 0
+       !if (minsigind.ne.1) then                                                                                                                                                                            
+       if (minsigind_p.ne.1 .or. minsigind_m.ne.10000) then
           do i=1,wndim
              do j=1,wndim
-                if (Sigind(i,j,icix).ne.0) then
-                   Sigind(i,j,icix) = Sigind(i,j,icix)-minsigind+1
-                endif
+                if (Sigind(i,j,icix).gt.0) Sigind(i,j,icix) = Sigind(i,j,icix)-minsigind_p+1
+                if (Sigind(i,j,icix).lt.0) Sigind(i,j,icix) = (abs(Sigind(i,j,icix))-minsigind_m+maxsigind_p+1)
              enddo
           enddo
           

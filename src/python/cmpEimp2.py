@@ -336,7 +336,10 @@ def GiveImpFunctional(dire, fparams, Vdc, fout=sys.stdout):
         print >> fout, 'Entropy=', Entropy, 'Fimp=', Fimp, 'logZatom=', logZatom, 'P0=', P0, WARN
     #print >> fout, 'P[Sigma]=', Potthof2
 
+    print >> fout, '1/2*Tr(Sigma*G)=', 0.5*(trsigg+trsigg_oo), 'deimp*nf=', sum(Eks*mom)
+
     Vdc_nd = sum(array(mom[:])*array(Vdc[:]))
+    zeorb = TrDeltaG+Epot-cxx - sum(Eks*mom) # note that Epot ~ 1/2*Tr(Sigma*G)+Eks*mom
     print >> fout, 'Vdc*nf=', Vdc_nd
     Phi_DMFT = -lnGimp+Eimp+(trsigg+trsigg_oo)
     print >> fout, 'Phi_DMFT=', Phi_DMFT
@@ -344,7 +347,8 @@ def GiveImpFunctional(dire, fparams, Vdc, fout=sys.stdout):
     Ry2eV = 13.60569193
     print >> fout, 'Phi_DMFT - Vdc*nf=', (Phi_DMFT-Vdc_nd)/Ry2eV, 'Ry'
     print >> fout, 'Epot - Vdc*nf=', (TrSigmaG-Vdc_nd)/Ry2eV, 'Ry'
-    return (Phi_DMFT, lnGimp, Eimp, Vdc_nd)
+    print >> fout, 'zeorb[eV]=', zeorb
+    return (Phi_DMFT, lnGimp, Eimp, Vdc_nd, zeorb)
 
 
 if __name__ == '__main__':
@@ -362,8 +366,8 @@ if __name__ == '__main__':
     line = fi.next()  # Vdc
     Vdc = map(float,re.sub(r'#.*',' ',line).split())
 
-    (Phi_DMFT, lnGimp, Fimp, Vdc_nd) = GiveImpFunctional(dire, 'PARAMS', Vdc)
-    print 'ev: Phi_DMFT-Vdc*nd=', Phi_DMFT-Vdc_nd, 'Fimp+TS=', Fimp, 'logGimp=', lnGimp
-    print 'Ry: Phi_DMFT-Vdc*nd=', (Phi_DMFT-Vdc_nd)/Ry2eV, 'FImp+TS=', Fimp/Ry2eV, 'logGimp=', lnGimp/Ry2eV
+    (Phi_DMFT, lnGimp, Fimp, Vdc_nd, zeorb) = GiveImpFunctional(dire, 'PARAMS', Vdc)
+    print 'ev: Phi_DMFT-Vdc*nd=', Phi_DMFT-Vdc_nd, 'Fimp+TS=', Fimp, 'logGimp=', lnGimp, 'zeorb=', zeorb
+    print 'Ry: Phi_DMFT-Vdc*nd=', (Phi_DMFT-Vdc_nd)/Ry2eV, 'FImp+TS=', Fimp/Ry2eV, 'logGimp=', lnGimp/Ry2eV, 'zeorb=', zeorb/Ry2eV
     
 

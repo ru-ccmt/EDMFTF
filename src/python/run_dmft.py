@@ -586,9 +586,10 @@ def FindEtot(case,wopt):
         dat = fs.readlines()[::-1]
         fs.close()
         XEORB = FindLine(dat, ':XEORB',1)
-        EORB = FindLine(dat, ':EORB',1)
+        EORB  = FindLine(dat, ':EORB',1)
+        ZEORB = FindLine(dat, ':ZEORB',1)
     else:
-        XEORB = EORB = 0.
+        XEORB = EORB = ZEORB = 0.
         
 
     up__ = 'up' if wopt['updn'] else ''
@@ -598,6 +599,7 @@ def FindEtot(case,wopt):
     SUM = FindLine(dat, ':SUM ', 6)
     XSUM = FindLine(dat, ':XSUM', 6)
     YSUM = FindLine(dat, ':YSUM', 6)
+    ZSUM = FindLine(dat, ':ZSUM', 6)
     if wopt['m_extn']:
         fsn = open(case+'.scf2'+wopt['m_extn'],'r')
         datn = fsn.readlines()[::-1]
@@ -605,10 +607,12 @@ def FindEtot(case,wopt):
         SUM_ = FindLine(datn, ':SUM ', 6)
         XSUM_ = FindLine(datn, ':XSUM', 6)
         YSUM_ = FindLine(datn, ':YSUM', 6)
+        ZSUM_ = FindLine(datn, ':ZSUM', 6)
         SUM = 0.5*(SUM+SUM_)
         XSUM = 0.5*(XSUM+XSUM_)
         YSUM = 0.5*(YSUM+YSUM_)
-    return (ETOT,SUM,XSUM,YSUM,EORB,XEORB)
+        ZSUM = 0.5*(ZSUM+ZSUM_)
+    return (ETOT,SUM,XSUM,YSUM,ZSUM,EORB,XEORB,ZEORB)
 
 
 def Connect_ImpurityProjector(icols_ind,iSigind,struct):
@@ -1028,6 +1032,7 @@ if __name__ == '__main__':
                 
                 IEorb = 0.0
                 XEorb = 0.0
+                ZEorb = 0.0
                 dat=[]
                 for iat in iSigind.keys():   # Over all inequivalent impurity problems
                     if os.path.exists(solver[iat].dir+'/Eorb.dat'):
@@ -1038,11 +1043,14 @@ if __name__ == '__main__':
                                 IEorb += float(line[6:]) * len(icols_ind[iat]) # Takes into account the degeneracy of the impurity
                             elif line[:6]==':XEORB':
                                 XEorb += float(line[6:]) * len(icols_ind[iat]) # Takes into account the degeneracy of the impurity  
+                            elif line[:6]==':ZEORB':
+                                ZEorb += float(line[6:]) * len(icols_ind[iat]) # Takes into account the degeneracy of the impurity  
                             else:
                                 dat += [line]
                         
                 dat += [':EORB   '+ str(IEorb)+'\n']
                 dat += [':XEORB  '+ str(XEorb)+'\n']
+                dat += [':ZEORB  '+ str(ZEorb)+'\n']
                 fiorb=open('Eorb_imp.dat','w')
                 fiorb.writelines(dat)  # Saves on the current directory the combination of all impurity problems
                 fiorb.close()
@@ -1106,9 +1114,9 @@ if __name__ == '__main__':
             
             # Writting to info.iterate file
             if os.path.isfile('EF.dat'): EF = float(open('EF.dat').read())
-            (ETOT,SUM,XSUM,YSUM,EORB,XEORB) = FindEtot(w2k.case,wopt)
+            (ETOT,SUM,XSUM,YSUM,ZSUM,EORB,XEORB,ZEORB) = FindEtot(w2k.case,wopt)
             
-            fh_pinfo.write( '%3d %3s.%4s %12.6f %12.6f %15.6f %15.6f %15.6f ' % (istep0, icycle, ita, EF, Vdc, ETOT, ETOT-SUM+XSUM, ETOT-SUM+YSUM-EORB+XEORB) )
+            fh_pinfo.write( '%3d %3s.%4s %12.6f %12.6f %15.6f %15.6f %15.6f ' % (istep0, icycle, ita, EF, Vdc, ETOT, ETOT-SUM+ZSUM-EORB+ZEORB, ETOT-SUM+YSUM-EORB+XEORB) )
             for iat in iSigind.keys():   # Over all inequivalent impurity problems
                 if os.path.exists('imp.'+str(iat)+'/Eimp.inp'):
                     fEimp = open('imp.'+str(iat)+'/Eimp.inp', 'r')

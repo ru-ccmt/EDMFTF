@@ -30,7 +30,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   REAL*8       :: EF_LDA, Ry2eV, cost, cosf, sint, sinf, theta, fi
   REAL*8       :: POST(3), BKRLOC(3,3), S(3)
   INTEGER      :: projector
-  INTEGER      :: strlen, locrot, shift, latom, wfirst, iat, im, wat, minsigind, lngth
+  INTEGER      :: strlen, locrot, shift, latom, wfirst, iat, im, wat, minsigind_p, maxsigind_p, minsigind_m, lngth
   INTEGER      :: ivector, nkpt, inkp, ik_start, il
   INTEGER      :: identity3(3,3), diff, ig
 
@@ -499,8 +499,8 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
         goto 999
      endif
      READ(5,*) ! Comment: Independent components are
-     READ(5,*) (legend(i,icix),i=1,size)
-
+     READ(5,*,ERR=1999) (legend(i,icix),i=1,size)
+1999  CONTINUE
      READ(5,*) ! Comment: Sigind follows
      do i=1,wndim
         READ(5,*) (Sigind(i,j,icix),j=1,wndim)
@@ -512,20 +512,28 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
      ! 0 0 4 0 0  --->  0 0 2 0 0
      ! 0 0 0 4 0        0 0 0 2 0
      ! 0 0 0 0 4        0 0 0 0 2
-     minsigind=10000
+     minsigind_p=10000
+     maxsigind_p=0
+     minsigind_m=10000
      do i=1,wndim
         do j=1,wndim
-           if (Sigind(i,j,icix).ne.0) then
-              minsigind = min(minsigind,abs(Sigind(i,j,icix)))
+           if (Sigind(i,j,icix).gt.0) then
+              minsigind_p = min(minsigind_p,Sigind(i,j,icix))
+              maxsigind_p = max(maxsigind_p,Sigind(i,j,icix))
            endif
+           if (Sigind(i,j,icix).lt.0) minsigind_m = min(minsigind_m,-Sigind(i,j,icix))
         enddo
      enddo
-     
-     if (minsigind.ne.1) then
+     maxsigind_p = maxsigind_p-minsigind_p+1
+     if (maxsigind_p.lt.0) maxsigind_p = 0
+     if (minsigind_p.ne.1 .or. minsigind_m.ne.10000) then
         do i=1,wndim
            do j=1,wndim
-              if (Sigind(i,j,icix).ne.0) then
-                 Sigind(i,j,icix) = isign(1,Sigind(i,j,icix)) * (abs(Sigind(i,j,icix))-minsigind+1)
+              if (Sigind(i,j,icix).gt.0) then
+                 Sigind(i,j,icix) = Sigind(i,j,icix)-minsigind_p+1
+              endif
+              if (Sigind(i,j,icix).lt.0) then
+                 Sigind(i,j,icix) = -(abs(Sigind(i,j,icix))-minsigind_m+maxsigind_p+1)
               endif
            enddo
         enddo
