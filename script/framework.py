@@ -903,7 +903,7 @@ WARNING: Copy the bin directory ("""+self.config.prefix+""")
         comm = 'make clean'
         retz=subprocess.call(comm,shell=True,stdout=sys.stdout,stderr=sys.stderr)
         #(output, error, retz) = shellcmd(comm)
-        comm = 'rm -f ../script/*.pyc; rm -rf download'
+        comm = 'rm -f ../script/*.pyc; rm -rf download; rm -f ../configure.pyc; rm -f ../src/build/*'
         (output, error, retz) = shellcmd(comm)
         retz=subprocess.call(comm,shell=True,stdout=sys.stdout,stderr=sys.stderr)
         

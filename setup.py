@@ -33,7 +33,7 @@ from script.gsl          import Gsl
 import configure
 
 VERSION_MAJOR = 1
-VERSION_MINOR = 0
+VERSION_MINOR = 1
 VERSION_MICRO = 0
 
 
@@ -65,31 +65,6 @@ def main(argv):
     print("\n Python version 2.7+ required. Download and install the necessary "
           "python version from http://www.python.org/download/.")
     sys.exit(-1)
-    
-  #  try:
-  #    import setuptools
-  #    print("Detected setuptools version {}".format(setuptools.__version__))
-  #  except ImportError:
-  #    print("setuptools not detected. Get it from https://pypi.python"
-  #          ".org/pypi/setuptools and follow the instructions to install first.")
-  #    sys.exit(-1)
-  
-  #  try:
-  #    gcc_ver = subprocess.Popen(["gcc", "--version"], stdout=subprocess.PIPE)\
-  #        .communicate()[0]
-  #  except:
-  #    print("gcc not found in PATH. gcc is needed for installation of numpy "
-  #          "and C extensions. For Mac users, please install Xcode and its "
-  #          "corresponding command-line tools first.")
-  #    sys.exit(-1)
-  
-  #  try:
-  #    import pip
-  #    print("Detected pip version {}".format(pip.__version__))
-  #  except ImportError:
-  #    print("pip not detected. Installing...")
-  #    subprocess.call(["easy_install", "pip"])
-  #
 
   try:
     import numpy
