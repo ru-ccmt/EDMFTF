@@ -4,13 +4,14 @@
 void SortTimes(double t_start1, int fls1, double t_end1, int fle1, double t_start2, int fls2, double t_end2, int fle2, function1D<double>& tm, function1D<int>& op);
 
 class NOperators{
+public:
   const ClusterData& cluster;           // this is reference to the information about the cluster atomic states (to the object containing that information)
   int time_order_sign;                  // current sign due to time ordering of the operators
   function1D<double> time;              // stores time of all kinks
   function1D<int> index;                // Kinks are not stored in successive order due to efficiency reasons. Index is an array which sorts them according to their time.
   function1D<int> type;                 // is type 2*fl (for creation) or 2*fl+1 (for destruction) operator, where fl is the index of the operator type (for one band model either spin-up or spin-down)
   deque<int> Empty;                     // empty space in the container
-  function1D<function2D<double> > Expn; // contains factors : -dt*E_m
+  function2D<double> Exps;              // contains factors : -dt*E_m
   function1D<int> tr_index;             // index for trial moves (not yet accepted moves)
   // Kinks are stored in this class for computing the local trace. They are also stored in the intervals class.
   // However, there are more intervals - as many as the number of independent baths. Sometimes we need to link
@@ -20,14 +21,14 @@ class NOperators{
   int Empty_used;                       
   int maxi_, mini_;
 public:
-  NOperators(int N_max, const ClusterData& cluster_);
+  NOperators(int Nmax, const ClusterData& cluster_);
   
   pair<int,int> Add_Cd_C(int fls, double t_start, int fle, double t_end, const IntervalIndex& ifls, const IntervalIndex& ifle);
   bool Try_Add_Cd_C_(int fls, double& t_start, int fle, double& t_end, const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right);
   pair<int,int> Try_Add_Cd_C(int fls, double t_start, int fle, double t_end);
   
   void Remove_C_Cd(int ipe, int ips);
-  bool Try_Remove_C_Cd_(int fle, int ie, int fls, int is, int& ipe, int& ips, const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right);
+  bool Try_Remove_C_Cd_(int fle, int ie, int fls, int is, int& ipe, int& ips, const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right, int istep);
   void Try_Remove_C_Cd(int ipe, int ips);
   
   void Move(int ip_old, int ip_new);
@@ -49,29 +50,26 @@ public:
   double tr_t(int i) const {return time[tr_index[i]];  }
   int tr_typ(int i) const {return type[tr_index[i]];}
   int size() const {return index.size()-Empty.size();}
-  bool full() const {return Empty.size()==6;}
+  bool full() const {return Empty.size()<=6;}
   int max_size() const {return index.size();}
   int mini(){return mini_;}
   int maxi(){return maxi_;}
-  const function2D<double>& exp_(int it) const{ int itt = it<size() ? index[it] : index.size(); return Expn[itt]; }
-  const function2D<double>& exp_last() const { return Expn[index.size()];}
-  const function2D<double>& tr_exp_(int it) const { return Expn[tr_index[it]];}
-  const function2D<double>& tr_exp_last() const { return Expn[index.size()+1];}
+
+  const funProxy<double>& exp_(int it) const{ int itt = it<size() ? index[it] : index.size(); return Exps[itt]; }
+  const funProxy<double>& exp_last() const { return Exps[index.size()];}
+  const funProxy<double>& tr_exp_(int it) const { return Exps[tr_index[it]];}
+  const funProxy<double>& tr_exp_last() const { return Exps[index.size()+1];}
+
   void GlobalFlipChange(const functionb<int>& gflip_fl, int ifa, int ifb);
   void GlobalFlipChange(const functionb<int>& gflip_fl, const function1D<pair<int,int> >& gflip_ifl);
   void ExchangeTwo(int ip_a, int ip_b);
-  //  bool Slow_Try_Add_2_Cd_2_C_(int fls1, double t_start1, int fle1, double t_end1, int fls2, double t_start2, int fle2, double t_end2);
-  //  bool Slow_Try_Remove_2_C_2_Cd_(int fle1, int ie1, int fls1, int is1, int fle2, int ie2, int fls2, int is2);
-  //  void TryMoveCheck(double t_old, double t_new);
-  //  void MoveCheck(double t_old, double t_new);
-  //  bool Try_Move_Slow(int opera, double t_old, int i_old, double t_new, const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right);
-  
-  //bool Segment_Try_Add_Cd_C_(int bfls, double& t_start, int bfle, double& t_end, const nIntervals& interval, long long istep);
 
   int FindSuccessive(int opera, int which, int istart) const;
-  int FindIndex(int opera, double tc, int lo) const;
+  int FindIndex(int opera, double tc, int lo, int istep) const;
   int FindIndexSlow(int opera, double tc) const;
   int FindExactTime(double tc, int lo) const;
+  void Resize(int newNmax);
+  void ReleaseSomeTempMemory();
 private:
   void ChangeEntry(int isort, double time_, int type_, double dt, int new_place, function1D<int>& x_index, const IntervalIndex& p_ifl_);
   void Add(int op, double t, int& is, int& count, const IntervalIndex& iflx);
@@ -81,27 +79,68 @@ private:
 };
 
 
-inline NOperators::NOperators(int N_max, const ClusterData& cluster_) :
-  cluster(cluster_), time_order_sign(1), time(N_max+2), index(N_max), type(N_max+2), Empty(N_max),
-  Expn(N_max+2), tr_index(N_max),
-  p_ifl(N_max+2)
+inline NOperators::NOperators(int Nmax, const ClusterData& cluster_) :
+  cluster(cluster_), time_order_sign(1), time(Nmax+2), index(Nmax), type(Nmax+2), Empty(Nmax),
+  Exps(Nmax+2,cluster.Enes.size()), tr_index(Nmax), p_ifl(Nmax+2)
 {
-  for (int i=0; i<N_max; i++) Empty[i]=i;
-  
+  for (int i=0; i<Nmax; i++) Empty[i]=i;
+  /*
   for (int i=0; i<Expn.size(); i++){
     Expn[i].resize(cluster.nsize+1,cluster.max_size);
     for (int j=1; j<Expn[i].size_N(); j++) Expn[i][j].resize(cluster.msize(j));
   }
-  for (int i=1; i<Expn[N_max].size_N(); i++){
-    for (int m=0; m<Expn[N_max][i].size(); m++)
-      Expn[N_max](i,m) = -cluster.Ene(i,m)*common::beta;
+  for (int i=1; i<Expn[Nmax].size_N(); i++){
+    for (int m=0; m<Expn[Nmax][i].size(); m++)
+      Expn[Nmax](i,m) = -cluster.Ene(i,m)*common::beta;
   }
-
-  /*
-  cout<<"BRISI"<<endl;
-  for (int i=1; i<=cluster.nsize; i++)
-    cout<<"E["<<i<<"]="<<cluster.Ene(i,0)<<endl;
   */
+  for (int m=0; m<cluster.Enes.size(); m++){
+    Exps(Nmax,m) = -cluster.Enes[m]*common::beta;
+    //Exps(0,m) = -cluster.Enes[m]*common::beta;   // because we start from the atomic state
+  }
+}
+
+inline void NOperators::Resize(int newNmax)
+{
+  int Nmax = index.size();
+  time.resize_preserve(newNmax+2);   // stores time of all kinks
+  time.resize_virtual (newNmax+2);
+  index.resize_preserve(newNmax);    // Kinks are not stored in successive order due to efficiency reasons. Index is an array which sorts them according to their time.
+  index.resize_virtual (newNmax);
+  type.resize_preserve(newNmax+2);   // is type 2*fl (for creation) or 2*fl+1 (for destruction) operator, where fl is the index of the operator type (for one band model either spin-up or spin-down)
+  type.resize_virtual (newNmax+2);
+  tr_index.resize_preserve(newNmax); // index for trial moves (not yet accepted moves)
+  tr_index.resize_virtual (newNmax);
+  p_ifl.resize_preserve(newNmax+2);     // link between kink in this class and kink in intervals
+  p_ifl.resize_virtual (newNmax+2);
+  for (int i=Nmax; i<newNmax; i++)
+    Empty.push_back(i);              // empty space in the containers
+
+  Exps.resize_preserve(newNmax+2, cluster.Enes.size());   // contains factors : -dt*E_m
+  Exps.resize_virtual(newNmax+2, cluster.Enes.size());
+  for (int m=0; m<cluster.Enes.size(); m++){// last entry should be moved to the end of the array by convention.
+    Exps(newNmax,m)   = Exps(Nmax,m);    // the last time interval up to beta
+    Exps(newNmax+1,m) = Exps(Nmax+1,m);// the same for the trial step
+  }
+  /*
+  cout<<"sizes= "<<Exps.size_N()<<" "<<Exps.size_Nd()<<endl;
+  for (int i=0; i<newNmax+2; i++){
+    cout<<"isize="<<i<<" "<<Exps[i].size()<<endl;
+    for (int j=0; j<cluster.Enes.size(); j++){
+      cout<<i<<" "<<Exps[i][j]<<endl;
+    }
+  }
+  */
+}
+
+void NOperators::ReleaseSomeTempMemory()
+{
+  time.~function1D();
+  index.~function1D();
+  type.~function1D();
+  tr_index.~function1D();
+  p_ifl.~function1D();
+  Exps.~function2D();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,7 +164,7 @@ inline int NOperators::FindSuccessive(int opera, int which, int istart=0) const
   return i;
 }
 
-inline int NOperators::FindIndex(int opera, double tc, int lo=0) const
+inline int NOperators::FindIndex(int opera, double tc, int lo=0, int istep=-1) const
 {
   const double small=common::beta*2e-16;
   // bisection
@@ -139,14 +178,26 @@ inline int NOperators::FindIndex(int opera, double tc, int lo=0) const
       if (type[index[mid]]==opera) return mid;
       if (mid>0 && fabs(time[index[mid-1]]-tc)<small && type[index[mid-1]]==opera) return mid-1;
       if (mid+1<size() && fabs(time[index[mid+1]]-tc)<small && type[index[mid+1]]==opera) return mid+1;
-      cout<<"ERROR : Could not find time "<<tc<<" in FindIndex: t="<<tc<<" op="<<opera<<endl;
+      {
+	cout<<"ERROR : Could not find time "<<tc<<" in FindIndex: t="<<tc<<" op="<<opera<<" at step istep="<<istep<<endl;
+	cout<<"Currently have times : "<<endl;
+	for (int i=0; i<size(); i++){
+	  cout<<i<<" "<<t(i)<<" "<<typ(i)<<endl;
+	}
+      }
       return FindIndexSlow(opera,tc);
     }
   }
   if (lo<size() && fabs(time[index[lo]]-tc)<small) return lo;
   if (lo>0 && fabs(time[index[lo-1]]-tc)<small) return lo-1;
   if (lo+1<size() && fabs(time[index[lo+1]]-tc)<small) return lo+1;
-  cout<<"ERROR : Could not find time "<<tc<<" in FindIndex: t="<<tc<<" op="<<opera<<endl;
+  {
+    cout<<"ERROR : Could not find time "<<tc<<" in FindIndex: t="<<tc<<" op="<<opera<<" at step istep="<<istep<<endl;
+    cout<<"Currently have times : "<<endl;
+    for (int i=0; i<size(); i++){
+      cout<<i<<" "<<t(i)<<" "<<typ(i)<<endl;
+    }
+  }
   return FindIndexSlow(opera,tc);
 }
 
@@ -184,11 +235,14 @@ inline void NOperators::ChangeEntry(int isort, double time_, int type_, double d
   time[new_place] = time_;
   type[new_place] = type_;
   p_ifl[new_place] = p_ifl_;
+  /*
   for (int i=1; i<Expn[0].size_N(); i++){
     for (int m=0; m<Expn[0][i].size(); m++){
       Expn[new_place](i,m) = -cluster.Ene(i,m)*dt;
     }
   }
+  */
+  for (int m=0; m<cluster.Enes.size(); m++) Exps(new_place,m) = -cluster.Enes[m]*dt;
 }
 
 
@@ -241,7 +295,6 @@ inline bool NOperators::Try_Add_Cd_C_(int fls, double& t_start, int fle, double&
     else t_start += common::smallest_dt;
     //    clog<<"Found a case of equal times!"<<endl;
   }
-  
   bool succn;
   for (int i=0; i<cluster.size(); i++){
     int st0 = cluster.praState(i);
@@ -253,8 +306,8 @@ inline bool NOperators::Try_Add_Cd_C_(int fls, double& t_start, int fle, double&
       if (stn==0) {succn=false; goto loops_out;}
     }
     if (i1<nsize && state_evolution_right[i].size()<=nsize-1-i1) {succn=false; goto loops_out;}
-    
     stn = cluster.Fi(op0,stn);
+    
     if (stn==0) {succn=false; goto loops_out;}
     for (int l=i0; l<i1; l++){
       int op = type[index[l]];
@@ -296,10 +349,11 @@ inline void NOperators::Remove_C_Cd(int ipe, int ips)
   time_order_sign = 1-2*((count1+count2)%2);
 }
 
-inline bool NOperators::Try_Remove_C_Cd_(int fle, int ie, int fls, int is, int& ipe, int& ips, const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right)
+inline bool NOperators::Try_Remove_C_Cd_(int fle, int ie, int fls, int is, int& ipe, int& ips, const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right, int istep)
 {// Only trial step // migh succeed or might not. This step should not modify the status of the system
   // This is very optimized routine which is called at every trial move when removing a kink.
   // With simple lookups in the table tries to determin if the matrix element is zero or not.
+   
   ipe = FindSuccessive(2*fle+1, ie);
   ips = FindSuccessive(2*fls,   is);
   int i0, i1;
@@ -313,6 +367,7 @@ inline bool NOperators::Try_Remove_C_Cd_(int fle, int ie, int fls, int is, int& 
   int nsize = size();
   bool succn = true;
   int st0;
+
   for (int i=0; i<cluster.size(); i++){
     st0 = cluster.praState(i);
     succn=true;
@@ -340,6 +395,7 @@ inline bool NOperators::Try_Remove_C_Cd_(int fle, int ie, int fls, int is, int& 
   maxi_ = max(ips,ipe);
   if (ips>ipe) ips--;
   mini_ = min(ips,ipe);
+
   return succn;
 }
 
@@ -500,7 +556,7 @@ inline void NOperators::ExchangeTwo(int ip_a, int ip_b)
 ////////////////////////////////////////////////////////////////////////////////////////
 
 inline void NOperators::Add(int op, double t, int& is, int& count, const IntervalIndex& iflx)
-{
+{ 
   int nsize = size();
   int to_insert = Empty.front(); // first empty space in the array
   time[to_insert] = t;           // just insert into container in the first empy space
@@ -521,12 +577,18 @@ inline void NOperators::Add(int op, double t, int& is, int& count, const Interva
   // If this new kink is the last kink, we need to modify the last time interval which is stored in
   // index.size()
   int istore = !last ? index[is+1] : index.size(); 
-    
+
+  /*
   for (int i=1; i<Expn[0].size_N(); i++){
     for (int m=0; m<Expn[0][i].size(); m++){
       Expn[index[is]](i,m) = -cluster.Ene(i,m)*dt0;
       Expn[istore](i,m) = -cluster.Ene(i,m)*dt1;
     }
+  }
+  */
+  for (int m=0; m<cluster.Enes.size(); m++){
+    Exps(index[is],m) = -cluster.Enes[m]*dt0;
+    Exps(istore,m) = -cluster.Enes[m]*dt1;
   }
 }
 
@@ -541,11 +603,14 @@ inline int NOperators::Remove(int to_remove)
   double t1 = !last ? time[index[to_remove]] : common::beta;
   double t0 = to_remove>0 ? time[index[to_remove-1]] : 0;
   int istore = !last ? index[to_remove] : index.size();
-    
+
+  /*
   for (int i=1; i<Expn[0].size_N(); i++){
     for (int m=0; m<Expn[0][i].size(); m++)
       Expn[istore](i,m) = -cluster.Ene(i,m)*(t1-t0);
   }
+  */
+  for (int m=0; m<cluster.Enes.size(); m++) Exps[istore][m] = -cluster.Enes[m]*(t1-t0);
   return count;
 }
 
@@ -554,9 +619,9 @@ inline void NOperators::TryAdd_basic(int which, int op, double t, int& is)
   int nsize = size();
   nsize += which;
   int to_insert = Empty[2*which];
-    
+
   time[to_insert] = t;
-  type[to_insert] = op;    
+  type[to_insert] = op;
   is=0;
   if (which==0){
     while (is<nsize && time[index[is]]<=t) { tr_index[is]=index[is]; is++;}
@@ -571,6 +636,7 @@ inline void NOperators::TryAdd_basic(int which, int op, double t, int& is)
   double dt1 = !last ? time[tr_index[is+1]]-time[tr_index[is]] : common::beta-time[tr_index[is]];
   double dt0 = (is>0) ? time[tr_index[is]]-time[tr_index[is-1]] : time[tr_index[is]];
   int istore = to_neigh;
+
   if (!last){
     time[to_neigh] = time[tr_index[is+1]];
     type[to_neigh] = type[tr_index[is+1]];
@@ -578,6 +644,7 @@ inline void NOperators::TryAdd_basic(int which, int op, double t, int& is)
   }else{
     istore = index.size()+1;
   }
+  /*
   for (int i=1; i<Expn[0].size_N(); i++){
     for (int m=0; m<Expn[0][i].size(); m++){
       Expn[tr_index[is]](i,m) = -cluster.Ene(i,m)*dt0;
@@ -589,6 +656,16 @@ inline void NOperators::TryAdd_basic(int which, int op, double t, int& is)
       for (int m=0; m<Expn[0][i].size(); m++){
 	Expn[index.size()+1](i,m) = Expn[index.size()](i,m);
       }
+    }
+  }
+  */
+  for (int m=0; m<cluster.Enes.size(); m++){
+    Exps(tr_index[is],m) = -cluster.Enes[m]*dt0;
+    Exps(istore,m)       = -cluster.Enes[m]*dt1;
+  }
+  if (!last && which==0){
+    for (int m=0; m<cluster.Enes.size(); m++){
+      Exps(index.size()+1,m) = Exps(index.size(),m); // the last dt is now in Nmax+1 for trial step
     }
   }
 }
@@ -616,6 +693,7 @@ inline void NOperators::TryRemove_basic(int which, int to_remove)
     type[istore] = type[tr_index[to_remove]];
     tr_index[to_remove] = to_insert;
   }
+  /*
   for (int i=1; i<Expn[0].size_N(); i++){
     for (int m=0; m<Expn[0][i].size(); m++){
       Expn[istore](i,m) = -cluster.Ene(i,m)*(t1-t0);
@@ -628,127 +706,14 @@ inline void NOperators::TryRemove_basic(int which, int to_remove)
       }
     }
   }
+  */
+  
+  for (int m=0; m<cluster.Enes.size(); m++) Exps(istore,m) = -cluster.Enes[m]*(t1-t0);
+  if (!last && which==0)
+    for (int m=0; m<cluster.Enes.size(); m++) Exps(index.size()+1,m) = Exps(index.size(),m);
 }
 
 
-// inline void NOperators::TryMoveCheck(double t_old, double t_new)
-// {
-//   int nsize = size();
-
-//   for (int i=0; i<nsize-1; i++)
-//     if (time[tr_index[i]]>time[tr_index[i+1]]) cerr<<"Times are not sorted!"<<endl;
-
-//   bool found=false;
-//   for (int i=0; i<nsize; i++)
-//     if (time[tr_index[i]]==t_new){found=true; break;}
-//   if (!found)cerr<<"Could not find new time in the index!"<<endl;
-    
-//   found=false;
-//   for (int i=0; i<nsize; i++)
-//     if (time[tr_index[i]]==t_old){found=true; break;}
-//   if (found)cerr<<"Found old time in the index!"<<endl;
-      
-//   double diff=0;
-//   for (int i=1; i<Expn[0].size_N(); i++){
-//     for (int m=0; m<Expn[0][i].size(); m++){
-//       double Ene = cluster.Ene(i,m);
-//       diff += fabs(Expn[tr_index[0]](i,m)+Ene*(time[tr_index[0]]-0.0));
-//     }
-//   }
-//   if (diff>1e-10) cerr<<"Found problems at 0!";
-//   for (int it=1; it<nsize; it++){
-//     for (int i=1; i<Expn[0].size_N(); i++){
-//       for (int m=0; m<Expn[0][i].size(); m++){
-// 	double Ene = cluster.Ene(i,m);
-// 	diff += fabs(Expn[tr_index[it]](i,m)+Ene*(time[tr_index[it]]-time[tr_index[it-1]]));
-//       }
-//     }
-//     if (diff>1e-10) cerr<<"Found problems at "<<it<<"!"<<endl;
-//   }
-//   for (int i=1; i<Expn[0].size_N(); i++){
-//     for (int m=0; m<Expn[0][i].size(); m++){
-//       double Ene = cluster.Ene(i,m);
-//       diff += fabs(Expn[index.size()+1](i,m)+Ene*(common::beta-time[tr_index[nsize-1]]));
-//     }
-//   }
-//   if (diff>1e-10) cerr<<"Found problems at last!"<<endl;
-// }
-
-// inline void NOperators::MoveCheck(double t_old, double t_new)
-// {
-//   int nsize = size();
-  
-//   for (int i=0; i<nsize-1; i++)
-//     if (time[index[i]]>time[index[i+1]]) cerr<<"Times are not sorted!"<<endl;
-  
-//   bool found=false;
-//   for (int i=0; i<nsize; i++)
-//     if (time[index[i]]==t_new){found=true; break;}
-//   if (!found)cerr<<"Could not find new time in the index!"<<endl;
-  
-//   found=false;
-//   for (int i=0; i<nsize; i++)
-//     if (time[index[i]]==t_old){found=true; break;}
-//   if (found)cerr<<"Found old time in the index!"<<endl;
-  
-//   double diff=0;
-//   for (int i=1; i<Expn[0].size_N(); i++){
-//     for (int m=0; m<Expn[0][i].size(); m++){
-//       double Ene = cluster.Ene(i,m);
-//       diff += fabs(Expn[index[0]](i,m)+Ene*(time[index[0]]-0.0));
-//     }
-//   }
-//   if (diff>1e-10) cerr<<"Found problems at 0!";
-//   for (int it=1; it<nsize; it++){
-//     for (int i=1; i<Expn[0].size_N(); i++){
-//       for (int m=0; m<Expn[0][i].size(); m++){
-// 	double Ene = cluster.Ene(i,m);
-// 	diff += fabs(Expn[index[it]](i,m)+Ene*(time[index[it]]-time[index[it-1]]));
-//       }
-//     }
-//     if (diff>1e-10) cerr<<"Found problems at "<<it<<"!"<<endl;
-//   }
-//   for (int i=1; i<Expn[0].size_N(); i++){
-//     for (int m=0; m<Expn[0][i].size(); m++){
-//       double Ene = cluster.Ene(i,m);
-//       diff += fabs(Expn[index.size()](i,m)+Ene*(common::beta-time[index[nsize-1]]));
-//     }
-//   }
-//   if (diff>1e-10) cerr<<"Found problems at last!"<<endl;
-// }
-
-// inline bool NOperators::Try_Move_Slow(int opera, double t_old, int i_old, double t_new,	const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right)
-// {
-//   int ip_old = FindSuccessive(opera, i_old);
-//   if (time[index[ip_old]]!=t_old) cerr<<"TryMove_basic failed, did not find the right time "<<t_old<<" "<<time[index[ip_old]]<<endl;
-    
-//   int nsize = size();
-//   int in=0;
-//   while (in<nsize && time[index[in]]<=t_new) in++;
-//   bool succn;
-//   //    if (in==ip_old) return true;
-    
-//   for (int i=0; i<cluster.size(); i++){
-//     int st0 = cluster.praState(i);
-//     succn = true;
-//     int stn=st0;
-//     for (int l=0; l<nsize; l++){
-//       if (l==in){
-// 	stn = cluster.Fi(opera,stn);
-// 	if (stn==0) {succn=false; goto loops_out3;}
-//       }
-//       if (l==ip_old) continue;
-//       int op = type[index[l]];
-//       stn = cluster.Fi(op,stn);
-//       if (stn==0) {succn=false; goto loops_out3;}
-//     }
-//     if (in==nsize) stn = cluster.Fi(opera,stn);
-//     if (stn!=st0) {succn=false; goto loops_out3;}
-//     if (succn) break;
-//   loops_out3:;
-//   }
-//   return succn;
-// }
 
 inline pair<int,int> NOperators::Try_Add_2_Cd_2_C(int fls1, double t_start1, int fle1, double t_end1, int fls2, double t_start2, int fle2, double t_end2)
 {

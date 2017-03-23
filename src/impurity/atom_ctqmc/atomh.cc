@@ -213,11 +213,7 @@ void CoulombU0(function2D<function2D<double> >& Uf, int l, const vector<pair<int
   cout<<"ml_ms="<<endl;
   for (int i=0; i<baths; i++){
     cout<<i<<" "<<ml_ms[i].first<<" "<<ml_ms[i].second<<endl;
-  }
-
-  
-
-  
+  }  
   for (int k=0; k<2; k++){
     Uk[k].resize(baths,baths);
     for (int i=0; i<baths; i++)
@@ -238,8 +234,6 @@ void CoulombU0(function2D<function2D<double> >& Uf, int l, const vector<pair<int
 	  int s4 = round(ml_ms[b].second*2);
 	  if (m4-m1!=m2-m3) continue;
 	  if (s1!=s4 || s2!=s3) continue;
-
-
 	  //if (i==0 && a==0 && j==0) cout<<" b="<<b<<" s1="<<s1<<" s2="<<s2<<" s3="<<s3<<" s4="<<s4<<endl;
 	    
 	  Uk[0](i,a)(j,b) = gck(m4,m1,0)*gck(m2,m3,0);
@@ -251,7 +245,6 @@ void CoulombU0(function2D<function2D<double> >& Uf, int l, const vector<pair<int
     }
   }
 
-  
   function2D<double> Ts(baths,baths), Tst(baths,baths);
   for (int i=0; i<one_electron_base.size(); i++){
     for (int j=0; j<ml_ms.size(); j++){
@@ -1960,7 +1953,7 @@ int main(int argc, char *argv[], char *env[])
     }
 
   }
-
+  /*
   vector<function2D<double> > Uc(one_electron_base.size());
   if (QHB2){
     ClebschGordan cg;
@@ -1983,7 +1976,7 @@ int main(int argc, char *argv[], char *env[])
       }
     }
   }
-  
+  */
   ///////////////////// Data structure to store results /////////////////////////////////
   svector<vector<map<int, double> > > fpfm(nstart,nstop), fmfp(nstart,nstop);
   for (int in=fpfm.start(); in<fpfm.stop(); in++){
@@ -2367,16 +2360,25 @@ int main(int argc, char *argv[], char *env[])
     
     if (QHB2){
       gout<<"HB2"<<endl;
-      gout<<"# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"<<endl;
-      gout.precision(6);
-      for (int j1=0; j1<Uc.size(); j1++){
-	for (int j2=0; j2<Uc.size(); j2++){
-	  for (int j3=0; j3<Uc.size(); j3++){
-	    gout<<setw(10)<<Uc[j1](j2,j3)<<" ";
+      gout<<"# UCoulomb : (m1,s1) (m2,s2) (m3,s2) (m4,s1)  Uc[m1,m2,m3,m4]"<<endl; //Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"<<endl;
+      gout.precision(8);
+      ClebschGordan cg;
+      gaunt_ck gck(l, cg);
+      vector<double> FkoJ = ComputeCoulombRatios(l);
+      function2D<function2D<double> > Uf;
+      CoulombU0(Uf, l, ml_ms, one_electron_base, cg, gck, FkoJ);
+      for (int j1=0; j1<Uf.size_N(); j1++){
+	for (int j2=0; j2<Uf.size_Nd(); j2++){
+	  for (int j3=0; j3<Uf.size_N(); j3++){
+	    for (int j4=0; j4<Uf.size_Nd(); j4++){
+	      double u = J_coulomb*Uf(j1,j3)(j2,j4);
+	      if (fabs(u)>1e-6)
+		gout<<setw(3)<<j1<<" "<<setw(3)<<j2<<" "<<setw(3)<<j3<<" "<<setw(3)<<j4<<" "<<setw(15)<<u<<endl;
+	    }
 	  }
-	  gout<<endl;
 	}
       }
+      gout.precision(12);
     }else{
       gout<<"HB1"<<endl;
     }

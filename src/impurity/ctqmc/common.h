@@ -11,9 +11,9 @@ public:
   static double U;
   static double mu;
   static int max_size;
-  static double minM; // If matrix is singular, it destroys sampling. Very small determinant should never be accepted.
-  static double minD; // Smallest determinant should not be accepted
+  static double minF; // If applying F makes the state smaller than that, we should assume it is zero.
   static int tsample;
+  static int tsampleFast;
   static int warmup;
   static int CleanUpdate;
   static double PChangeOrder;
@@ -36,16 +36,17 @@ public:
   static bool LazyTrace;
   static bool QHB2;
   static double smallest_dt;
-  //static bool QNj;
   static int Segment;
   static bool SampleTransitionP;
   static bool SaveStatus;
+  static bool Qsvd;
+  static double PlocalMoves;
   static void SetParameters(int rank, int size, double mu_, double U_, double beta_, int max_size_, int N_flavors_,
-			    int N_ifl_, int tsample_,
-			    int warmup_, int CleanUpdate_, double minM_, double minD_, double PChangeOrder_, double PMove_,
+			    int N_ifl_, int tsample_, int tsampleFast_,
+			    int warmup_, int CleanUpdate_, double minF_, double PChangeOrder_, double PMove_, double PlocalMoves_,
 			    int Ncout_, long long Naver_, double TwoKinks_, int GlobalFlip_, double treshold_, int SampleGtau_,
 			    int PreciseP_, double minDeltat_, bool SampleSusc_, int SampleVertex_, double maxNoise_,
-			    bool LazyTrace_, int Segment_, int fastFilesystem_, bool SampleTransitionP_)
+			    bool LazyTrace_, int Segment_, int fastFilesystem_, bool SampleTransitionP_, bool Qsvd_)
   {
     my_rank = rank;
     mpi_size = size;
@@ -54,10 +55,10 @@ public:
     N_flavors = N_flavors_;
     N_ifl = N_ifl_;
     tsample = tsample_;
+    tsampleFast = tsampleFast_;
     warmup = warmup_;
     CleanUpdate = CleanUpdate_;
-    minM = minM_;
-    minD = minD_;
+    minF = minF_;
     PChangeOrder = PChangeOrder_;
     PMove = PMove_;
     Ncout = Ncout_;
@@ -77,6 +78,8 @@ public:
     smallest_dt=3e-16*beta;
     Segment = Segment_;
     SampleTransitionP = SampleTransitionP_;
+    PlocalMoves = PlocalMoves_;
+    Qsvd = Qsvd_;
   }
 };
 

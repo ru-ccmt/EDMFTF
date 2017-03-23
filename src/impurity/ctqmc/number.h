@@ -102,3 +102,36 @@ Number balance(const Number& x)
   return Number( (x.mantisa > 0) ? 1. : -1., x.exponent + log(fabs(x.mantisa)) );
 }
 
+Number logDet(const function2D<double>& A)
+{
+  /*
+  ** solve Ax=B using A=UDU' factorization, D is placed in A
+  ** where A represents a qxq matrix, b a 1xq vector
+  */
+  function1D<int> ipiv(A.size_Nd());
+  function2D<double> D(A);
+  int info = xgetrf(D.size_Nd(), D.MemPt(), D.fullsize_Nd(), ipiv.MemPt());
+  if( info < 0 ) { cerr<<"In Det and dgetrf the "<<-info<<"-th argument had an illegal value"<<endl;}
+  if( info > 0 ) { cerr<<"In Det and dgetrf the U("<<info<<") is exactly zero and might cause a problem."; }
+  /*
+  ** compute the determinant det = det(A)
+  ** if ipiv[i] > 0, then D(i,i) is a 1x1 block diagonal
+  ** if ipiv[i] = ipiv[i-1] < 0, then D(i-1,i-1),
+  ** D(i-1,i), and D(i,i) form a 2x2 block diagonal
+  */
+  double logdet = 0.0;
+  int sign=0;
+  for (int i=0; i<A.size_N(); i++){
+    if (D(i,i)<0){
+      ++sign;
+      logdet += log(-D(i,i));
+    }else{
+      logdet += log(D(i,i));
+    }
+  }
+  int change_sign = 0;
+  for (int i=0; i<A.size_N(); i++) change_sign += (ipiv[i] != (i+1));
+  int overal_sign = 1;
+  if ( (sign + change_sign) %2 ) overal_sign = -1;
+  return Number(overal_sign,logdet);
+}

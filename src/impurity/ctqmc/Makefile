@@ -9,16 +9,22 @@ include ../../Makefile.in
 #LIBS = -L/opt/intel/mkl/10.0.1.014/lib/32 -lmkl_lapack -lmkl -lguide -lgsl -pthread
 #LIBS = -i-static -L/opt/pgi/linux86-64/7.0-3/lib -llapack -lblas -lpgftnrtl -lpgc -lgsl -lgslcblas -lrt
 
-CFLAGS = $(PFLAGS) $(Fmpi_define) $(GSLINC) -DAS #-fast -xAVX # -D_TIME #-D_LOGGING #-DAS 
+CFLAGS = $(PFLAGS) $(Fmpi_define) $(GSLINC) -D_TIME #-DAS -D_TIME #-fast -xAVX # -D_TIME #-D_LOGGING #-DAS 
 LIBS = $(PLIBS)
 
 GHEADERS = assert.h complex.h random.h sblas.h sfunction.h smesh.h sutil.h zeroin.h
-QHEADERS = common.h  inout.h intervals.h local.h matrixm.h mpi.h bcast.h number.h operators.h state.h stateim.h segment.h
-
-all : ctqmc 
+QHEADERS = common.h  inout.h intervals.h local.h matrixm.h mpi.h bcast.h number.h operators.h state.h stateim.h segment.h svdfunc.h tanmesh.h
 
 ctqmc : ctqmc.o SMatrix1.o 
 	$(PC++) $(CFLAGS) -o $@ ctqmc.o SMatrix1.o $(LIBS)
+
+all : ctqmc ctqmcf
+
+ctqmcf : ctqmcf.o SMatrix1.o
+	$(PC++) $(CFLAGS) -o $@ ctqmcf.o SMatrix1.o $(LIBS)
+
+ctqmcf.o : ctqmc.cc
+	$(PC++) $(CFLAGS) -DAS -c -o ctqmcf.o $<
 
 SMatrix1.o : SMatrix1.cc sfunction.h
 	$(PC++) -c $(CFLAGS) SMatrix1.cc 
@@ -27,7 +33,7 @@ ctqmc.o : ctqmc.cc $(GHEADERS) $(QHEADERS)
 	$(PC++) $(CFLAGS) -c ctqmc.cc
 
 clean :
-	rm -f ctqmc.o ctqmc SMatrix1.o
+	rm -f ctqmc.o ctqmcf.o ctqmcf ctqmc SMatrix1.o
 
 .SUFFIXES : .cc
 .cc.o:

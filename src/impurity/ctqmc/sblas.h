@@ -6,59 +6,74 @@
 #include "complex.h"
 #include "sutil.h"
 
+#ifdef NO_APPEND_FORTRAN
+# define FNAME(x) x
+#else
+# define FNAME(x) x##_
+#endif
+
+
 typedef void (*compfunc)(int* b, dcomplex* w, int* N);
 typedef void (*compfund)(int* b, double* wr, double* wi, int* N);
 
 extern "C" {
-  void dptsv_(const int* N, const int* NRHS, double* D, double* E, double* B, const int* LDB, int* INFO);
-  void zptsv_(const int* N, const int* NRHS, double* D, dcomplex* E, dcomplex* B, const int* LDB, int* INFO);
-  void dgetrf_(int* n1, int* n2, double* a, int* lda, int* ipiv,int* info);
-  void zgetrf_(int* n1, int* n2, dcomplex* a, int* lda, int* ipiv,int* info);
-  void dgetrs_(const char* trans, int* n, int* nrhs, double* a, int* lda, int* ipiv, double* b, int* ldb, int* info);
-  void zgetrs_(const char* trans, int* n, int* nrhs, dcomplex* a, int* lda, int* ipiv, dcomplex* b, int* ldb, int* info);
-  void zgemm_(const char* transa, const char* transb, const int* m, const int* n, const int* k, const dcomplex* alpha, const dcomplex* A, const int* lda, const dcomplex* B, const int* ldb, const dcomplex* beta, dcomplex* C, const int* ldc);
-  void dgemm_(const char* transa, const char* transb, const int* m, const int* n, const int* k, const double* alpha, const double* A, const int* lda, const double* B, const int* ldb, const double* beta, double* C, const int* ldc);
-  void dsymm_(const char* side, const char* uplo, const int* m, const int* n, const double* alpha, const double* A, const int* lda, const double* B, const int* ldb, const double* beta, double* C, const int* ldc);
-  void dgeev_(const char* jobvl, const char* jobvr,  const int* n,  double* A, const int* lda, double* wr, double* wi, double* vl, const int* ldvl, double* vr, const int* ldvr, double* work, const int* lwork, int* info);
-  void dsyev_(const char* jobz,  const char* uplo,   const int* n,  double* A, const int* lda, double* w, double* work, const int* lwork, int* info);
-  void zgesdd_(const char* jobz, const int* m, const int* n, dcomplex* A, const int* lda, double* S, dcomplex* U, const int* ldu, dcomplex* Vt, const int* ldvt, dcomplex* work, const int* lwork, double* rwork, int* iwork, int* info);
-  void dgesdd_(const char* jobz, const int* m, const int* n, double* A, const int* lda, double* S, double* U, const int* ldu, double* Vt, const int* ldvt, double* work, const int* lwork, int* iwork, int* info);
-  void zgeev_(const char* jobvl, const char* jobvr,  const int* n,  dcomplex* A,const int* lda, dcomplex* w, dcomplex* vl, const int* ldvl, dcomplex* vr, const int* ldvr, dcomplex* work, const int* lwork, double* rwork, int* info);
-  void zheevd_(const char* job, const char* uplo,  const int* n,  dcomplex* A,const int* lda, double* w, dcomplex* work, const int* lwork, double* rwork, int* lrwork, int* iwork, int* liwork, int* info);
-  void mzgees_(const char* jobvs, const char* sort, compfunc select, int* N, dcomplex* A, int* lda, int* sdim, dcomplex* W, dcomplex* VS, int* ldvs,  dcomplex* work,  int* lwork,  double* rwork,  int* bwork, int* info);
-  void mdgees_(const char* jobvs, const char* sort, compfund select, int* N, double* A, int* lda, int* sdim, double* wr, double* wi, double* VS, int* ldvs,  double* work,  int* lwork, int* bwork, int* info);
-  double dznrm2_(const int* N, const dcomplex* x, const int* incx);
-  double dnrm2_(const int* N, const double* x, const int* incx);
-  void zdscal_(const int* N, const double* alpha, dcomplex* zx, const int* incx);
-  void dscal_(const int* N, const double* alpha, double* zx, const int* incx);
-  void zgemv_(const char* trans, const int* m, const int* n, const dcomplex* alpha, const dcomplex* A, int* lda, const dcomplex* x, const int* incx, const dcomplex* beta, dcomplex* y, const int* incy);
-  void dgemv_(const char* trans, const int* m, const int* n, const double* alpha, const double* A, int* lda, const double* x, const int* incx, const double* beta, double* y, const int* incy);
-  double ddot_(const int* N, double* x, const int* incx, double* y, const int* incy);
-  void zsytri_(const char* uplo, const int* N, dcomplex* A, const int* lda, int* ipiv, dcomplex* work, int* info);
-  void zsytrf_(const char* uplo, const int* N, dcomplex* A, const int* lda, int* ipiv, dcomplex* work, int* lwork, int* info);
-  void dsytri_(const char* uplo, const int* N, double* A, const int* lda, int* ipiv, double* work, int* info);
-  void dsytrf_(const char* uplo, const int* N, double* A, const int* lda, int* ipiv, double* work, int* lwork, int* info);
-  void zaxpy_(const int* N, const dcomplex* alpha, const dcomplex* x, const int* incx, dcomplex* y, const int* incy);
-  dcomplex zdotc_(const int* N, const dcomplex* zx, const int* incx, const dcomplex* zy, const int* incy);
+  void FNAME(dptsv)(const int* N, const int* NRHS, double* D, double* E, double* B, const int* LDB, int* INFO);
+  void FNAME(zptsv)(const int* N, const int* NRHS, double* D, dcomplex* E, dcomplex* B, const int* LDB, int* INFO);
+  void FNAME(dgetrf)(int* n1, int* n2, double* a, int* lda, int* ipiv,int* info);
+  void FNAME(zgetrf)(int* n1, int* n2, dcomplex* a, int* lda, int* ipiv,int* info);
+  void FNAME(dgetrs)(const char* trans, int* n, int* nrhs, double* a, int* lda, int* ipiv, double* b, int* ldb, int* info);
+  void FNAME(zgetrs)(const char* trans, int* n, int* nrhs, dcomplex* a, int* lda, int* ipiv, dcomplex* b, int* ldb, int* info);
+  void FNAME(zgemm)(const char* transa, const char* transb, const int* m, const int* n, const int* k, const dcomplex* alpha, const dcomplex* A, const int* lda, const dcomplex* B, const int* ldb, const dcomplex* beta, dcomplex* C, const int* ldc);
+  void FNAME(dgemm)(const char* transa, const char* transb, const int* m, const int* n, const int* k, const double* alpha, const double* A, const int* lda, const double* B, const int* ldb, const double* beta, double* C, const int* ldc);
+  void FNAME(dsymm)(const char* side, const char* uplo, const int* m, const int* n, const double* alpha, const double* A, const int* lda, const double* B, const int* ldb, const double* beta, double* C, const int* ldc);
+  void FNAME(dgeev)(const char* jobvl, const char* jobvr,  const int* n,  double* A, const int* lda, double* wr, double* wi, double* vl, const int* ldvl, double* vr, const int* ldvr, double* work, const int* lwork, int* info);
+  void FNAME(dsyev)(const char* jobz,  const char* uplo,   const int* n,  double* A, const int* lda, double* w, double* work, const int* lwork, int* info);
+  void FNAME(zgesdd)(const char* jobz, const int* m, const int* n, dcomplex* A, const int* lda, double* S, dcomplex* U, const int* ldu, dcomplex* Vt, const int* ldvt, dcomplex* work, const int* lwork, double* rwork, int* iwork, int* info);
+  void FNAME(dgesdd)(const char* jobz, const int* m, const int* n, double* A, const int* lda, double* S, double* U, const int* ldu, double* Vt, const int* ldvt, double* work, const int* lwork, int* iwork, int* info);
+  void FNAME(zgeev)(const char* jobvl, const char* jobvr,  const int* n,  dcomplex* A,const int* lda, dcomplex* w, dcomplex* vl, const int* ldvl, dcomplex* vr, const int* ldvr, dcomplex* work, const int* lwork, double* rwork, int* info);
+  void FNAME(zheevd)(const char* job, const char* uplo,  const int* n,  dcomplex* A,const int* lda, double* w, dcomplex* work, const int* lwork, double* rwork, int* lrwork, int* iwork, int* liwork, int* info);
+  void FNAME(mzgees)(const char* jobvs, const char* sort, compfunc select, int* N, dcomplex* A, int* lda, int* sdim, dcomplex* W, dcomplex* VS, int* ldvs,  dcomplex* work,  int* lwork,  double* rwork,  int* bwork, int* info);
+  void FNAME(mdgees)(const char* jobvs, const char* sort, compfund select, int* N, double* A, int* lda, int* sdim, double* wr, double* wi, double* VS, int* ldvs,  double* work,  int* lwork, int* bwork, int* info);
+  double FNAME(dznrm2)(const int* N, const dcomplex* x, const int* incx);
+  double FNAME(dnrm2)(const int* N, const double* x, const int* incx);
+  void FNAME(zdscal)(const int* N, const double* alpha, dcomplex* zx, const int* incx);
+  void FNAME(dscal)(const int* N, const double* alpha, double* zx, const int* incx);
+  void FNAME(zgemv)(const char* trans, const int* m, const int* n, const dcomplex* alpha, const dcomplex* A, int* lda, const dcomplex* x, const int* incx, const dcomplex* beta, dcomplex* y, const int* incy);
+  void FNAME(dgemv)(const char* trans, const int* m, const int* n, const double* alpha, const double* A, int* lda, const double* x, const int* incx, const double* beta, double* y, const int* incy);
+  double FNAME(ddot)(const int* N, double* x, const int* incx, double* y, const int* incy);
+  void FNAME(zsytri)(const char* uplo, const int* N, dcomplex* A, const int* lda, int* ipiv, dcomplex* work, int* info);
+  void FNAME(zsytrf)(const char* uplo, const int* N, dcomplex* A, const int* lda, int* ipiv, dcomplex* work, int* lwork, int* info);
+  void FNAME(dsytri)(const char* uplo, const int* N, double* A, const int* lda, int* ipiv, double* work, int* info);
+  void FNAME(dsytrf)(const char* uplo, const int* N, double* A, const int* lda, int* ipiv, double* work, int* lwork, int* info);
+  void FNAME(zaxpy)(const int* N, const dcomplex* alpha, const dcomplex* x, const int* incx, dcomplex* y, const int* incy);
+  _Complex double FNAME(zdotc)(const int* N, const dcomplex* zx, const int* incx, const dcomplex* zy, const int* incy);
+  //dcomplex zdotc_(const int* N, const dcomplex* zx, const int* incx, const dcomplex* zy, const int* incy);
+  void FNAME(dger)(const int* n1, const int* n2, const double* alpha, const double* x, const int* incx, const double* y, const int* incy, double* A, const int* lda);  
 }
 
 inline void xptsv_(const int* N, const int* NRHS, double* D, double* E, double* B, const int* LDB, int* INFO)
-{  dptsv_(N, NRHS, D, E, B, LDB, INFO);}
+{  FNAME(dptsv)(N, NRHS, D, E, B, LDB, INFO);}
 
 inline void xptsv_(const int* N, const int* NRHS, double* D, dcomplex* E, dcomplex* B, const int* LDB, int* INFO)
-{  zptsv_(N, NRHS, D, E, B, LDB, INFO);}
+{  FNAME(zptsv)(N, NRHS, D, E, B, LDB, INFO);}
 
 inline void xgemm(const std::string& transa, const std::string& transb, const int m, const int n,
 		  const int k, const double alpha, const double* A,
 		  const int lda, const double* B, const int ldb, const double beta,
 		  double* C, const int ldc)
 {
-  dgemm_(transa.c_str(), transb.c_str(), &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
+  /*
+  cout<<"m="<<m<<" n="<<n<<" k="<<k<<" lda="<<lda<<" ldb="<<ldb<<" ldc="<<ldc;
+  cout<<" transa="<<transa<<" transb="<<transb<<endl;
+  cout<<"A[0,0]="<<A[0]<<" "<<A[1]<<" "<<A[2]<<" "<<A[3]<<endl;
+  cout<<"B[0,0]="<<B[0]<<" "<<B[1]<<" "<<B[2]<<" "<<B[3]<<endl;
+  */
+  FNAME(dgemm)(transa.c_str(), transb.c_str(), &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
 }
 
 inline void xsymm(const char* side, const char* uplo, int m, int n, double alpha, const double* A, int lda, const double* B, int ldb, double beta, double* C, int ldc)
 {
-  dsymm_(side, uplo, &m, &n, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
+  FNAME(dsymm)(side, uplo, &m, &n, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
 }
 
 inline void xgemm(const std::string& transa, const std::string& transb, const int m, const int n,
@@ -66,29 +81,29 @@ inline void xgemm(const std::string& transa, const std::string& transb, const in
 		  const int lda, const dcomplex* B, const int ldb, const dcomplex& beta,
 		  dcomplex* C, const int ldc)
 {
-  zgemm_(transa.c_str(), transb.c_str(), &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
+  FNAME(zgemm)(transa.c_str(), transb.c_str(), &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
 }
 
 inline void xaxpy(int n, const dcomplex& alpha, const dcomplex* x, dcomplex* y, int incx=1, int incy=1)
-{ zaxpy_(&n, &alpha, x, &incx, y, &incy);}
+{ FNAME(zaxpy)(&n, &alpha, x, &incx, y, &incy);}
 
-inline dcomplex xdotc(int n, const dcomplex* zx, const dcomplex* zy, int incx=1, int incy=1)
-{ return zdotc_(&n, zx, &incx, zy, &incy);}
+//inline dcomplex xdotc(int n, const dcomplex* zx, const dcomplex* zy, int incx=1, int incy=1)
+//{ return reinterpret_cast<dcomplex>(zdotc_(&n, zx, &incx, zy, &incy));}
 
-inline int xgetrf(int n, double* a, int lda, int* ipiv, int ldb)
+inline int xgetrf(int n, double* a, int lda, int* ipiv)
 {
   int info = 0;
-  dgetrf_(&n, &n, a, &lda, ipiv, &info);
+  FNAME(dgetrf)(&n, &n, a, &lda, ipiv, &info);
   if (info){
     std::cerr << "Something wrong in LU (real) decomposition! " << info << std::endl;
   }  
   return info;
 }
 
-inline int xgetrf(int n, dcomplex* a, int lda, int* ipiv, int ldb)
+inline int xgetrf(int n, dcomplex* a, int lda, int* ipiv)
 {
   int info = 0;
-  zgetrf_(&n, &n, a, &lda, ipiv, &info);
+  FNAME(zgetrf)(&n, &n, a, &lda, ipiv, &info);
   if (info){
     std::cerr << "Something wrong in LU (complex) decomposition! " << info << std::endl;
   }  
@@ -98,7 +113,7 @@ inline int xgetrf(int n, dcomplex* a, int lda, int* ipiv, int ldb)
 inline int xgetrs(int n, int nrhs, double* a, int lda, int* ipiv, double* b, int ldb)
 {
   int info = 0;
-  dgetrs_("T", &n, &nrhs, a, &lda, ipiv, b, &ldb, &info);
+  FNAME(dgetrs)("T", &n, &nrhs, a, &lda, ipiv, b, &ldb, &info);
   if (info){
     std::cerr << "Something wrong with the system of (real) equations! " << info << std::endl;
   }  
@@ -108,7 +123,7 @@ inline int xgetrs(int n, int nrhs, double* a, int lda, int* ipiv, double* b, int
 inline int xgetrs(int n, int nrhs, dcomplex* a, int lda, int* ipiv, dcomplex* b, int ldb)
 {
   int info = 0;
-  zgetrs_("T", &n, &nrhs, a, &lda, ipiv, b, &ldb, &info);
+  FNAME(zgetrs)("T", &n, &nrhs, a, &lda, ipiv, b, &ldb, &info);
   if (info){
     std::cerr << "Something wrong with the system of (complex) equations! " << info << std::endl;
   }
@@ -118,16 +133,16 @@ inline int xgetrs(int n, int nrhs, dcomplex* a, int lda, int* ipiv, dcomplex* b,
 template <class T>
 inline int xgesv(int n, int nrhs, T* a, int lda, int* ipiv, T* b, int ldb)
 {
-  int info = xgetrf(n, a, lda, ipiv, ldb);
+  int info = xgetrf(n, a, lda, ipiv);
   if (info) return info;
   return xgetrs(n, nrhs, a, lda, ipiv, b, ldb);
 }
 
 // Eigenvalues of real symmetric matrix
-inline int xsyev(const int N, double* A, const int lda, double* w, double* work, const int lwork)
+inline int xsyev(const int N, double* A, const int lda, double* w, double* work, const int lwork, string job="N")
 {
   int info = 0;
-  dsyev_("N", "U",  &N,  A, &lda, w, work, &lwork, &info);
+  FNAME(dsyev)(job.c_str(), "U",  &N,  A, &lda, w, work, &lwork, &info);
   if (info)
     std::cerr << "Can't compute eigenvalues! " << info << std::endl;
   return info;
@@ -137,7 +152,7 @@ inline int xgeev(const int N, double* A, const int lda, dcomplex* w, double* wr,
 		 const int lwork, double*)
 {
   int ena = 1, info = 0;
-  dgeev_("N", "N",  &N,  A, &lda, wr, wi, NULL, &ena, NULL, &ena, work, &lwork, &info);
+  FNAME(dgeev)("N", "N",  &N,  A, &lda, wr, wi, NULL, &ena, NULL, &ena, work, &lwork, &info);
   if (info)
     std::cerr << "Can't compute eigenvalues! " << info << std::endl;
   for (int i=0; i<N; i++) { w[i].real()=wr[i]; w[i].imag()=wi[i];}
@@ -148,7 +163,7 @@ inline int xgeev_(const int N, double* A, const int lda, double* wr, double* wi,
 		 const int lwork)
 {
   int ena = 1, info = 0;
-  dgeev_("N", "N",  &N,  A, &lda, wr, wi, NULL, &ena, NULL, &ena, work, &lwork, &info);
+  FNAME(dgeev)("N", "N",  &N,  A, &lda, wr, wi, NULL, &ena, NULL, &ena, work, &lwork, &info);
   if (info)
     std::cerr << "Can't compute eigenvalues! " << info << std::endl;
   return info;
@@ -158,7 +173,7 @@ inline int xgeev(int N, dcomplex* A, int lda, dcomplex* w, dcomplex* AL, int ld_
 		 dcomplex* AR, int ld_AR,  dcomplex* work, int lwork, double* rwork)
 {
   int info = 0;
-  zgeev_("V", "V",  &N,  A, &lda, w, AL, &ld_AL, AR, &ld_AR, work, &lwork, rwork, &info);
+  FNAME(zgeev)("V", "V",  &N,  A, &lda, w, AL, &ld_AL, AR, &ld_AR, work, &lwork, rwork, &info);
   if (info) std::cerr << "Can't compute eigenvalues and eigenvectors! " << info << std::endl;
   return info;
 }
@@ -167,18 +182,18 @@ inline int xheevd(int N, dcomplex* A, int lda, double* w, dcomplex* work, int lw
 		  int* iwork, int liwork)
 {
   int info=0;
-  zheevd_("V", "U",  &N,  A, &lda, w, work, &lwork, rwork, &lrwork, iwork, &liwork, &info);
+  FNAME(zheevd)("V", "U",  &N,  A, &lda, w, work, &lwork, rwork, &lrwork, iwork, &liwork, &info);
   if (info) std::cerr << "Can't compute eigenvalues and eigenvectors! " << info << std::endl;
   return info;
 }
 
-inline int xgesdd(bool vect, int N, dcomplex* A, int lda, double* S, dcomplex* U, int ldu, dcomplex* Vt, int ldvt,
+inline int xgesdd(bool vect, int M, int N, dcomplex* A, int lda, double* S, dcomplex* U, int ldu, dcomplex* Vt, int ldvt,
 		  dcomplex* work, int lwork, double* rwork, int *iwork)
 {
   int info = 0;
-  std::string job = vect ? "A" : "N";
+  std::string job = vect ? "S" : "N";
 #ifndef _HP_  
-  zgesdd_(job.c_str(), &N, &N, A, &lda, S, U, &ldu, Vt, &ldvt, work, &lwork, rwork, iwork, &info);
+  FNAME(zgesdd)(job.c_str(), &M, &N, A, &lda, S, U, &ldu, Vt, &ldvt, work, &lwork, rwork, iwork, &info);
 #endif  
   if (info) {
     std::cerr << "Can't compute SVD of the kernel! " << info << std::endl;
@@ -186,13 +201,13 @@ inline int xgesdd(bool vect, int N, dcomplex* A, int lda, double* S, dcomplex* U
   return info;
 }
 
-inline int xgesdd(bool vect, int N, double* A, int lda, double* S, double* U, int ldu, double* Vt, int ldvt,
+inline int xgesdd(bool vect, int M, int N, double* A, int lda, double* S, double* U, int ldu, double* Vt, int ldvt,
 		  double* work, int lwork, double*, int *iwork)
 {
   int info = 0;
-  std::string job = vect ? "A" : "N";
+  std::string job = vect ? "S" : "N";
 #ifndef _HP_  
-  dgesdd_(job.c_str(), &N, &N, A, &lda, S, U, &ldu, Vt, &ldvt, work, &lwork, iwork, &info);
+  FNAME(dgesdd)(job.c_str(), &M, &N, A, &lda, S, U, &ldu, Vt, &ldvt, work, &lwork, iwork, &info);
 #endif  
   if (info) {
     std::cerr << "Can't compute SVD of the kernel! " << info << std::endl;
@@ -233,7 +248,7 @@ inline int xgees(bool vect, int N, dcomplex* A, int lda, dcomplex* w, double*, d
 {
   int sdim, info = 0;
   std::string job = vect ? "V" : "N";
-  mzgees_(job.c_str(), "S", &comparec, &N, A, &lda, &sdim, w, Z, &ldz, work, &lwork, rwork, bwork, &info);
+  FNAME(mzgees)(job.c_str(), "S", &comparec, &N, A, &lda, &sdim, w, Z, &ldz, work, &lwork, rwork, bwork, &info);
   if (info) std::cerr << "Can't perform Schur decomposition! " << info << std::endl;
   return info;
 }
@@ -243,7 +258,7 @@ inline int xgees(bool vect, int N, double* A, int lda, dcomplex* w, double* wr, 
 {
   int sdim, info = 0;
   std::string job = vect ? "V" : "N";
-  mdgees_(job.c_str(), "S", &compared, &N, A, &lda, &sdim, wr, wi, Z, &ldz, work, &lwork, bwork, &info);
+  FNAME(mdgees)(job.c_str(), "S", &compared, &N, A, &lda, &sdim, wr, wi, Z, &ldz, work, &lwork, bwork, &info);
   if (info) std::cerr << "Can't perform Schur decomposition! " << info << std::endl;
   for (int i=0; i<N; i++) {w[i].real()=wr[i]; w[i].imag()=wi[i];}
   return info;
@@ -298,46 +313,46 @@ inline int xgees(bool vect, int N, double* A, int lda, dcomplex* w, double* wr, 
 
 inline double xnrm(int N, const dcomplex* x, int incx = 1)
 {
-  return dznrm2_(&N, x, &incx);
+  return FNAME(dznrm2)(&N, x, &incx);
 }
 
 inline double xnrm(int N, const double* x, int incx = 1)
 {
-  return dnrm2_(&N, x, &incx);
+  return FNAME(dnrm2)(&N, x, &incx);
 }
 
 inline void xdscal(int N, double alpha, dcomplex* zx, int incx = 1)
 {
-  zdscal_(&N, &alpha, zx, &incx);
+  FNAME(zdscal)(&N, &alpha, zx, &incx);
 }
 
 inline void xdscal(int N, double alpha, double* zx, int incx = 1)
 {
-  dscal_(&N, &alpha, zx, &incx);
+  FNAME(dscal)(&N, &alpha, zx, &incx);
 }
 
 inline void xsytrf(const char* uplo, int N, dcomplex* A, int lda, int* ipiv, dcomplex* work, int lwork, int& info)
 {
-  zsytrf_(uplo, &N, A, &lda, ipiv, work, &lwork, &info);
+  FNAME(zsytrf)(uplo, &N, A, &lda, ipiv, work, &lwork, &info);
 }
 inline void xsytrf(const char* uplo, int N, double* A, int lda, int* ipiv, double* work, int lwork, int& info)
 {
-  dsytrf_(uplo, &N, A, &lda, ipiv, work, &lwork, &info);
+  FNAME(dsytrf)(uplo, &N, A, &lda, ipiv, work, &lwork, &info);
 }
 inline void xsytri(const char* uplo, int N, dcomplex* A, int lda, int* ipiv, dcomplex* work, int& info)
 {
-  zsytri_(uplo, &N, A, &lda, ipiv, work, &info);
+  FNAME(zsytri)(uplo, &N, A, &lda, ipiv, work, &info);
 }
 inline void xsytri(const char* uplo, int N, double* A, int lda, int* ipiv, double* work, int& info)
 {
-  dsytri_(uplo, &N, A, &lda, ipiv, work, &info);
+  FNAME(dsytri)(uplo, &N, A, &lda, ipiv, work, &info);
 }
 
 inline int xgeev(const int N, dcomplex* A, const int lda, dcomplex* w, dcomplex* work,
 		 const int lwork, double* rwork)
 {
   int ena = 1, info = 0;
-  zgeev_("N", "N",  &N,  A, &lda, w, NULL, &ena, NULL, &ena, work, &lwork, rwork, &info);
+  FNAME(zgeev)("N", "N",  &N,  A, &lda, w, NULL, &ena, NULL, &ena, work, &lwork, rwork, &info);
   if (info)
     std::cerr << "Can't compute eigenvalues! " << info << std::endl;
   return info;

@@ -152,6 +152,10 @@ class IMP_CTQMC(object):
         else:
             self.cx=0.0
     
+        if self.l==3:
+            self.params['exe']='ctqmcf'
+
+
     def _exe(self, params, DCs, extn, UpdateAtom, gbroad=0.0, kbroad=0.0, maxAc=200.):
         """ Executes the CTQMC impurity solver
         """

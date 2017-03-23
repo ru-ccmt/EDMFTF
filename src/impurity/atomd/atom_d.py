@@ -1647,7 +1647,7 @@ if __name__ == '__main__':
     small = 1e-6
     small_t2c=1e-5
     Nrange=[]
-    
+    OLD_CTQMC=False
     args = sys.argv[1:]
     if ('-h' in args) or ('--help' in args):
         print """Code for generating impurity cix file for a d-type of material
@@ -1839,6 +1839,12 @@ if __name__ == '__main__':
     kbth0=[]
     for i in range(len(baths)): kbth0.append([i])
 
+
+    print max(bathi)
+    if max(bathi)>=len(Eimp):
+        print 'You specified wrong dimension for Eimp! Boiling out.... Need at least '+str(max(bathi)+1)+' components'
+        sys.exit(1)
+    
     bkeep=[]
     for b in range(len(bathi)):
         if Eimp[bathi[b]]<1000:  bkeep.append(b)
@@ -1900,12 +1906,12 @@ if __name__ == '__main__':
                     UC[2,i,j,j,i]=4./49.
                 else:
                     UC[0,i,j,j,i]=1.      # F0 
-                    UC[1,i,j,j,i]=-2./49. # F2
-                    UC[2,i,j,j,i]=-4./441.# F4
-                    UC[1,i,j,i,j]= 3./49. # F2
-                    UC[2,i,j,i,j]=20./441.# F4
-                    UC[1,i,i,j,j]= 3./49. # F2
-                    UC[2,i,i,j,j]=20./441.# F4
+                    UC[1,i,j,j,i]=-2./49. # F2 exact for t2g's
+                    UC[2,i,j,j,i]=-4./441.# F4 exact for t2g's
+                    UC[1,i,j,i,j]= 3./49. # F2 exact for t2g's
+                    UC[2,i,j,i,j]=20./441.# F4 exact for t2g's
+                    UC[1,i,i,j,j]= 3./49. # F2 exact for t2g's
+                    UC[2,i,i,j,j]=20./441.# F4 exact for t2g's
     else:
         print 'ERROR: CoulombF form ', CoulombF, ' not yet implemented!'
         sys.exit(0)
@@ -2707,7 +2713,7 @@ if __name__ == '__main__':
                     for j0 in ind1:
                         x = rFKP[ii][ib][i0,j0]
                         if abs(x.imag)<1e-4 or PrintReal:
-                            print >> fcix, x.real,
+                            print >> fcix, "%20.16f" % (x.real,) ,
                         else:
                             print >> fcix, x,
             else:
@@ -2718,34 +2724,61 @@ if __name__ == '__main__':
     else: print >> fcix, 'HB1'
 
     if (HB2 and Q3d):
-        print >> fcix, "# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"
-        for bs1 in baths:
+        #print >> fcix, "# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"
+        #for bs1 in baths:
+        #    m1 = bs1[0]
+        #    s1 = bs1[1]
+        #    if m1 not in bkeep: continue
+        #    for bs2 in baths:
+        #        m2 = bs2[0]
+        #        s2 = bs2[1]
+        #        if m2 not in bkeep: continue
+        #        for bs3 in baths:
+        #            m3 = bs3[0]
+        #            s3 = bs3[1]
+        #            if m3 not in bkeep: continue
+        #            Uc = 0.0
+        #            if s2==s3:
+        #                if s1==s2: Uc = UHa[m1,m2,m3]-UFo[m1,m2,m3] # Equal spins: Hartree and Fock
+        #                else: Uc = UHa[m1,m2,m3], # Opposite spins: Hartree Only
+        #            print >> fcix, "%10.6f" % Uc,
+        #        print >> fcix
+        print >> fcix, "# UCoulomb : (m1,s1) (m2,s2) (m3,s2) (m4,s1)  Uc[m1,m2,m3,m4]"
+        for i1,bs1 in enumerate(baths):
             m1 = bs1[0]
             s1 = bs1[1]
             if m1 not in bkeep: continue
-            for bs2 in baths:
+            for i2,bs2 in enumerate(baths):
                 m2 = bs2[0]
                 s2 = bs2[1]
                 if m2 not in bkeep: continue
-                for bs3 in baths:
+                for i3,bs3 in enumerate(baths):
                     m3 = bs3[0]
                     s3 = bs3[1]
+                    if (s2!=s3): continue
                     if m3 not in bkeep: continue
-                    Uc = 0.0
-                    if s2==s3:
-                        if s1==s2: Uc = UHa[m1,m2,m3]-UFo[m1,m2,m3] # Equal spins: Hartree and Fock
-                        else: Uc = UHa[m1,m2,m3], # Opposite spins: Hartree Only
-                    print >> fcix, "%10.6f" % Uc,
-                print >> fcix
+                    for i4,bs4 in enumerate(baths):
+                        m4 = bs4[0]
+                        s4 = bs4[1]
+                        if (s4!=s1): continue
+                        if m4 not in bkeep: continue
+                        Uc = 0.0
+                        for k in range(0,l+1):
+                            Uc += real(UC[k,m1,m2,m3,m4])*Fk[k,l]
+                        if abs(Uc)>1e-6:
+                            print >> fcix, "%2d %2d %2d %2d  %12.8f" % (i1,i2,i3,i4,Uc)
 
     if (HB2 and not Q3d):
         print >> fcix, "# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"
         for bs1 in bkeep:
             for bs2 in bkeep:
                 for bs3 in bkeep:
-                    Uc = UHa[bs1,bs2,bs3]-UFo[bs1,bs2,bs3] # Hartree and Fock
-                    print >> fcix, "%10.6f" % Uc,
-                print >> fcix
+                    for bs4 in bkeep:
+                        Uc = 0.0
+                        for k in range(0,l+1):
+                            UC += real(UC[k,bs1,bs2,bs3,bs4])*Fk[k,l]
+                        if abs(Uc)>1e-6:
+                            print >> fcix, "%2d %2d %2d %2d  %12.8f" % (bs1,bs2,bs3,bs4,Uc)
 
                 
     print >> fcix, '# number of operators needed'
@@ -2783,103 +2816,103 @@ if __name__ == '__main__':
                         print >> fcix, ff,
                 print >> fcix
     
-    
-    print >> fcix, '# Data for HB1'
-    
-    PrintAll=False
-    if PrintAll:
-        print >> fcix, 1, len(pseudostates), len(bkeep), maxs
-        print >> fcix, '# ind   N   K   Jz size'
-
-        for ii,iwp in enumerate(pseudostates):
-            iw = iwp[0]
-            ip = iwp[1]
-            wstate = wstates[iw]
-            print >> fcix, "%3d  %3d  %2d %2d %4.1f %2d " % (ii+1, inv_lowE1[ii]+1, sum(wstate[0]), 0, sum(wstate[1])/2., len(Enes[ii])),
-            for ib in bkeep:
-                print >> fcix, "%3d" % (iFinal[ii,ib]+1),
-            print >> fcix, "  ",
-            for iq in range(len(Enes[ii])):
-                print >> fcix, Enes[ii][iq],
-            print >> fcix, "  ",
-            for iq in range(len(Enes[ii])):
-                print >> fcix, 0,
-            print >> fcix, "  ",
-            print >> fcix
-            
-        print >> fcix, '# matrix elements'
+    if (OLD_CTQMC):
+        print >> fcix, '# Data for HB1'
         
-        for ii in range(len(pseudostates)):
-            for ib in bkeep:
-                    print >> fcix, "%3d %3d " % (ii+1, iFinal[ii,ib]+1), 
-                    ffp = zeros(len(Enes[ii]),dtype=float)
-                    if iFinal[ii,ib]>=0:
-                        (dim0, dim1) = shape(rFKP[ii][ib])
-                        print >> fcix, "%2d %2d" % (dim0,dim1), 
-                        for i0 in range(dim0):
-                            for j0 in range(dim1):
+        PrintAll=False
+        if PrintAll:
+            print >> fcix, 1, len(pseudostates), len(bkeep), maxs
+            print >> fcix, '# ind   N   K   Jz size'
+        
+            for ii,iwp in enumerate(pseudostates):
+                iw = iwp[0]
+                ip = iwp[1]
+                wstate = wstates[iw]
+                print >> fcix, "%3d  %3d  %2d %2d %4.1f %2d " % (ii+1, inv_lowE1[ii]+1, sum(wstate[0]), 0, sum(wstate[1])/2., len(Enes[ii])),
+                for ib in bkeep:
+                    print >> fcix, "%3d" % (iFinal[ii,ib]+1),
+                print >> fcix, "  ",
+                for iq in range(len(Enes[ii])):
+                    print >> fcix, Enes[ii][iq],
+                print >> fcix, "  ",
+                for iq in range(len(Enes[ii])):
+                    print >> fcix, 0,
+                print >> fcix, "  ",
+                print >> fcix
+                
+            print >> fcix, '# matrix elements'
+            
+            for ii in range(len(pseudostates)):
+                for ib in bkeep:
+                        print >> fcix, "%3d %3d " % (ii+1, iFinal[ii,ib]+1), 
+                        ffp = zeros(len(Enes[ii]),dtype=float)
+                        if iFinal[ii,ib]>=0:
+                            (dim0, dim1) = shape(rFKP[ii][ib])
+                            print >> fcix, "%2d %2d" % (dim0,dim1), 
+                            for i0 in range(dim0):
+                                for j0 in range(dim1):
+                                    x = rFKP[ii][ib][i0,j0]
+                                    if abs(x.imag)<1e-4 or PrintReal:
+                                        print >> fcix, x.real,
+                                    else:
+                                        print >> fcix, x,
+                            for i0 in range(dim0):
+                                dsum=0
+                                for j0 in range(dim1):
+                                    dsum += abs(rFKP[ii][ib][i0][j0])**2
+                                ffp[i0] += dsum
+                        else:
+                            print >> fcix, "%2d %2d" % (0, 0),
+                        print >> fcix
+        else:
+            print >> fcix, 1, len(lowE), nbaths, low_maxsize
+            print >> fcix, '# ind   N   K   Jz size'
+            
+            for i in range(len(lowE)):
+                ii = lowE[i][0]
+                iwp = pseudostates[ii]
+                iw = iwp[0]
+                ip = iwp[1]
+                wstate = wstates[iw]
+                if op.Q3d:
+                    Mz = sum(wstate[1])/2.
+                    gs=wstate[2][ip]
+                else:
+                    gs=wstate[2][ip]
+                    Mz = op.Mz(gs)
+                print >> fcix, "%3d %3d  %2d %2d %6.3f %2d " % (i+1, i+1, sum(wstate[0]), 0, Mz, len(lowE[i][1])),
+                for ib in bkeep:
+                    ifinal = iFinal[ii,ib]
+                    print >> fcix, "%3d" % (inv_lowE1[ifinal]+1),
+                print >> fcix, "  ",
+                for iq in lowE[i][1]:
+                    print >> fcix, "%10.6f" % (Enes[ii][iq],),
+                print >> fcix, "  ",
+                for iq in lowE[i][1]:
+                    print >> fcix, S2ws[ii][iq],
+                if CoulombF[:5] == 'Ising':
+                    print >> fcix, "  # ", op.printn(gs),
+                print >> fcix
+                
+            print >> fcix, '# matrix elements'
+            
+            for i in range(len(lowE)):
+                ii = lowE[i][0]
+                for ib in bkeep:
+                    ifinal = iFinal[ii,ib]
+                    low_ifinal = inv_lowE1[ifinal]
+                    print >> fcix, "%3d %3d " % (i+1, low_ifinal+1),
+                    if low_ifinal>=0: 
+                        ind0 = lowE[i][1]
+                        ind1 = lowE[low_ifinal][1]
+                        print >> fcix, "%2d %2d" % (len(ind0), len(ind1)), 
+                        for i0 in ind0:
+                            for j0 in ind1:
                                 x = rFKP[ii][ib][i0,j0]
                                 if abs(x.imag)<1e-4 or PrintReal:
                                     print >> fcix, x.real,
                                 else:
                                     print >> fcix, x,
-                        for i0 in range(dim0):
-                            dsum=0
-                            for j0 in range(dim1):
-                                dsum += abs(rFKP[ii][ib][i0][j0])**2
-                            ffp[i0] += dsum
                     else:
                         print >> fcix, "%2d %2d" % (0, 0),
                     print >> fcix
-    else:
-        print >> fcix, 1, len(lowE), nbaths, low_maxsize
-        print >> fcix, '# ind   N   K   Jz size'
-        
-        for i in range(len(lowE)):
-            ii = lowE[i][0]
-            iwp = pseudostates[ii]
-            iw = iwp[0]
-            ip = iwp[1]
-            wstate = wstates[iw]
-            if op.Q3d:
-                Mz = sum(wstate[1])/2.
-                gs=wstate[2][ip]
-            else:
-                gs=wstate[2][ip]
-                Mz = op.Mz(gs)
-            print >> fcix, "%3d %3d  %2d %2d %6.3f %2d " % (i+1, i+1, sum(wstate[0]), 0, Mz, len(lowE[i][1])),
-            for ib in bkeep:
-                ifinal = iFinal[ii,ib]
-                print >> fcix, "%3d" % (inv_lowE1[ifinal]+1),
-            print >> fcix, "  ",
-            for iq in lowE[i][1]:
-                print >> fcix, "%10.6f" % (Enes[ii][iq],),
-            print >> fcix, "  ",
-            for iq in lowE[i][1]:
-                print >> fcix, S2ws[ii][iq],
-            if CoulombF[:5] == 'Ising':
-                print >> fcix, "  # ", op.printn(gs),
-            print >> fcix
-            
-        print >> fcix, '# matrix elements'
-        
-        for i in range(len(lowE)):
-            ii = lowE[i][0]
-            for ib in bkeep:
-                ifinal = iFinal[ii,ib]
-                low_ifinal = inv_lowE1[ifinal]
-                print >> fcix, "%3d %3d " % (i+1, low_ifinal+1),
-                if low_ifinal>=0: 
-                    ind0 = lowE[i][1]
-                    ind1 = lowE[low_ifinal][1]
-                    print >> fcix, "%2d %2d" % (len(ind0), len(ind1)), 
-                    for i0 in ind0:
-                        for j0 in ind1:
-                            x = rFKP[ii][ib][i0,j0]
-                            if abs(x.imag)<1e-4 or PrintReal:
-                                print >> fcix, x.real,
-                            else:
-                                print >> fcix, x,
-                else:
-                    print >> fcix, "%2d %2d" % (0, 0),
-                print >> fcix

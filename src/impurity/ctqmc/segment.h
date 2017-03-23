@@ -19,7 +19,11 @@ double Segment_ComputeTryalExponentSum(function2D<NState>& state_evolution_left,
     bool survived=true;
     double survived_exp_sum=0.0;
     for (int ip=0; ip<nsize; ++ip) {
-      survived_exp_sum += Operators.tr_exp_(ip)(istate,0); // for segments, there is only one exponent
+      //survived_exp_sum += Operators.tr_exp_(ip)(istate,0); // for segments, there is only one exponent
+      survived_exp_sum += Operators.tr_exp_(ip)[istate-1]; // for segments, there is only one exponent
+
+      //cout<<"exp for "<<istate<<" = "<<Operators.tr_exp_(ip)[istate-1]<<endl;
+      
       int iop = Operators.tr_typ(ip);
       istate = cluster.Fi(iop, istate);
       if (istate == VACUUM){
@@ -28,7 +32,8 @@ double Segment_ComputeTryalExponentSum(function2D<NState>& state_evolution_left,
       }
     }
     if (survived && istate==praStates[ist].istate){
-      survived_exp_sum += Operators.tr_exp_last()(istate,0);
+      //survived_exp_sum += Operators.tr_exp_last()(istate,0);
+      survived_exp_sum += Operators.tr_exp_last()[istate-1];
       exp_sum[ist] = survived_exp_sum;
       if (survived_exp_sum>max_val) max_val=survived_exp_sum;
     }
@@ -58,7 +63,8 @@ Number Segment_UpdateStateEvolution(function2D<NState>& state_evolution_left, in
     double survived_exp_sum=0.0;
     int ip=0;
     for (; ip<nsize; ++ip){                     // go over the all operators
-      survived_exp_sum += Operators.exp_(ip)(istate,0); // This is like Evolve
+      //survived_exp_sum += Operators.exp_(ip)(istate,0); // This is like Evolve
+      survived_exp_sum += Operators.exp_(ip)[istate-1]; // This is like Evolve
       int iop = Operators.typ(ip);
       int new_istate = cluster.Fi(iop, istate);                 // This is the second part of apply
       state_evolution_left(ist,ip).istate=new_istate;
@@ -70,7 +76,8 @@ Number Segment_UpdateStateEvolution(function2D<NState>& state_evolution_left, in
       istate = new_istate;
     }
     if (survived && istate==praStates[ist].istate){
-      survived_exp_sum += Operators.exp_last()(istate,0); // This is like Evolve
+      //survived_exp_sum += Operators.exp_last()(istate,0); // This is like Evolve
+      survived_exp_sum += Operators.exp_last()[istate-1]; // This is like Evolve
       Trace[ist] = Number(mantisa, survived_exp_sum);
       ms += Trace[ist];
       ip++;
@@ -201,7 +208,8 @@ bool ExponentSumForExhangeInside1(double& survived_exp_sum, int ist, int ip_a, i
   int istate = praStates[ist].istate;  // istate index superstates from 1 (vacuum = 0)
   survived_exp_sum=0.0;
   for (int ip=0; ip<Operators.size(); ++ip){
-    survived_exp_sum += Operators.exp_(ip)(istate,0); // for segments, there is only one exponent
+    //survived_exp_sum += Operators.exp_(ip)(istate,0); // for segments, there is only one exponent
+    survived_exp_sum += Operators.exp_(ip)[istate-1]; // for segments, there is only one exponent
     int iop = Operators.typ(ip);
     if (ip==ip_a) iop = Operators.typ(ip_b);
     if (ip==ip_b) iop = Operators.typ(ip_a);
@@ -209,7 +217,8 @@ bool ExponentSumForExhangeInside1(double& survived_exp_sum, int ist, int ip_a, i
     if (istate == VACUUM) return false;
   }
   if (istate==praStates[ist].istate){
-    survived_exp_sum += Operators.exp_last()(istate,0);
+    //survived_exp_sum += Operators.exp_last()(istate,0);
+    survived_exp_sum += Operators.exp_last()[istate-1];
     return true;
   }
   return false;
@@ -227,12 +236,14 @@ bool ExponentSumForExhangeInside2(double& exp_sum, bool& connects, int ist, int 
   istate = cluster.Fi(iop_1, istate);
   if (istate == VACUUM) return false;
   for (int ip=ip_1+1; ip<ip_2; ++ip){
-    exp_sum += Operators.exp_(ip)(istate,0);
+    //exp_sum += Operators.exp_(ip)(istate,0);
+    exp_sum += Operators.exp_(ip)[istate-1];
     iop = Operators.typ(ip);
     istate = cluster.Fi(iop, istate);
     if (istate == VACUUM) return false;
   }
-  exp_sum += Operators.exp_(ip_2)(istate,0);
+  //exp_sum += Operators.exp_(ip_2)(istate,0);
+  exp_sum += Operators.exp_(ip_2)[istate-1];
   iop = Operators.typ(ip_2);
   istate = cluster.Fi(iop_2, istate);
   if (istate == VACUUM) return false;
@@ -296,16 +307,26 @@ double Segment_ComputeTryalExponentSumForExchange(int ip_a, int ip_b, const func
   return max_val + log(dval);
 }
 
-void Segment_Get_N_at_Operator2(function1D<double>& Njc, int ip, const function1D<Number>& Trace, const Number& ms, const function2D<NState>& state_evolution_left,
+void Segment_Get_N_at_Operator2(functionb<double>& Njc, int ip, const function1D<Number>& Trace, const Number& ms, const function2D<NState>& state_evolution_left,
 				const NOperators& Operators, const function1D<NState>& praStates, const ClusterData& cluster, long long istep)
 {
   Njc=0.0;
-  for (int ist=0; ist<praStates.size(); ist++){// op_i is the earliest operator inserted - from this point on, the evolution needs to be changed
+  for (int ist=0; ist<praStates.size(); ist++){
     double Zi = divide(Trace[ist],ms);
-    //double Zi = (Trace[ist]/ms).dbl();
     if (fabs(Zi)>1e-10 && state_evolution_left[ist].size()>Operators.size()){
       int istate = (ip!=0) ? state_evolution_left[ist][ip-1].istate : praStates[ist].istate;
-      for (int ifl2=0; ifl2<Njc.size(); ifl2++) Njc[ifl2] += Zi*cluster.Njs(istate,ifl2); // Be careful: works only if ifl=fl!
+      for (int fl2=0; fl2<cluster.Nvfl; fl2++){
+	switch (cluster.Njm_c(istate,fl2)){
+	case 0: // nothing to add because N=0
+	  break;
+	case 1: // N is just an idenity. No need to multiply.
+	  Njc[fl2] += Zi;
+	  break;
+	case 2: // N is not simple indentity or zero, hence we need to evaluate the product
+	  break;
+	  Njc[fl2] += Zi*cluster.Njm(istate,fl2)(0,0);
+	}
+      }
     }
   }
 }

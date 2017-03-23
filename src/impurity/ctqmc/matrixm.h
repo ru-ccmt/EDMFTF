@@ -1,7 +1,6 @@
 // @Copyright 2007 Kristjan Haule
 // 
 #include "timer.h"
-
 class MatrixM{
   function1D<dcomplex> sumt;
   function2D<dcomplex> sum1, sum2;
@@ -13,7 +12,6 @@ class MatrixM{
   double d_nn, ratio;
   function1D<double> Lt, Rt, Lt2, Rt2;
   function1D<double> temp;
-  function2D<double> C, mD;
   function1D<int> ipiv;
 public:
   function2D<dcomplex> Gf;
@@ -21,15 +19,15 @@ public:
 private:
   function2D<dcomplex> sum2c;
   function2D<dcomplex> sum3;
-  function1D<dcomplex> sum0;
   function1D<dcomplex> dexp0;
   function2D<dcomplex> dG;
   vector<function2D<dcomplex> > dMv;
   const function2D<int>* ptfl_index;
   deque<int> v2fl_index;
   int nomv; // maximum fermionic frequency for vertex computation
+  function1D<double> M_ul;
 public:
-  double tm1, tm2, tm3, tm4, tm5, tm6, tm7, tm8, tm9, tm10, tm11, tm12, tm13;
+  //double tm1, tm2, tm3, tm4, tm5, tm6, tm7, tm8, tm9, tm10, tm11, tm12, tm13;
 public:
   void copy_data(MatrixM& source);
   // small inlined functions to access members
@@ -37,7 +35,7 @@ public:
   const function2D<dcomplex>& gf() const { return Gf;}
   double iom_size(){return piom->size();}
   
-  void SetUp(int N_max, const mesh1D& tau_, const function2D<spline1D<double>* >& fun_, const function2D<int>& tfl_index_, const mesh1D& iom, double beta_, deque<int>& v2fl_index_, int nomv_);
+  void SetUp(int Nmax, const mesh1D& tau_, const function2D<spline1D<double>* >& fun_, const function2D<int>& tfl_index_, const mesh1D& iom, double beta_, deque<int>& v2fl_index_, int nomv_, int svd_lmax);
   
   double AddDetRatio(function2D<double>& MD, int Nk, double t_start, int btype_s, double t_end, int btype_e, const nIntervals& interval);
   double AddUpdateMatrix(function2D<double>& MD, int Nk, double t_start, int is, int btype_s, double t_end, int ie, int btype_e, const nIntervals& interval, int istep);
@@ -58,13 +56,23 @@ public:
   void MoveUpdate_Gf(const nIntervals& interval, vector<function2D<dcomplex> >& Mv, int istep);
   
   
-  void CleanUpdateMatrix(function2D<double>& MD, int Nk, const nIntervals& interval);
+  void CleanUpdateMatrix(function2D<double>& MD, int Nk, const nIntervals& interval, function2D<double>& mD);
   void CleanUpdateGf(function2D<double>& MD, int Nk, const nIntervals& interval, vector<function2D<dcomplex> >& Mv, int istep);
   
   double AddDetRatio(function2D<double>& MD, int Nk, int btype_s1, double t_start1, int btype_e1, double t_end1, 
 		     int btype_s2, double t_start2, int btype_e2, double t_end2, const nIntervals& interval);
-  double GlobalFlipDetRatio(const nIntervals& interval, const function2D<double>& MD, const function2D<spline1D<double>* >& Delta_flipped);
-  void ComputeGtau(function2D<double>& MD, const nIntervals& interval, function2D<double>& Gtau);
+
+  
+  double GlobalFlipDetRatio(const nIntervals& interval, const function2D<double>& MD, const function2D<spline1D<double>* >& Delta_flipped, /*function2D<double>& C,*/ function2D<double>& mD);
+  void ComputeGtau(const function2D<double>& MD, const nIntervals& interval, function2D<double>& Gtau);
+  void ComputeG_svd(function2D<double>& gl, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
+  void ComputeFG_svd(vector<function2D<double> >& gl, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
+  void ComputeFGF_svd(vector<function2D<double> >& gs, vector<function2D<double> >& ge, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
+  void Resize(int new_Nmax);
+  void ReleaseSomeTempMemory();
+  
+  void ComputeG_svd_debug(function2D<double>& gl, function2D<double>& Gtau, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
+  
 private:
   void AddComputeGs(int Nk, double t_start, int btype_s, double t_end, int btype_e, const nIntervals& interval);
   void AddComputeGs(int Nk, double t_start, int btype_s, double t_end, int btype_e, const nIntervals& interval, function1D<double>& d_ln, function1D<double>& d_nl, double& dnn);
@@ -74,42 +82,99 @@ private:
   void SetMatrix_(int Nk, const nIntervals& interval, function2D<double>& mD, const function2D<spline1D<double>* >& Delta_any);
 };
 
-inline void MatrixM::SetUp(int N_max, const mesh1D& tau_, const function2D<spline1D<double>* >& fun_, const function2D<int>& tfl_index_, const mesh1D& iom, double beta_, deque<int>& v2fl_index_, int nomv_)
+inline void MatrixM::SetUp(int Nmax, const mesh1D& tau_, const function2D<spline1D<double>* >& fun_, const function2D<int>& tfl_index_, const mesh1D& iom, double beta_, deque<int>& v2fl_index_, int nomv_, int svd_lmax)
 {
   beta = beta_;
   ptau = &tau_;
   ptfl_index = &tfl_index_;
   vfun = fun_;
-  d_ln.resize(N_max);
-  d_nl.resize(N_max);
-  d_lm.resize(N_max);
-  d_ml.resize(N_max);
-  Lt.resize(N_max);
-  Rt.resize(N_max);
-  Lt2.resize(N_max);
-  Rt2.resize(N_max);
-  C.resize(N_max,N_max);
-  mD.resize(N_max,N_max);
-  ipiv.resize(N_max);
-  piom = &iom;
+  d_ln.resize(Nmax);
+  d_nl.resize(Nmax);
+  d_lm.resize(Nmax);
+  d_ml.resize(Nmax);
+  Lt.resize(Nmax);
+  Rt.resize(Nmax);
+  Lt2.resize(Nmax);
+  Rt2.resize(Nmax);
+  ipiv.resize(Nmax);
   int dim = ptfl_index->size_N();
-  Gf.resize(dim*dim,iom.size());
-  if (common::QHB2) Ff.resize(N_max,iom.size());
-  sum1.resize(dim,iom.size());
-  sum2.resize(dim,iom.size());
-  sum3.resize(dim*dim,iom.size());
-  sum0.resize(dim*dim);
-  temp.resize(N_max);
-  dG.resize(dim*dim,iom.size());
-  dexp0.resize(iom.size());
-  nomv = nomv_;
-  dMv.resize(dim*dim);
-  for (unsigned i=0; i<dMv.size(); i++) dMv[i].resize(2*nomv,2*nomv);//(-nomv,nomv,-nomv,nomv);
+  nomv = nomv_;  // maximum fermionic frequency for vertex computation
+  if (! common::Qsvd){
+    piom = &iom;
+    Gf.resize(dim*dim,iom.size());
+    if (common::QHB2) Ff.resize(Nmax,iom.size());
+    sum1.resize(dim,iom.size());
+    sum2.resize(dim,iom.size());
+    if (common::QHB2) sum2c.resize(Nmax/2+1,iom.size());
+    dG.resize(dim*dim,iom.size());
+    dexp0.resize(iom.size());
+    sum3.resize(dim*dim,iom.size());
+    sumt.resize(iom.size());
+    if (common::cmp_vertex){
+      dMv.resize(dim*dim);
+      for (unsigned i=0; i<dMv.size(); i++) dMv[i].resize(2*nomv,2*nomv);//(-nomv,nomv,-nomv,nomv);
+    }
+  }else{
+    //if (common::cmp_vertex)
+      M_ul.resize(svd_lmax);
+  }
+  temp.resize(Nmax);
   v2fl_index = v2fl_index_;
-  if (common::QHB2) sum2c.resize(N_max/2+1,iom.size());
-  sumt.resize(iom.size());
-  tm1=tm2=tm3=tm4=tm5=tm6=tm7=tm8=tm9=tm10=tm11=tm12=tm13=0;
+  //tm1=tm2=tm3=tm4=tm5=tm6=tm7=tm8=tm9=tm10=tm11=tm12=tm13=0;
 }
+
+inline void MatrixM::Resize(int new_Nmax)
+{
+  d_ln.resize(new_Nmax);
+  d_nl.resize(new_Nmax);
+  d_lm.resize(new_Nmax);
+  d_ml.resize(new_Nmax);
+  Lt.resize(new_Nmax);
+  Rt.resize(new_Nmax);
+  Lt2.resize(new_Nmax);
+  Rt2.resize(new_Nmax);
+  ipiv.resize(new_Nmax);
+  temp.resize(new_Nmax);
+  if (!common::Qsvd && common::QHB2){
+    sum2c.resize(new_Nmax/2+1,piom->size());
+    //int _N_ = Ff.size_N();
+    //int _Nd_ = Ff.size_Nd();
+    Ff.resize_preserve(new_Nmax,piom->size());
+    //Ff.resize(_N_,_Nd_); // virtual resizing, does not allocate/deallocate memory
+  }
+}
+
+void MatrixM::ReleaseSomeTempMemory()
+{
+  d_ln.~function1D();
+  d_nl.~function1D();
+  d_lm.~function1D();
+  d_ml.~function1D();
+  Lt.~function1D();
+  Rt.~function1D();
+  Lt2.~function1D();
+  Rt2.~function1D();
+  ipiv.~function1D();
+  
+  if (! common::Qsvd){
+    Gf.~function2D();
+    if (common::QHB2) Ff.~function2D();
+    sum1.~function2D();
+    sum2.~function2D();
+    if (common::QHB2) sum2c.~function2D();
+    dG.~function2D();
+    dexp0.~function1D();
+    sum3.~function2D();
+    sumt.~function1D();
+    if (common::cmp_vertex)
+      for (unsigned i=0; i<dMv.size(); i++) dMv[i].~function2D();
+  }else{
+    //if (common::cmp_vertex)
+    M_ul.~function1D();
+  }
+  temp.~function1D();
+}
+
 
 inline double Interp_Any_Delta(const spline1D<double>& Delta_any, const intpar& p, bool bs_equal_be)
 {
@@ -148,6 +213,7 @@ inline void MatrixM::AddComputeGs(int Nk, double t_start, int btype_s, double t_
     else
       d_ln[i] = Interp_Delta(bs, be, ptau->InterpLeft(interval.time_s(i)-t_end,pos2));
   }
+  
   pos1 = ptau->InitInterpRight();
   pos2 = ptau->InitInterpRight();
   for (int i=0; i<Nk; i++){
@@ -250,40 +316,42 @@ inline void MatrixM::Move_start_UpdateMatrix(function2D<double>& MD, int Nk, dou
 {
   double q = Move_start_DetRatio(MD, Nk, ts_old, ts_new, btype_s, is_old, interval);
 
-  // Correction to the Green's function will be needed
-  // This is because M^{new} = M^{old} + L_i R_j
-  // and although M^{old} is unchanged, here and all corrections are in L and R,
-  // it needs to be multiplied by the new time_s rather than with the old time_s
   int bs = btype_s;
-  for (int im=0; im<piom->size(); im++){
-    double xs = ts_new*(*piom)[im];
-    dexp0[im] = -(dcomplex(cos(xs),-sin(xs))-interval.exp_s(is_old)[im].conj())/beta;// -(e^{-iom*ts_new}-e^{-iom*ts_old})/beta
-  }
-  sum3=0;
-  for (int i=0; i<Nk; i++){
-    int be = interval.btype_e(i);
-    int ind = (*ptfl_index)[be][bs];
-    double md = MD(i,is_old);
-    for (int im=0; im<piom->size(); im++) sum3[ind][im] += interval.exp_e(i)[im]*md;// e^{iom*te}M[te,ts_old]
-  }
-  for (int ind=0; ind<sum3.size_N(); ind++)
-    for (int im=0; im<piom->size(); im++)
-      dG[ind][im] = sum3[ind][im]*dexp0[im];
+  if (!common::Qsvd){
+    // Correction to the Green's function will be needed
+    // This is because M^{new} = M^{old} + L_i R_j
+    // and although M^{old} is unchanged, here and all corrections are in L and R,
+    // it needs to be multiplied by the new time_s rather than with the old time_s
+    for (int im=0; im<piom->size(); im++){
+      double xs = ts_new*(*piom)[im]; 
+      dexp0[im] = -(dcomplex(cos(xs),-sin(xs))-interval.exp_s(is_old)[im].conj())/beta;// dexp0[iom] = -(e^{-iom*ts_new}-e^{-iom*ts_old})/beta
+    }
+    sum3=0;
+    for (int i=0; i<Nk; i++){
+      int be = interval.btype_e(i);
+      int ind = (*ptfl_index)[be][bs];
+      double md = MD(i,is_old);
+      for (int im=0; im<piom->size(); im++) sum3[ind][im] += interval.exp_e(i)[im]*md; // sum3[(be,bs)][iom] += e^{iom*te}M[te,ts_old]
+    }
+    for (int ind=0; ind<sum3.size_N(); ind++)
+      for (int im=0; im<piom->size(); im++)
+	dG[ind][im] = sum3[ind][im]*dexp0[im];  // dG[(be,bs)][iom] = -e^{iom*te}M[te,ts_old](e^{-iom*ts_new}-e^{-iom*ts_old})/beta
 
-  if (common::QHB2){
-    dcomplex* __restrict__ _Ff = Ff[is_old].MemPt();
-    dcomplex* __restrict__ _dG = dG[0].MemPt();
-    for (int im=0; im<piom->size(); im++) _Ff[im] += _dG[im];
-  }
+    if (common::QHB2){
+      dcomplex* __restrict__ _Ff = Ff[is_old].MemPt();
+      dcomplex* __restrict__ _dG = dG[0].MemPt();
+      for (int im=0; im<piom->size(); im++) _Ff[im] += _dG[im]; // Ff[is_old][iom] += dG[iom]
+    }
   
-  if (common::cmp_vertex){
-    for (int ind=0; ind<sum3.size_N();ind++){
-      function2D<dcomplex>& _dMv = dMv[ind];
-      for (int im1=0; im1<nomv; im1++){
- 	dcomplex sm3 = sum3[ind][im1];
-	funProxy<dcomplex>& __dMv = _dMv[im1+nomv];
- 	for (int im2=0; im2<nomv; im2++)  __dMv[im2+nomv] = sm3*dexp0[im2]; //_dMv(im1+nomv,im2+nomv) = sm3*dexp0[im2];
- 	for (int im2=-nomv; im2<0; im2++) __dMv[im2+nomv] = sm3*dexp0[-im2-1].conj();//_dMv(im1+nomv,im2+nomv) = sm3*dexp0[-im2-1].conj();
+    if (common::cmp_vertex){
+      for (int ind=0; ind<sum3.size_N();ind++){
+	function2D<dcomplex>& _dMv = dMv[ind];
+	for (int im1=0; im1<nomv; im1++){
+	  dcomplex sm3 = sum3[ind][im1];
+	  funProxy<dcomplex>& __dMv = _dMv[im1+nomv];
+	  for (int im2=0; im2<nomv; im2++)  __dMv[im2+nomv] = sm3*dexp0[im2];  // _dMv(im1+nomv,im2+nomv) = sm3*dexp0[im2];
+	  for (int im2=-nomv; im2<0; im2++) __dMv[im2+nomv] = sm3*dexp0[-im2-1].conj();//_dMv(im1+nomv,im2+nomv) = sm3*dexp0[-im2-1].conj();
+	}
       }
     }
   }
@@ -324,7 +392,7 @@ inline void MatrixM::Move_start_UpdateMatrix(function2D<double>& MD, int Nk, dou
     for (int i=0; i<Nk; i++) MD(i,is_new) = temp[i];
     Rt[is_new] = rt;
     
-    if (common::QHB2){
+    if (!common::Qsvd && common::QHB2){
       for (int im=0; im<piom->size(); im++) sum1(0,im) = Ff(is_old,im);
       if (is_new<is_old){
 	for (int j=is_old; j>is_new; j--)
@@ -341,49 +409,52 @@ inline void MatrixM::Move_start_UpdateMatrix(function2D<double>& MD, int Nk, dou
 inline void MatrixM::Move_end_UpdateMatrix(function2D<double>& MD, int Nk, double te_old, double te_new, int btype_e, int ie_old, int ie_new, const nIntervals& interval)
 {
   double q = Move_end_DetRatio(MD, Nk, te_old, te_new, btype_e, ie_old, interval);
-  // Correction to the Green's function will be needed
-  // This is because M^{new} = M^{old} + L_i R_j
-  // and although M^{old} is unchanged, here and all corrections are in L and R,
-  // it needs to be multiplied by the new time_e rather than with the old time_e
   int be = btype_e;
-  for (int im=0; im<piom->size(); im++){
-    double xe = te_new*(*piom)[im];
-    dexp0[im] = -(dcomplex(cos(xe),sin(xe))-interval.exp_e(ie_old)[im])/beta;
-  }
-  sum3=0;
-  for (int i=0; i<Nk; i++){
-    int bs = interval.btype_s(i);
-    int ind = (*ptfl_index)[be][bs];
-    double md = MD(ie_old,i);
-    const funProxy<dcomplex>& exp_s = interval.exp_s(i);
-    funProxy<dcomplex>& _sum3 = sum3[ind];
-    for (int im=0; im<piom->size(); im++) _sum3[im] += md*exp_s[im].conj();
-  }
-  
-  for (int ind=0; ind<sum3.size_N(); ind++){
-    funProxy<dcomplex>& _dG = dG[ind];
-    funProxy<dcomplex>& _sum3 = sum3[ind];
-    for (int im=0; im<piom->size(); im++) _dG[im] = dexp0[im]*_sum3[im];
-  }
 
-  if (common::QHB2){
+  if (!common::Qsvd){
+    // Correction to the Green's function will be needed
+    // This is because M^{new} = M^{old} + L_i R_j
+    // and although M^{old} is unchanged, here and all corrections are in L and R,
+    // it needs to be multiplied by the new time_e rather than with the old time_e
+    for (int im=0; im<piom->size(); im++){
+      double xe = te_new*(*piom)[im];
+      dexp0[im] = -(dcomplex(cos(xe),sin(xe))-interval.exp_e(ie_old)[im])/beta;
+    }
+    sum3=0;
     for (int i=0; i<Nk; i++){
+      int bs = interval.btype_s(i);
+      int ind = (*ptfl_index)[be][bs];
       double md = MD(ie_old,i);
       const funProxy<dcomplex>& exp_s = interval.exp_s(i);
-      for (int im=0; im<piom->size(); im++)
-	Ff(i,im) += dexp0[im]*md*exp_s[im].conj();
-    }
-  }
-  
-  if (common::cmp_vertex){
-    for (int ind=0; ind<sum3.size_N(); ind++){
       funProxy<dcomplex>& _sum3 = sum3[ind];
-      function2D<dcomplex>& _dMv = dMv[ind];
-      for (int im1=0; im1<nomv; im1++){
-	dcomplex dexp01 = dexp0[im1];
-	funProxy<dcomplex>& __dMv = _dMv[im1+nomv];
-	for (int im2=0; im2<nomv; im2++)  __dMv[im2+nomv] = dexp01*_sum3[im2]; //_dMv(im1+nomv,im2+nomv) = dexp01*_sum3[im2];
-	for (int im2=-nomv; im2<0; im2++) __dMv[im2+nomv] = dexp01*_sum3[-im2-1].conj(); //_dMv(im1+nomv,im2+nomv) = dexp01*_sum3[-im2-1].conj();
+      for (int im=0; im<piom->size(); im++) _sum3[im] += md*exp_s[im].conj();
+    }
+  
+    for (int ind=0; ind<sum3.size_N(); ind++){
+      funProxy<dcomplex>& _dG = dG[ind];
+      funProxy<dcomplex>& _sum3 = sum3[ind];
+      for (int im=0; im<piom->size(); im++) _dG[im] = dexp0[im]*_sum3[im];
+    }
+
+    if (common::QHB2){
+      for (int i=0; i<Nk; i++){
+	double md = MD(ie_old,i);
+	const funProxy<dcomplex>& exp_s = interval.exp_s(i);
+	for (int im=0; im<piom->size(); im++)
+	  Ff(i,im) += dexp0[im]*md*exp_s[im].conj();
+      }
+    }
+  
+    if (common::cmp_vertex){
+      for (int ind=0; ind<sum3.size_N(); ind++){
+	funProxy<dcomplex>& _sum3 = sum3[ind];
+	function2D<dcomplex>& _dMv = dMv[ind];
+	for (int im1=0; im1<nomv; im1++){
+	  dcomplex dexp01 = dexp0[im1];
+	  funProxy<dcomplex>& __dMv = _dMv[im1+nomv];
+	  for (int im2=0; im2<nomv; im2++)  __dMv[im2+nomv] = dexp01*_sum3[im2]; //_dMv(im1+nomv,im2+nomv) = dexp01*_sum3[im2];
+	  for (int im2=-nomv; im2<0; im2++) __dMv[im2+nomv] = dexp01*_sum3[-im2-1].conj(); //_dMv(im1+nomv,im2+nomv) = dexp01*_sum3[-im2-1].conj();
+	}
       }
     }
   }
@@ -427,7 +498,6 @@ inline void MatrixM::Move_end_UpdateMatrix(function2D<double>& MD, int Nk, doubl
 inline double MatrixM::AddUpdateMatrixSlow(function2D<double>& MD, int Nk, double t_start, int is, int btype_s, double t_end, int ie, int btype_e, const nIntervals& interval, int istep)
 {
   AddDetRatio(MD, Nk, t_start, btype_s, t_end, btype_e, interval);
-
   Lt.resize(Nk+1); Rt.resize(Nk+1);
   
   for (int i=Nk; i>ie; i--) Lt[i] = Lt[i-1];
@@ -455,10 +525,10 @@ inline double MatrixM::AddUpdateMatrixSlow(function2D<double>& MD, int Nk, doubl
   for (int i=0; i<Nk+1; i++)// should be optimized by dger
     for (int j=0; j<Nk+1; j++)
       MD(i,j) += Lt[i]*Rt[j];
-
+  
   MD.resize(Nk+1,Nk+1);
 
-  if (common::QHB2){
+  if (!common::Qsvd && common::QHB2){
     for (int j=Nk; j>is; j--)
       for (int im=0; im<piom->size(); im++)
 	Ff(j,im) = Ff(j-1,im);
@@ -472,7 +542,6 @@ inline double MatrixM::AddUpdateMatrixSlow(function2D<double>& MD, int Nk, doubl
 inline double MatrixM::AddUpdateMatrix(function2D<double>& MD, int Nk, double t_start, int is, int btype_s, double t_end, int ie, int btype_e, const nIntervals& interval, int istep)
 {
   AddDetRatio(MD, Nk, t_start, btype_s, t_end, btype_e, interval);
-
   Lt.resize(Nk+1); Rt.resize(Nk+1);
 
   double* __restrict__ _Lt = Lt.MemPt();
@@ -519,10 +588,11 @@ inline double MatrixM::AddUpdateMatrix(function2D<double>& MD, int Nk, double t_
     const double* __restrict__ _Rt = Rt.MemPt();
     for (int j=0; j<Nk+1; j++) _MD_i[j] += _Rt[j]*_lt;
   }
-  
+
   MD.resize(Nk+1,Nk+1);
 
-  if (common::QHB2){
+  if (!common::Qsvd && common::QHB2){
+    /// Qsvd !!! Qsvd
     for (int j=Nk; j>is; j--)
       for (int im=0; im<piom->size(); im++)
 	Ff(j,im) = Ff(j-1,im);
@@ -530,7 +600,7 @@ inline double MatrixM::AddUpdateMatrix(function2D<double>& MD, int Nk, double t_
     for (int im=0; im<piom->size(); im++) Ff(is,im)=0.0;
     Ff.resize(Nk+1,Ff.size_Nd());
   }
-  
+
   return ratio*(1-2*((is+ie)%2));
 }
 
@@ -568,7 +638,7 @@ inline double MatrixM::RemoveUpdateMatrixSlow(function2D<double>& MD, int Nk, in
 
   MD.resize(Nk-1,Nk-1);
 
-  if (common::QHB2){
+  if (!common::Qsvd && common::QHB2){
     for (int j=is; j<Nk-1; j++)
       for (int im=0; im<piom->size(); im++)
 	Ff(j,im) = Ff(j+1,im);
@@ -622,7 +692,7 @@ inline double MatrixM::RemoveUpdateMatrix(function2D<double>& MD, int Nk, int is
   
   MD.resize(Nk-1,Nk-1);
 
-  if (common::QHB2){
+  if (!common::Qsvd && common::QHB2){
     for (int j=is; j<Nk-1; j++)
       for (int im=0; im<piom->size(); im++)
 	Ff(j,im) = Ff(j+1,im);
@@ -632,24 +702,21 @@ inline double MatrixM::RemoveUpdateMatrix(function2D<double>& MD, int Nk, int is
   return ratio*(1-2*((is+ie)%2));
 }
 
-
 inline void MatrixM::AddUpdate_Gf(const nIntervals& interval, vector<function2D<dcomplex> >& Mv, int istep)
 {// This is currently the slowest routine. You should try to use intel-vml routines
+  //if (common::Qsvd) return; // Nothing done when projecting to SVD functions.
+  
   // Updates Green's function
   sum1=0; sum2=0;
   double sbta = 1/sqrt(beta);
   int nomega = piom->size();
   int dim = ptfl_index->size_N();
   for (int it=0; it<Lt.size(); it++){
-    //const funProxy<dcomplex>& exp_e = interval.exp_e(it);
-    //const funProxy<dcomplex>& exp_s = interval.exp_s(it);
     const dcomplex* __restrict__ _exp_e = interval.exp_e(it).MemPt();
     const dcomplex* __restrict__ _exp_s = interval.exp_s(it).MemPt();
     
     int be = interval.btype_e(it);
     int bs = interval.btype_s(it);
-    //funProxy<dcomplex>& _sum1 = sum1[be];
-    //funProxy<dcomplex>& _sum2 = sum2[bs];
     dcomplex* __restrict__ _sum1 = sum1[be].MemPt();
     dcomplex* __restrict__ _sum2 = sum2[bs].MemPt();
     double lt = Lt[it]*sbta;
@@ -715,8 +782,11 @@ inline void MatrixM::AddUpdate_Gf(const nIntervals& interval, vector<function2D<
     }
   }
 }
+
 inline void MatrixM::MoveUpdate_Gf(const nIntervals& interval, vector<function2D<dcomplex> >& Mv, int istep)
 {
+  //if (common::Qsvd) return; // Nothing done when projecting to SVD functions.
+  
   AddUpdate_Gf(interval, Mv, -1);
   
   for (int ind=0; ind<Gf.size_N(); ind++)
@@ -743,11 +813,11 @@ inline void MatrixM::MoveUpdate_Gf(const nIntervals& interval, vector<function2D
       if (abs(Gf(0,im)-csum)>1e-6) cout<<"Green's function and F are different (move)"<<Gf(0,im)-csum<<endl;
     }
   }
-
-  
 }
+
 inline void MatrixM::RemoveUpdate_Gf(const function2D<double>& MD, int Nk, int is, int ie, const nIntervals& interval, vector<function2D<dcomplex> >& Mv)
 {
+  //if (common::Qsvd) return; // Nothing done when projecting to SVD functions.
   // Updates Green's function
   sum1=0; sum2=0;
   double sbta = 1/sqrt(beta);
@@ -845,7 +915,7 @@ void MatrixM::SetMatrix_(int Nk, const nIntervals& interval, function2D<double>&
   }
 }
 
-inline void MatrixM::CleanUpdateMatrix(function2D<double>& MD, int Nk, const nIntervals& interval)
+inline void MatrixM::CleanUpdateMatrix(function2D<double>& MD, int Nk, const nIntervals& interval, function2D<double>& mD)
 {
   SetMatrix_(Nk, interval, mD, vfun);
   Inverse(mD, MD, ipiv);
@@ -853,9 +923,7 @@ inline void MatrixM::CleanUpdateMatrix(function2D<double>& MD, int Nk, const nIn
 
 inline void MatrixM::CleanUpdateGf(function2D<double>& MD, int Nk, const nIntervals& interval, vector<function2D<dcomplex> >& Mv, int istep)
 {
-  // Just to debug
-  //function2D<dcomplex> Ff_backup(Ff);
-  // Just to debug
+  //if (common::Qsvd) return; // Nothing done when projecting to SVD functions.
   sum3=0;
   if (common::cmp_vertex)
     for (unsigned ind=0; ind<dMv.size(); ind++) dMv[ind]=0;
@@ -902,16 +970,6 @@ inline void MatrixM::CleanUpdateGf(function2D<double>& MD, int Nk, const nInterv
 	for (int im2=-nomv; im2<nomv; im2++)  _Mv(im1+nomv,im2+nomv) = _dMv(im1+nomv,im2+nomv);
     }
   }
-
-  /*
-  if (common::QHB2){
-    for (int im=0; im<piom->size(); im++){
-      dcomplex csum=0;
-      for (int i=0; i<Nk; i++) csum += Ff(i,im);
-      if (abs(Gf(0,im)-csum)>1e-6) cout<<istep<<" "<<im<<" Green's function and F are different (after global flip)"<<Gf(0,im)<<" "<<csum<<endl;
-    }
-  }
-  */
 }
 
 inline void MatrixM::AddComputeGs(int Nk, double t_start, int btype_s, double t_end, int btype_e, const nIntervals& interval,
@@ -979,17 +1037,24 @@ inline double MatrixM::AddDetRatio(function2D<double>& MD, int Nk,
   return ratio;
 }
 
-double MatrixM::GlobalFlipDetRatio(const nIntervals& interval, const function2D<double>& MD, const function2D<spline1D<double>* >& Delta_flipped)
+double MatrixM::GlobalFlipDetRatio(const nIntervals& interval, const function2D<double>& MD, const function2D<spline1D<double>* >& Delta_flipped, /*function2D<double>& C,*/ function2D<double>& mD)
 {
   int Nk = interval.size()/2;
   if (Nk<=0) return 1;
   SetMatrix_(Nk, interval, mD, Delta_flipped);
-  //  SetMatrix_(Nk, interval, mD, Delta_flipped, *ptau, beta);
-  C.Product("N","N",mD,MD);
-  return Det(C);
+  if (mD.size_N()!=MD.size_N() || mD.size_Nd()!=MD.size_Nd()){
+    cerr<<"WARNING: Sizes of mD and MD are different"<<endl;
+  }
+  //C.Product("N","N",mD,MD);
+  //return Det(C);
+  //double dd1 = Det(mD)*Det(MD);
+  double dd2 = (logDet(mD)*logDet(MD)).dbl(); // ratio of determinants
+  //if (fabs(dd1/dd2-1.0)>1e-5) cerr<<"The determinants computed in two different ways are different "<<dd1<<" "<<dd2<<" "<<endl;
+  return dd2;
 }
 
-void MatrixM::ComputeGtau(function2D<double>& MD, const nIntervals& interval, function2D<double>& Gtau)
+
+void MatrixM::ComputeGtau(const function2D<double>& MD, const nIntervals& interval, function2D<double>& Gtau)
 {
   // Gtau=0;
   int Nk = interval.size()/2;
@@ -1000,7 +1065,7 @@ void MatrixM::ComputeGtau(function2D<double>& MD, const nIntervals& interval, fu
     for (int is=0; is<Nk; is++){
       double ts = interval.time_s(is);
       int bs = interval.btype_s(is);
-      double md = MD(ie,is);
+      double md = -MD(ie,is)/beta;
       int idt;
       if (te-ts>0){
 	idt = static_cast<int>((te-ts)/beta*Gtsize);
@@ -1009,33 +1074,192 @@ void MatrixM::ComputeGtau(function2D<double>& MD, const nIntervals& interval, fu
 	md = -md;
       }
       if (idt>=Gtau[0].size()) idt = Gtau[0].size()-1;
-      if (idt<0) idt=0;
+      //if (idt<0) idt=0;
       int ind = (*ptfl_index)[be][bs];
-      Gtau[ind][idt] -= md;
+      Gtau[ind][idt] += md;
+    }
+  }
+}
+void MatrixM::ComputeG_svd_debug(function2D<double>& gl, function2D<double>& Gtau, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval)
+{ // Computes the Green's function coefficients g_l for the current distribution of kinks.
+  // The formula is
+  //    G[(be,bs)][tau] = -1/beta * \sum_{t_e,t_s} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
+  //      where delta^{-}(tau) = \delta(tau) when tau>0 and is -\delta(tau+beta) when tau<0.
+  //    When expanding in terms of u_l(\tau) basis functions, we get
+  //    G[(be,bs)][l] = -1/beta * \sum_{t_e,t_s} M[(be,bs)](t_e,t_s) * u_l(t_e-t_s)   if tau>0
+  //     and 
+  //    G[(be,bs)][l] = -1/beta * \sum_{t_e,t_s} M[(be,bs)](t_e,t_s) * (-1)*u_l(t_e-t_s+beta)   if tau<0
+  //
+  int Nk = interval.size()/2;
+  int Gtsize = Gtau[0].size();
+  for (int ie=0; ie<Nk; ie++){
+    double te = interval.time_e(ie);
+    int be = interval.btype_e(ie);
+    for (int is=0; is<Nk; is++){
+      double ts = interval.time_s(is);
+      int bs = interval.btype_s(is);
+      int ind = (*ptfl_index)(be,bs);
+      double md = -MD(ie,is) /beta *(tsign);
+      double t = te-ts;
+      intpar p;
+      int idt;
+      if (t>=0){
+	p = svd.tau.Interp(t);
+	idt = static_cast<int>(t/beta*Gtsize);
+      }else{
+	p = svd.tau.Interp(t+beta);
+	idt = static_cast<int>((t+beta)/beta*Gtsize);
+	md = -md;
+      }
+      //*** slower equivalent is ****//
+      //for (int l=0; l<svd.lmax; l++) gl(ind,l) += md*svd.fU[l](p);
+      svd.FastInterp(gl[ind], p, md);
+
+      if (idt>=Gtsize) idt = Gtsize-1;
+      //if (idt<0) idt=0;
+      Gtau[ind][idt] += md;
     }
   }
 }
 
+void MatrixM::ComputeG_svd(function2D<double>& gl, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval)
+{ // Computes the Green's function coefficients g_l for the current distribution of kinks.
+  // The formula is
+  //    G[(be,bs)][tau] = -1/beta * \sum_{t_e,t_s} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
+  //      where delta^{-}(tau) = \delta(tau) when tau>0 and is -\delta(tau+beta) when tau<0.
+  //    When expanding in terms of u_l(\tau) basis functions, we get
+  //    G[(be,bs)][l] = -1/beta * \sum_{t_e,t_s} M[(be,bs)](t_e,t_s) * u_l(t_e-t_s)   if tau>0
+  //     and 
+  //    G[(be,bs)][l] = -1/beta * \sum_{t_e,t_s} M[(be,bs)](t_e,t_s) * (-1)*u_l(t_e-t_s+beta)   if tau<0
+  //
+  int Nk = interval.size()/2;
+  for (int ie=0; ie<Nk; ie++){
+    double te = interval.time_e(ie);
+    int be = interval.btype_e(ie);
+    for (int is=0; is<Nk; is++){
+      double ts = interval.time_s(is);
+      int bs = interval.btype_s(is);
+      int ind = (*ptfl_index)(be,bs);
+      double md = -MD(ie,is) /beta *(tsign);
+      double t = te-ts;
+      intpar p; 
+      if (t>=0){
+	p = svd.tau.Interp(t);
+      }else{
+	p = svd.tau.Interp(t+beta);
+	md = -md;
+      }
+      //*** slower equivalent is ****//
+      //for (int l=0; l<svd.lmax; l++) gl(ind,l) += md*svd.fU[l](p);
+      svd.FastInterp(gl[ind], p, md);
+    }
+  }
+}
+
+void MatrixM::ComputeFG_svd(vector<function2D<double> >& gl, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval)
+{ // This is very similar to the above Green's function calculation, except that it keeps also information about the starting kinks, i.e. t_s.
+  // The formula is
+  //    G[(be,bs)][t_s,tau] = -1/beta * \sum_{t_s} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
+  //      where delta^{-}(tau) = \delta(tau) when tau>0 and is -\delta(tau+beta) when tau<0.
+  //    When expanding in terms of u_l(\tau) basis functions, we get
+  //    G[(be,bs)][t_s,l] = -1/beta * \sum_{t_e} M[(be,bs)](t_e,t_s) * u_l(t_e-t_s)   if tau>0
+  //     and 
+  //    G[(be,bs)][t_s,l] = -1/beta * \sum_{t_e} M[(be,bs)](t_e,t_s) * (-1)*u_l(t_e-t_s+beta)  if tau<0
+  //
+  int Nk = interval.size()/2;
+  for (int ie=0; ie<Nk; ie++){
+    double te = interval.time_e(ie);
+    int be = interval.btype_e(ie);
+    for (int is=0; is<Nk; is++){
+      double ts = interval.time_s(is);
+      int bs = interval.btype_s(is);
+      int ind = (*ptfl_index)(be,bs);
+      double md = -MD(ie,is) * tsign/beta;
+      double t = te-ts;
+      intpar p; 
+      if (t>=0){
+	p = svd.tau.Interp(t);
+      }else{
+	p = svd.tau.Interp(t+beta);
+	md = -md;
+      }
+      //*** slower equivalent is ****//
+      //for (int l=0; l<svd.lmax; l++) gl(ind,l) += md*svd.fU[l](p);
+      
+      svd.FastInterp( gl[ind][is], p, md);
+      /*
+      svd.FastInterp_( M_ul, p, md);
+      gl[ind][is] += M_ul;
+      */
+    }
+  }
+}
+
+void MatrixM::ComputeFGF_svd(vector<function2D<double> >& gs, vector<function2D<double> >& ge, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval)
+{ // This is very similar to the above two routines for the Green's function calculation, except that it
+  // computes two arrays rather than one, in which one keeps also information about the starting kinks (t_s),
+  // and the other keeps the information about the ending kinks (t_e).
+  // The formula is
+  //    Gs[(be,bs)][t_s,tau] = -1/beta * \sum_{t_s} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
+  //    Ge[(be,bs)][t_e,tau] = -1/beta * \sum_{t_s} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
+  //      where delta^{-}(tau) = \delta(tau) when tau>0 and is -\delta(tau+beta) when tau<0.
+  //    When expanding in terms of u_l(\tau) basis functions, we get
+  //    Gs[(be,bs)][t_s,l] = -1/beta * \sum_{t_e} M[(be,bs)](t_e,t_s) * u_l(t_e-t_s)   if tau>0
+  //    Ge[(be,bs)][t_e,l] = -1/beta * \sum_{t_s} M[(be,bs)](t_e,t_s) * u_l(t_e-t_s)   if tau>0
+  //     and 
+  //    Gs[(be,bs)][t_s,l] = -1/beta * \sum_{t_e} M[(be,bs)](t_e,t_s) * (-1)*u_l(t_e-t_s+beta)  if tau<0
+  //    Ge[(be,bs)][t_e,l] = -1/beta * \sum_{t_e} M[(be,bs)](t_e,t_s) * (-1)*u_l(t_e-t_s+beta)  if tau<0
+  //
+  double tsign_beta = tsign/beta;
+  int Nk = interval.size()/2;
+  for (int ie=0; ie<Nk; ie++){
+    double te = interval.time_e(ie);
+    int be = interval.btype_e(ie);
+    for (int is=0; is<Nk; is++){
+      double ts = interval.time_s(is);
+      int bs = interval.btype_s(is);
+      int ind = (*ptfl_index)(be,bs);
+      int ind2 = v2fl_index[ind];
+      double md = -MD(ie,is) * tsign_beta;
+      double t = te-ts;
+      intpar p; 
+      if (t>=0){
+	p = svd.tau.Interp(t);
+      }else{
+	p = svd.tau.Interp(t+beta);
+	md = -md;
+      }
+      //*** slower equivalent is ****//
+      //for (int l=0; l<svd.lmax; l++) gl(ind,l) += md*svd.fU[l](p);
+      svd.FastInterp_( M_ul, p, md);
+      gs[ind2][is] += M_ul;
+      ge[ind2][ie] += M_ul;
+    }
+  }
+}
+
+
 void swapGf(MatrixM& m1, MatrixM& m2, vector<function2D<dcomplex> >& Mv)
 {
- static function2D<dcomplex> Gtmp;
- Gtmp = m1.Gf;
- m1.Gf = m2.Gf;
- m2.Gf = Gtmp;
+  //if (common::Qsvd) return; // Nothing done when projecting to SVD functions.
+  static function2D<dcomplex> Gtmp;
+  Gtmp = m1.Gf;
+  m1.Gf = m2.Gf;
+  m2.Gf = Gtmp;
 
- static function2D<dcomplex> Ftmp;
- Ftmp = m1.Ff;
- m1.Ff = m2.Ff;
- m2.Ff = Ftmp;
+  static function2D<dcomplex> Ftmp;
+  Ftmp = m1.Ff;
+  m1.Ff = m2.Ff;
+  m2.Ff = Ftmp;
  
- if (common::cmp_vertex){
-   for (int ind=0; ind<m1.Gf.size_N(); ind++){
-     int inda = m1.v2fl_index[ind];
-     int indb = m2.v2fl_index[ind];
-     //swap Mv[a] with Mv[b]
-     m1.dMv[0] = Mv[inda];
-     Mv[inda] = Mv[indb];
-     Mv[indb] = m1.dMv[0];
-   }
- }
+  if (common::cmp_vertex){
+    for (int ind=0; ind<m1.Gf.size_N(); ind++){
+      int inda = m1.v2fl_index[ind];
+      int indb = m2.v2fl_index[ind];
+      //swap Mv[a] with Mv[b]
+      m1.dMv[0] = Mv[inda];
+      Mv[inda] = Mv[indb];
+      Mv[indb] = m1.dMv[0];
+    }
+  }
 }

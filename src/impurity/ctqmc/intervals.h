@@ -41,7 +41,7 @@ public:// members
   static const int c = 1;
 public:// methods  
   nIntervals() {};
-  void SetUp(int N_max, const mesh1D& iom, const mesh1D& iomb, double beta_, int dim);
+  void SetUp(int Nmax, const mesh1D& iom, const mesh1D& iomb, double beta_, int dim);
   // inlined short methods to access class members
   int size() const {return _time_e.size()+_time_s.size();}
   int fullsize() const {return _time_e.fullsize()+_time_s.fullsize();}
@@ -66,6 +66,7 @@ public:// methods
   void RemoveExponents(int is, int ie);
   void MoveExponents(int type, double t_old, int i_old, double t_new, int i_new);
   int FindIndex(double time, double t_old, int type);
+  int FindIndex_nearby(double t_new, int type, int i0);
   void print(ostream& stream);
   void TestOrder();
   int FindSuccessive(int type, int ie, int bfle);
@@ -80,7 +81,9 @@ public:// methods
   void Closest_Times(pair<double,double>& ts, pair<int,int>& is, int type, int bfl, double t_current);
   bool CheckOnSegmentHere(int bfl, double t_start, double& next_t_start, double& next_t_end, double& previous_t_start, double& previous_t_end, long long istep);
   pair<int,int> NextTimeIndex_(int type, double t_current, int bfl);
+  void Resize(int newNmax);
   friend void IntervalsExchangeExponents(int typea, nIntervals& intervala, int ia, int ia_new,int typeb, nIntervals& intervalb, int ib, int ib_new);
+  void ReleaseSomeTempMemory();
 };
 
 template <>
@@ -365,33 +368,82 @@ int nIntervals::FindWhichOneIs(int type, int bflx, int iop){
 }
 
 
-void nIntervals::SetUp(int N_max, const mesh1D& iom, const mesh1D& iomb, double beta_, int dim=1)
+void nIntervals::SetUp(int Nmax, const mesh1D& iom, const mesh1D& iomb, double beta_, int dim=1)
 {
   beta = beta_;
   int nom = iom.size();
   int nomb = iomb.size();
-  _time_e.resize(N_max); _time_e.resize_virtual(0);
-  _time_s.resize(N_max); _time_s.resize_virtual(0);
-  _exp_e.resize(N_max,nom);
-  _exp_s.resize(N_max,nom);
-  b_exp_e.resize(N_max,nomb);
-  b_exp_s.resize(N_max,nomb);
-  index_e.resize(N_max);
-  index_s.resize(N_max);
-  index_s_1.resize(N_max);
-  Empty_e.resize(N_max);
-  Empty_s.resize(N_max);
-  _btype_s.resize(N_max);
-  _btype_e.resize(N_max);
+  _time_e.resize(Nmax); _time_e.resize_virtual(0);
+  _time_s.resize(Nmax); _time_s.resize_virtual(0);
+  if (!common::Qsvd){
+    _exp_e.resize(Nmax,nom);
+    _exp_s.resize(Nmax,nom);
+    b_exp_e.resize(Nmax,nomb);
+    b_exp_s.resize(Nmax,nomb);
+  }
+  index_e.resize(Nmax);
+  index_s.resize(Nmax);
+  index_s_1.resize(Nmax);
+  Empty_e.resize(Nmax);
+  Empty_s.resize(Nmax);
+  _btype_s.resize(Nmax);
+  _btype_e.resize(Nmax);
   Nbtyp_s.resize(dim);
   Nbtyp_s=0;
   Nbtyp_e.resize(dim);
   Nbtyp_e=0;
   piom = &iom;
   biom = &iomb;
-  for (int i=0; i<N_max; i++) Empty_e[i]=i;
-  for (int i=0; i<N_max; i++) Empty_s[i]=i;
+  for (int i=0; i<Nmax; i++) Empty_e[i]=i;
+  for (int i=0; i<Nmax; i++) Empty_s[i]=i;
 };
+
+void nIntervals::Resize(int newNmax)
+{
+  int Nmax = index_e.size();
+  int Nk = _time_e.size();
+  _time_e.resize_preserve(newNmax);
+  //_time_e.resize_virtual(Nk);
+  Nk = _time_s.size();
+  _time_s.resize_preserve(newNmax);
+  //_time_s.resize_virtual(Nk);
+  
+  if (!common::Qsvd){
+    int nom = piom->size();
+    int nomb = biom->size();
+    _exp_e.resize_preserve(newNmax,nom);   _exp_e.resize_virtual(newNmax,nom);
+    _exp_s.resize_preserve(newNmax,nom);   _exp_s.resize_virtual(newNmax,nom);
+    b_exp_e.resize_preserve(newNmax,nomb); b_exp_e.resize_virtual(newNmax,nomb);
+    b_exp_s.resize_preserve(newNmax,nomb); b_exp_s.resize_virtual(newNmax,nomb);
+  }
+  index_e.resize_preserve(newNmax);   index_e.resize_virtual(newNmax);
+  index_s.resize_preserve(newNmax);   index_s.resize_virtual(newNmax);
+  index_s_1.resize_preserve(newNmax); index_s_1.resize_virtual(newNmax);
+  _btype_s.resize_preserve(newNmax); _btype_s.resize_virtual(newNmax);
+  _btype_e.resize_preserve(newNmax); _btype_e.resize_virtual(newNmax);
+  
+  for (int i=Nmax; i<newNmax; i++) Empty_e.push_back(i);
+  for (int i=Nmax; i<newNmax; i++) Empty_s.push_back(i);
+}
+
+
+void nIntervals::ReleaseSomeTempMemory()
+{
+  if (!common::Qsvd){
+    _exp_e.~function2D();
+    _exp_s.~function2D();
+    b_exp_e.~function2D();
+    b_exp_s.~function2D();
+  }
+  _time_e.~function1D();
+  _time_s.~function1D();
+  index_e.~function1D();
+  index_s.~function1D();
+  _btype_e.~function1D();
+  _btype_s.~function1D();
+}
+
+
 
 inline pair<int,int> nIntervals::InsertExponents(double t_start, int is, int btyp_s, double t_end, int ie, int btyp_e)
 {
@@ -422,19 +474,22 @@ inline pair<int,int> nIntervals::InsertExponents(double t_start, int is, int bty
   _btype_e[to_insert_c ] = btyp_e;
   Nbtyp_e[btyp_e]++;
   Nbtyp_s[btyp_s]++;
-    
-  for (int i=0; i<piom->size(); i++){
-    double xe = t_end*(*piom)[i];
-    _exp_e[to_insert_c][i] = dcomplex(cos(xe),sin(xe));
-    double xs = t_start*(*piom)[i];
-    _exp_s[to_insert_cd][i] = dcomplex(cos(xs),sin(xs));
-  }
-  if (common::SampleSusc){
-    for (int i=0; i<biom->size(); i++){
-      double xe = t_end*(*biom)[i];
-      b_exp_e[to_insert_c][i] = dcomplex(cos(xe),sin(xe));
-      double xs = t_start*(*biom)[i];
-      b_exp_s[to_insert_cd][i] = dcomplex(cos(xs),sin(xs));
+
+
+  if (! common::Qsvd ){
+    for (int i=0; i<piom->size(); i++){
+      double xe = t_end*(*piom)[i];
+      _exp_e[to_insert_c][i] = dcomplex(cos(xe),sin(xe));
+      double xs = t_start*(*piom)[i];
+      _exp_s[to_insert_cd][i] = dcomplex(cos(xs),sin(xs));
+    }
+    if (common::SampleSusc){
+      for (int i=0; i<biom->size(); i++){
+	double xe = t_end*(*biom)[i];
+	b_exp_e[to_insert_c][i] = dcomplex(cos(xe),sin(xe));
+	double xs = t_start*(*biom)[i];
+	b_exp_s[to_insert_cd][i] = dcomplex(cos(xs),sin(xs));
+      }
     }
   }
   return make_pair(to_insert_cd, to_insert_c);
@@ -444,12 +499,8 @@ inline void nIntervals::RemoveExponents(int is, int ie)
 {
   int nsize = index_e.size()-Empty_e.size();
 
-  /// HERE WAS A BUG (BUT I DID NOT LEAD TO WRONG RESULTS)
-  /// because Nbtyp_s was not used.
   Nbtyp_e[_btype_e[index_e[ie]]]--;
   Nbtyp_s[_btype_s[index_s[is]]]--; 
-  //Nbtyp_e[_btype_e[ie]]--;
-  //Nbtyp_s[_btype_s[is]]--;
   
   Empty_e.push_back(index_e[ie]);
   Empty_s.push_back(index_s[is]);
@@ -473,14 +524,17 @@ inline void nIntervals::MoveExponents(int type, double t_old, int i_old, double 
     for (int i=i_old; i<nsize-1; i++) index_e[i] = index_e[i+1];
     for (int i=nsize-1; i>i_new; i--) index_e[i] = index_e[i-1];
     index_e[i_new] = to_insert;
-    for (int i=0; i<piom->size(); i++){
-      double xe = t_new*(*piom)[i];
-      _exp_e[to_insert][i] = dcomplex(cos(xe),sin(xe));
-    }
-    if (common::SampleSusc){
-      for (int i=0; i<biom->size(); i++){
-	double xe = t_new*(*biom)[i];
-	b_exp_e[to_insert][i].Set(cos(xe),sin(xe));
+    
+    if (! common::Qsvd){
+      for (int i=0; i<piom->size(); i++){
+	double xe = t_new*(*piom)[i];
+	_exp_e[to_insert][i] = dcomplex(cos(xe),sin(xe));
+      }
+      if (common::SampleSusc){
+	for (int i=0; i<biom->size(); i++){
+	  double xe = t_new*(*biom)[i];
+	  b_exp_e[to_insert][i].Set(cos(xe),sin(xe));
+	}
       }
     }
   }else{
@@ -496,14 +550,17 @@ inline void nIntervals::MoveExponents(int type, double t_old, int i_old, double 
     }
     index_s[i_new] = to_insert;
     index_s_1[index_s[i_new]]=i_new;
-    for (int i=0; i<piom->size(); i++){
-      double xe = t_new*(*piom)[i];
-      _exp_s[to_insert][i] = dcomplex(cos(xe),sin(xe));
-    }
-    if (common::SampleSusc){
-      for (int i=0; i<biom->size(); i++){
-	double xe = t_new*(*biom)[i];
-	b_exp_s[to_insert][i].Set(cos(xe),sin(xe));
+
+    if (!common::Qsvd){
+      for (int i=0; i<piom->size(); i++){
+	double xe = t_new*(*piom)[i];
+	_exp_s[to_insert][i] = dcomplex(cos(xe),sin(xe));
+      }
+      if (common::SampleSusc){
+	for (int i=0; i<biom->size(); i++){
+	  double xe = t_new*(*biom)[i];
+	  b_exp_s[to_insert][i].Set(cos(xe),sin(xe));
+	}
       }
     }
   }
@@ -520,6 +577,33 @@ inline int nIntervals::FindIndex(double t_new, double t_old, int type)
   }
   if (t_new>t_old) is--;
   return is;
+}
+
+//FindIndex_nearby(t_b, t_a, typea, ia)
+
+inline int nIntervals::FindIndex_nearby(double t_new, int type, int i0)
+{
+  if (type==cd){
+    if (time_s(i0) > t_new){
+      int iis = i0-1;
+      while (iis>=0 && time_s(iis) > t_new) --iis;
+      return iis+1;
+    }else{
+      int iis = i0+1;
+      while (iis<_time_s.size() && t_new > time_s(iis)) ++iis;
+      return iis-1;
+    }
+  }else{
+    if (time_e(i0) > t_new){
+      int iis = i0-1;
+      while (iis>=0 && time_e(iis) > t_new) --iis;
+      return iis+1;
+    }else{
+      int iis = i0+1;
+      while (iis<_time_e.size() && t_new > time_e(iis)) ++iis;
+      return iis-1;
+    }
+  }
 }
 
 inline void nIntervals::Find_is_ie(double t_start, int& is, double t_end, int& ie)
@@ -554,10 +638,14 @@ void nIntervals::copy_data(const nIntervals& s)
   //  beta= s.beta;
   _time_e.copy_full(s._time_e);
   _time_s.copy_full(s._time_s);
-  _exp_e = s._exp_e;
-  _exp_s = s._exp_s;
-  b_exp_e = s.b_exp_e;
-  b_exp_s = s.b_exp_s;
+
+  if (! common::Qsvd){
+    _exp_e = s._exp_e;
+    _exp_s = s._exp_s;
+    b_exp_e = s.b_exp_e;
+    b_exp_s = s.b_exp_s;
+  }
+  
   index_e = s.index_e;
   index_s = s.index_s;
   index_s_1 = s.index_s_1;
@@ -589,6 +677,12 @@ void swap_data(functionb<dcomplex>& a_exp, functionb<dcomplex>& b_exp, int len)
     fa[i]=fb[i];
     fb[i]=z;
   }
+}
+void swapd(double& ta, double& tb)
+{
+  double tc = ta;
+  ta = tb;
+  tb = tc;
 }
 
 void IntervalsExchangeExponents(int typea, nIntervals& interval_a, int ia, int ia_new,
@@ -627,7 +721,7 @@ void IntervalsExchangeExponents(int typea, nIntervals& interval_a, int ia, int i
   int a_to_insert = (*a_index)[ia];
   int b_to_insert = (*b_index)[ib];
   
-  swap((*a_time)[a_to_insert],(*b_time)[b_to_insert]);
+  swapd((*a_time)[a_to_insert],(*b_time)[b_to_insert]);
 
   if (ia!=ia_new){
     for (int i=ia; i<nsizea-1; i++) (*a_index)[i] = (*a_index)[i+1];
@@ -639,11 +733,13 @@ void IntervalsExchangeExponents(int typea, nIntervals& interval_a, int ia, int i
     for (int i=nsizeb-1; i>ib_new; i--) (*b_index)[i] = (*b_index)[i-1];
     (*b_index)[ib_new] = b_to_insert;
   }
-  
-  swap_data((*a_exp)[a_to_insert], (*b_exp)[b_to_insert], interval_a.piom->size());
-  if (common::SampleSusc)
-    swap_data((*a_b_exp)[a_to_insert], (*b_b_exp)[b_to_insert], interval_a.biom->size());
 
+  if (! common::Qsvd){
+    swap_data((*a_exp)[a_to_insert], (*b_exp)[b_to_insert], interval_a.piom->size());
+    if (common::SampleSusc)
+      swap_data((*a_b_exp)[a_to_insert], (*b_b_exp)[b_to_insert], interval_a.biom->size());
+  }
+  
   if (typea==nIntervals::cd && ia!=ia_new){
     for (int i=min(ia,ia_new); i<nsizea; i++) interval_a.index_s_1[interval_a.index_s[i]]=i;
   }

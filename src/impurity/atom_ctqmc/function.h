@@ -463,13 +463,16 @@ template<class T>
 function2D<T>::function2D(int N_, int Nd_) : N0(N_), Nd0(Nd_), N(N_), Nd(Nd_) 
 {
   memory = operator new (sizeof(funProxy<T>)*N0+sizeof(T)*Nd0*N0+HPoffset);
-  
   Assert(memory!=NULL,"Out of memory");
-  
   f = new (memory) funProxy<T>[N0];
   
   int offset = sizeof(funProxy<T>)*N0+HPoffset;
   data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
+  
+  // First call the default constructor on all newly allocated data
+  for (int i=0; i<N0; i++)
+    for (int j=0; j<Nd0; j++)
+      new(&data[i*Nd0+j])T;
   
   for (int i=0; i<N0; i++) f[i].Initialize(Nd0,data+i*Nd0);
 }
@@ -484,6 +487,11 @@ function2D<T>::function2D(const function2D<T>& m) :  N0(m.N0), Nd0(m.Nd0), N(m.N
   data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
   for (int i=0; i<N0; i++) f[i].Initialize(Nd0,data+i*Nd0);
 
+  // First call the default constructor on all newly allocated data
+  for (int i=0; i<N0; i++)
+    for (int j=0; j<Nd0; j++)
+      new(&data[i*Nd0+j])T;
+  
   for (int i=0; i<N; i++) std::copy(m.f[i].begin(),m.f[i].end(),f[i].begin());
 }
 
@@ -513,6 +521,10 @@ inline function2D<T>& function2D<T>::operator=(const function2D& m)
     f = new (memory) funProxy<T>[N];
     int offset = sizeof(funProxy<T>)*N+HPoffset;
     data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
+    // First call the default constructor on all newly allocated data
+    for (int i=0; i<N0; i++)
+      for (int j=0; j<Nd0; j++)
+	new(&data[i*Nd0+j])T;
     for (int i=0; i<N; i++) f[i].Initialize(Nd, data+i*Nd);
   }
   return *this;
@@ -532,6 +544,10 @@ inline void function2D<T>::resize(int N_, int Nd_)
     int offset = sizeof(funProxy<T>)*N+HPoffset;
     data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
     for (int i=0; i<N; i++) f[i].Initialize(Nd, data+i*Nd);
+    // Next call the default constructor on all newly allocated data
+    for (int i=0; i<N_; i++)
+      for (int j=0; j<Nd_; j++)
+	new(&data[i*Nd_+j])T; 
   } else{
     N = N_; Nd = Nd_;
   }

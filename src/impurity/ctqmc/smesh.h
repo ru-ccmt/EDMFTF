@@ -63,8 +63,8 @@ public:
   double last() const {return om[N-1];}
   double* begin() const {return om;}
   double* end() const {return om+N;}
-  double Delta(int i) const {Assert(i<N,"Out of range in mesh.delta[]"); return delta[i];}
-  double Dh(int i) const {Assert(i<N,"Out of range in mesh.dh[]"); return dh[i];}
+  double& Delta(int i) const {Assert(i<N,"Out of range in mesh.delta[]"); return delta[i];}
+  double& Dh(int i) const {Assert(i<N,"Out of range in mesh.dh[]"); return dh[i];}
   const double* MemPt() const {return om;}
   double* MemPt() {return om;}
 protected:

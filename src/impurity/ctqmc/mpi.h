@@ -5,9 +5,9 @@
 using namespace std;
 
 void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<dcomplex>& Gd, function2D<dcomplex>& Sd,
-	    function2D<double>& AverageProbability, double& asign, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
+	    function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
 	    function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
-	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP)
+	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleSusc, bool SampleTransitionP)
 {
   function2D<double> cAverageProbability;
   function1D<double> chistogram;
@@ -19,25 +19,35 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
   function2D<double> cGtau;
   function1D<int> cGd_deg;
   function2D<double> cAP_transition;
-  double casign;
+  function1D<double> casign(2), asign_(2);
   if (my_rank==Master){
-    chistogram.resize(histogram.size());
     cnlc.resize(nlc.size());
     cAverageProbability.resize(AverageProbability.fullsize_N(),AverageProbability.fullsize_Nd());
     cGd.resize(Gd.fullsize_N(),Gd.fullsize_Nd());
     if (QHB2) cSd.resize(Sd.fullsize_N(),Sd.fullsize_Nd());
     cGtau.resize(Gtau.fullsize_N(),Gtau.fullsize_Nd());
     ckaver.resize(kaver.size());
-    cSusc.resize(susc.fullsize_N(), susc.fullsize_Nd());
+    if (SampleSusc) cSusc.resize(susc.fullsize_N(), susc.fullsize_Nd());
     cGd_deg.resize(Gd_deg.size());
     if (SampleTransitionP) cAP_transition.resize(AP_transition.fullsize_N(),AP_transition.fullsize_Nd());
   }
+  asign_[0]=asign; asign_[1]=asign_fast;
   
-  MPI::COMM_WORLD.Reduce(histogram.MemPt(), chistogram.MemPt(), histogram.size(), MPI_DOUBLE, MPI_SUM, Master);
+  // It turns out that different processors work with different size histograms. We need to sum them up,
+  // but first we need to make all histogram of equal size
+  int global_Nmax;
+  int histogram_Nmax = histogram.size();
+  MPI::COMM_WORLD.Allreduce(&histogram_Nmax, &global_Nmax, 1, MPI_INT, MPI_MAX);
+  function1D<double> histogram_copy(global_Nmax);
+  histogram_copy=0.0;
+  for (int i=0; i<histogram.size(); i++) histogram_copy[i]=histogram[i];
+  if (my_rank==Master) chistogram.resize(global_Nmax);
+  
+  MPI::COMM_WORLD.Reduce(histogram_copy.MemPt(), chistogram.MemPt(), global_Nmax, MPI_DOUBLE, MPI_SUM, Master);
 
   MPI::COMM_WORLD.Reduce(AverageProbability.MemPt(), cAverageProbability.MemPt(), AverageProbability.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
 
-  MPI::COMM_WORLD.Reduce(&asign, &casign, 1, MPI_DOUBLE, MPI_SUM, Master);
+  MPI::COMM_WORLD.Reduce(asign_.MemPt(), casign.MemPt(), 2, MPI_DOUBLE, MPI_SUM, Master);
   
   MPI::COMM_WORLD.Reduce(nlc.MemPt(), cnlc.MemPt(), nlc.size(), MPI_DOUBLE, MPI_SUM, Master);
   
@@ -49,7 +59,7 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
 
   if (QHB2) MPI::COMM_WORLD.Reduce(Sd.MemPt(), cSd.MemPt(), Sd.fullsize2()*2, MPI_DOUBLE, MPI_SUM, Master);
   
-  MPI::COMM_WORLD.Reduce(susc.MemPt(), cSusc.MemPt(), susc.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
+  if (SampleSusc) MPI::COMM_WORLD.Reduce(susc.MemPt(), cSusc.MemPt(), susc.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
 
   MPI::COMM_WORLD.Reduce(Gd_deg.MemPt(), cGd_deg.MemPt(), Gd_deg.size(), MPI_INT, MPI_SUM, Master);
   
@@ -58,36 +68,38 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
   if (cmp_vertex){
     function2D<dcomplex> cVertex(VertexH.N3, VertexH.N4);
     int psize = VertexH.N3*VertexH.N4;
-    
     for (int i0=0; i0<VertexH.N0; i0++){
       for (int i1=0; i1<VertexH.N1; i1++){
 	for (int i2=0; i2<VertexH.N2; i2++){
 	  
+	  cVertex=0.0;
 	  dcomplex* f = &VertexH(i0,i1,i2,0,0);
 	  MPI::COMM_WORLD.Reduce(f, cVertex.MemPt(), psize*2, MPI_DOUBLE, MPI_SUM, Master);
-	  
-	  for (int i3=0; i3<VertexH.N1; i3++)
-	    for (int i4=0; i4<VertexH.N2; i4++)
+	  //	  for (int i3=0; i3<VertexH.N1; i3++)   !!! WAS THIS A BUG FOR MANY MANY YEARS????
+	  //	    for (int i4=0; i4<VertexH.N2; i4++)
+	  for (int i3=0; i3<VertexH.N3; i3++) 
+	    for (int i4=0; i4<VertexH.N4; i4++)
 	      VertexH(i0,i1,i2,i3,i4) = cVertex(i3,i4)*(1./mpi_size);
 	  
+	  cVertex=0.0;
 	  f = &VertexF(i0,i1,i2,0,0);
 	  MPI::COMM_WORLD.Reduce(f, cVertex.MemPt(), psize*2, MPI_DOUBLE, MPI_SUM, Master);
 	  
-	  for (int i3=0; i3<VertexH.N1; i3++)
-	    for (int i4=0; i4<VertexH.N2; i4++)
+	  for (int i3=0; i3<VertexH.N3; i3++)
+	    for (int i4=0; i4<VertexH.N4; i4++)
 	      VertexF(i0,i1,i2,i3,i4) = cVertex(i3,i4)*(1./mpi_size);
-
-	  
 	}
       }
     }
   }
 
   if (my_rank==Master){
+    histogram.resize(global_Nmax);
     histogram = chistogram;
     histogram *= (1./mpi_size);
     AverageProbability = cAverageProbability;
-    asign = casign;
+    asign = casign[0];
+    asign_fast = casign[1];
     AverageProbability *= (1./mpi_size);
     nlc = cnlc;
     nlc *= (1./mpi_size);
@@ -97,9 +109,118 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
     if (QHB2) Sd = cSd;
     Gtau = cGtau;
     Gtau *= (1./mpi_size);
-    susc = cSusc;
-    susc *= (1./mpi_size);
+    if (SampleSusc){
+      susc = cSusc;
+      susc *= (1./mpi_size);
+    }
     asign *= (1./mpi_size);
+    asign_fast *= (1./mpi_size);
+    Gd_deg = cGd_deg;
+    if (SampleTransitionP){
+      AP_transition = cAP_transition;
+      AP_transition *=  (1./mpi_size);
+    }
+  }
+}
+
+void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<double>& Gd, function2D<double>& Ft,
+	     function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver,
+	     function2D<double>& Gtau, function5D<double>& VH, function1D<int>& Gd_deg,
+	     function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP, ostream& clog)
+{
+  function1D<double> chistogram;
+  function2D<double> cGd;
+  function2D<double> cFt;
+  function2D<double> cAverageProbability;
+  function1D<double> cnlc;
+  function1D<double> ckaver;
+  function2D<double> cGtau;
+  function1D<int> cGd_deg;
+  function2D<double> cAP_transition;
+  function1D<double> casign(2), asign_(2);
+  if (my_rank==Master){
+    cGd.resize(Gd.fullsize_N(),Gd.fullsize_Nd());
+    if (QHB2) cFt.resize(Ft.fullsize_N(),Ft.fullsize_Nd());
+    cAverageProbability.resize(AverageProbability.fullsize_N(),AverageProbability.fullsize_Nd());
+    cnlc.resize(nlc.size());
+    ckaver.resize(kaver.size());
+    if (Gtau.size_Nd()) cGtau.resize(Gtau.fullsize_N(),Gtau.fullsize_Nd());
+    cGd_deg.resize(Gd_deg.size());
+    if (SampleTransitionP) cAP_transition.resize(AP_transition.fullsize_N(),AP_transition.fullsize_Nd());
+  }
+  asign_[0]=asign; asign_[1]=asign_fast;
+
+  // It turns out that different processors work with different size histograms. We need to sum them up,
+  // but first we need to make all histogram of equal size
+  int global_Nmax;
+  int histogram_Nmax = histogram.size();
+  MPI::COMM_WORLD.Allreduce(&histogram_Nmax, &global_Nmax, 1, MPI_INT, MPI_MAX);
+  function1D<double> histogram_copy(global_Nmax);
+  histogram_copy=0.0;
+  for (int i=0; i<histogram.size(); i++) histogram_copy[i]=histogram[i];
+  
+  if (my_rank==Master) chistogram.resize(global_Nmax);
+  
+  MPI::COMM_WORLD.Reduce(histogram_copy.MemPt(), chistogram.MemPt(), global_Nmax, MPI_DOUBLE, MPI_SUM, Master);
+  
+  MPI::COMM_WORLD.Reduce(AverageProbability.MemPt(), cAverageProbability.MemPt(), AverageProbability.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
+
+  MPI::COMM_WORLD.Reduce(asign_.MemPt(), casign.MemPt(), 2, MPI_DOUBLE, MPI_SUM, Master);
+  
+  MPI::COMM_WORLD.Reduce(nlc.MemPt(), cnlc.MemPt(), nlc.size(), MPI_DOUBLE, MPI_SUM, Master);
+  
+  MPI::COMM_WORLD.Reduce(kaver.MemPt(), ckaver.MemPt(), kaver.size(), MPI_DOUBLE, MPI_SUM, Master);
+  
+  if (Gtau.size_Nd()) MPI::COMM_WORLD.Reduce(Gtau.MemPt(), cGtau.MemPt(), Gtau.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
+
+  MPI::COMM_WORLD.Reduce(Gd.MemPt(), cGd.MemPt(), Gd.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
+
+  if (QHB2) MPI::COMM_WORLD.Reduce(Ft.MemPt(), cFt.MemPt(), Ft.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
+  
+  MPI::COMM_WORLD.Reduce(Gd_deg.MemPt(), cGd_deg.MemPt(), Gd_deg.size(), MPI_INT, MPI_SUM, Master);
+  
+  if (SampleTransitionP) MPI::COMM_WORLD.Reduce(AP_transition.MemPt(), cAP_transition.MemPt(), AP_transition.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
+    
+  if (cmp_vertex){
+    function3D<double> cVertex(VH.N2, VH.N3, VH.N4);
+    int psize = VH.N2*VH.N3*VH.N4;
+    
+    for (int i0=0; i0<VH.N0; i0++){
+      for (int i1=0; i1<VH.N1; i1++){
+	
+	double* f = &VH(i0,i1,0,0,0);
+	double* cf = &cVertex(0,0,0);
+	MPI::COMM_WORLD.Reduce(f, cf, psize, MPI_DOUBLE, MPI_SUM, Master);
+	  
+	for (int i2=0; i2<VH.N2; i2++){
+	  for (int i3=0; i3<VH.N3; i3++)
+	    for (int i4=0; i4<VH.N4; i4++)
+	      VH(i0,i1,i2,i3,i4) = cVertex(i2,i3,i4)*(1./mpi_size);
+	}
+      }
+    }
+  }
+
+  if (my_rank==Master){
+    histogram.resize(global_Nmax);
+    histogram = chistogram;
+    histogram *= (1./mpi_size);
+    AverageProbability = cAverageProbability;
+    AverageProbability *= (1./mpi_size);
+    asign = casign[0];
+    asign_fast = casign[1];
+    nlc = cnlc;
+    nlc *= (1./mpi_size);
+    kaver = ckaver;
+    kaver *= (1./mpi_size);
+    if (Gtau.size_Nd()){
+      Gtau = cGtau;
+      Gtau *= (1./mpi_size);
+    }
+    asign *= (1./mpi_size);
+    asign_fast *= (1./mpi_size);
+    Gd = cGd;
+    if (QHB2) Ft = cFt;
     Gd_deg = cGd_deg;
     if (SampleTransitionP){
       AP_transition = cAP_transition;
@@ -114,28 +235,32 @@ void MPI_Init(int argc, char* argv[], int& my_rank, int& mpi_size, int& Master)
   my_rank = MPI::COMM_WORLD.Get_rank();
   mpi_size = MPI::COMM_WORLD.Get_size();
   Master = 0;
-  
-  std::cout << "Hello World! I am " << my_rank << " of " << mpi_size << std::endl;
 }
 
 void MPI_finalize()
-{MPI::Finalize();}
+{
+  MPI::Finalize();
+}
 
 #else
 
 using namespace std;
 
 void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<dcomplex>& Gd, function2D<dcomplex>& Sd,
-	    function2D<double>& AverageProbability, double& asign, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
+	    function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
 	    function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
-	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP){}
+	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleSusc, bool SampleTransitionP){};
+
+void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<double>& Gd, function2D<double>& Ft,
+	     function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver,
+	     function2D<double>& Gtau, function5D<double>& VH, function1D<int>& Gd_deg,
+	     function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP, ostream& clog){};
 
 void MPI_Init(int argc, char* argv[], int& my_rank, int& mpi_size, int& Master)
 {
   my_rank = 0;
   mpi_size = 1;
   Master = 0;
-  std::cout<<"Not parallel!"<<std::endl;
 }
 
 void MPI_finalize(){}

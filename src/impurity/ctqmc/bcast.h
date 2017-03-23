@@ -47,7 +47,12 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     isize += Id.size();
     // ssize0
     isize +=1; 
-    
+    // Enes.size()
+    isize +=1;
+    if (common::QHB2){
+      // UC
+      isize += 4*UC.size() + 1;
+    }
     
     // double variables
     // Sz
@@ -55,7 +60,9 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     // epsk
     dsize += epsk.size();
     // Ene
-    dsize += Ene.size_N()*Ene.size_Nd();
+    //dsize += Ene.size_N()*Ene.size_Nd();
+    // Enes
+    dsize += Enes.size();
     // Ene0
     dsize += Ene0.size_N()*Ene0.size_Nd();
     // Spin
@@ -83,7 +90,8 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     
     // Uc
     if (common::QHB2){
-      dsize += N_ifl*N_ifl*N_ifl;
+      //dsize += N_ifl*N_ifl*N_ifl;
+      dsize += UC.size();
     }
     
     // Nj
@@ -180,7 +188,16 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     for (map<int,double>::const_iterator i=Id.begin(); i!=Id.end(); i++) ibuff[++ip] = i->first;
     // RealSigma
     ibuff[++ip] = RealSigma.size();
-    
+    ibuff[++ip] = Enes.size();
+    if (common::QHB2){
+      ibuff[++ip] = UC.size();
+      for (int k=0; k<UC.size(); k++){
+	ibuff[++ip] = UC[k].a;
+	ibuff[++ip] = UC[k].b;
+	ibuff[++ip] = UC[k].c;
+	ibuff[++ip] = UC[k].d;
+      }
+    }
     
     //common::gout<<"Id.first=";
     //for (map<int,double>::const_iterator i=Id.begin(); i!=Id.end(); i++) common::gout<<i->first<<" ";
@@ -194,9 +211,13 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     // epsk
     for (int i=0; i<epsk.size(); i++) dbuff[++dp] = epsk[i];
     // Ene
+    /*
     for (int i=0; i<Ene.size_N(); i++)
       for (int j=0; j<Ene.size_Nd(); j++)
 	dbuff[++dp] = Ene(i,j);
+    */
+    for (int i=0; i<Enes.size(); i++)
+      dbuff[++dp] = Enes[i];
     // Ene0
     for (int i=0; i<Ene0.size_N(); i++)
       for (int j=0; j<Ene0.size_Nd(); j++)
@@ -242,10 +263,13 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
 
     // Uc
     if (common::QHB2){
+      /*
       for (int ifl=0; ifl<N_ifl; ifl++)
 	for (int j1=0; j1<N_ifl; j1++)
 	  for (int j2=0; j2<N_ifl; j2++)
 	    dbuff[++dp] = Uc[ifl](j1,j2);
+      */
+      for (int k=0; k<UC.size(); k++)  dbuff[++dp] = UC[k].u;
     }
     // Nj
     /*
@@ -375,7 +399,18 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     for (int i=0; i<Idsize; i++) Id_first[i] = ibuff[++ip];
     
     int ssize0 = ibuff[++ip];
+    int Enes_size = ibuff[++ip];
 
+    if (common::QHB2){
+      int UC_size = ibuff[++ip];
+      UC.resize(UC_size);
+      for (int k=0; k<UC.size(); k++){
+	UC[k].a = ibuff[++ip];
+	UC[k].b = ibuff[++ip];
+	UC[k].c = ibuff[++ip];
+	UC[k].d = ibuff[++ip];
+      }
+    }
     
     //debug
     //common::gout<<"Id.first=";
@@ -404,10 +439,14 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     epsk.resize(N_unique_fl);
     for (int i=0; i<epsk.size(); i++) epsk[i] = dbuff[++dp];
     // Ene
+    /*
     Ene.resize(nsize+1,max_size);
     for (int i=0; i<Ene.size_N(); i++)
       for (int j=0; j<Ene.size_Nd(); j++)
 	Ene(i,j) = dbuff[++dp];
+    */
+    Enes.resize(Enes_size);
+    for (int i=0; i<Enes.size(); i++) Enes[i] = dbuff[++dp];
     // Ene0
     Ene0.resize(nsize+1,max_size);
     for (int i=0; i<Ene0.size_N(); i++)
@@ -459,6 +498,8 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     
     // Uc
     if (common::QHB2){
+      for (int k=0; k<UC.size(); k++)  UC[k].u = dbuff[++dp];
+      /*
       Uc.resize(N_ifl);
       for (int ifl=0; ifl<N_ifl; ifl++) Uc[ifl].resize(N_ifl,N_ifl);
 
@@ -467,6 +508,7 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
 	  for (int j2=0; j2<N_ifl; j2++)
 	    Uc[ifl](j1,j2) = dbuff[++dp];
       }
+      */
     }
     
     //common::gout<<"ip="<<ip<<" dp="<<dp<<endl;
@@ -491,6 +533,15 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     RealSigma = sbuff;
     ImagSigma = &(sbuff[ssize0+1]);
 
+    // Need to set up Eind index for Enes!!
+    Eind.resize(nsize+1,max_size);
+    int iind=0;
+    for (int i=1; i<=nsize; i++){
+      for (int j=0; j<msize_[i]; j++){
+	Eind(i,j) = iind;
+	iind++;
+      }
+    }
   }
   
   delete[] ibuff;
@@ -577,7 +628,6 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     }
     
   }
-
   //DEBUGGING
 
   //common::gout<<"Nm="<<Nm<<endl;

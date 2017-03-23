@@ -22,13 +22,22 @@ public:
 };
 
 
+class Uentry{
+public:
+  int a, b, c, d;
+  double u;
+  Uentry(int a_=0, int b_=0, int c_=0, int d_=0, double u_=0) : a(a_), b(b_), c(c_), d(d_), u(u_){};
+};
+
 class ClusterData{
 public:
   function2D<int> F_i;                  //yes
 private:
   function2D<function2D<double> > F_M;  //yes
 public:
-  function2D<double> Ene;               //yes
+  //function2D<double> Ene;               //yes
+  function1D<double> Enes;              // Small energy array, which has only existing states
+  function2D<int> Eind;                 // Index to the Energy array, which will also be used for exponents
 private:
   function2D<double> Ene0;              //yes
   function2D<double> Spin;              //yes
@@ -68,7 +77,7 @@ public:
   function2D<bool> ifl_equivalent;      //yes
   function1D<int> gs_ind;               //no
   bool QHB1;                            //yes
-  int cnsize;                           //no
+  int cnsize, cmax_size;                //no
   function1D<int> cNs;                  //no
   function1D<int> cmsize_;              //no
   function2D<int> cF_i;                 //no
@@ -76,12 +85,17 @@ public:
   vector<vector<double> > cEne;         //no
   function2D<function2D<double> > cF_M; //no
   //function2D<function2D<double> > Nj;   //yes
-  function1D<function2D<double> > Uc;   //yes
-  vector<deque<Njj> > Njjs;             // no
-  function2D<double> Njs;               // for segment
-  deque<pair<int,int> > fl_fl;
+  //function1D<function2D<double> > Uc;   //yes
+  deque<Uentry>  UC;
+  //vector<deque<Njj> > Njjs;             // no
+  function2D<function2D<double> > Njm;      //
+  function2D<char> Njm_c;  // stores information if Njm(istate,fl2) is zero or idenity
+  function1D<char> Njm_z;  // stores information if all Njm(istate,:) are zero or idenity
+  //function2D<double> Njs;  // for segment
+  //deque<pair<int,int> > fl_fl;
+  //
 public:
-  void ParsInput(ifstream& gout);
+  void ParsInput(ifstream& gout, ostream& clog);
   void EvaluateMa(double beta, double mu, double U);
   int size() const {return nsize;}
   int msize(int i) const {return msize_[i];}
@@ -94,15 +108,20 @@ public:
   int N_baths(int ifl) const {return bfl_index[ifl].size();}
   void RecomputeCix(function2D<double>& AProb, double asign, double treshold, function1D<NState>& praStates);
   friend class NOperators;
-  void Read_for_HB1(ifstream& gout, double mu, double U);
-  void HB1(double beta, double mu, const mesh1D& iom, const function2D<double>& AProb, int nom, int aom, const function2D<dcomplex>& Delta, function2D<dcomplex>& Sigma, const function1D<bool>& nonzero, const function1D<bool>& nonzerou, double sderiv, int nom_small);
+  void Read_for_HB1(ifstream& gout, double mu, double U, ostream& clog);
+  void HB1(double beta, double mu, const mesh1D& iom, const function2D<double>& AProb, int nom, int aom, const function2D<dcomplex>& Delta, function2D<dcomplex>& Sigma, const function1D<bool>& nonzero, const function1D<bool>& nonzerou, ostream& clog, double sderiv, int nom_small);
+  void HB3(double beta, double mu, double U, const mesh1D& iom, const function2D<double>& AProb, int nom, int aom, const function2D<dcomplex>& Delta, function2D<dcomplex>& Sigma, const function1D<bool>& nonzero, const function1D<bool>& nonzerou, ostream& clog, double sderiv, int nom_small);
+
+  void Check(function1D<NState>& praStates);
   double P_atom(int i, int m) const {return Patom_(i+1,m);}
   int BcastClusterData(int my_rank, int Master);
   void Compute_Nmatrices();
-  //void Fill_fl_fl();
+  void Set_Old_Data_for_HB1(ostream& clog);
+  void Construct_Ucf(function4D<double>& Ucf, double U) const;
+  //void Get_HB2_Uc(function2D<function2D<double> >& Uc, double U);
 };
 
-void ClusterData::ParsInput(ifstream& gout)
+void ClusterData::ParsInput(ifstream& gout, ostream& yout)
 {//*****************************************************************************//
  // Many arrays defined in the following routine are explained in the example of 
  // 2x2 cluster DMFT for superconductings state. In the latter case, the following
@@ -116,7 +135,7 @@ void ClusterData::ParsInput(ifstream& gout)
  //  4     1        2                4
  //  5     1       -2*               5
  //
- //  The following arrays and variables are subsequently defined in this routine:
+ // The following arrays and variables are subsequently defined in this routine:
  // N_ifl = 6                          : number of blocks of block-diagonal hybridization
  // N_unique_fl = 4                    : number of columns read from the file
  // N_flavors  = 8                     : size of the actual matrix of hybridization N_flavors x N_flavors
@@ -419,7 +438,7 @@ void ClusterData::ParsInput(ifstream& gout)
 
   F_i.resize(2*N_flavors,nsize+1);
   F_M.resize(2*N_flavors,nsize+1);
-  Ene.resize(nsize+1,max_size);
+  //Ene.resize(nsize+1,max_size);
   Ene0.resize(nsize+1,max_size);
   Spin.resize(nsize+1,max_size);
   Ns.resize(nsize+1);
@@ -443,12 +462,12 @@ void ClusterData::ParsInput(ifstream& gout)
       int ist;
       gout>>ist;
       if (ist!=0){
-	F_i(2*ib,i)=ist;
-	F_i(2*ib+1,ist)=i;
+	F_i(2*ib,i)=ist;   // first c^+
+	F_i(2*ib+1,ist)=i; // next c
       }
     }
-    for (int is=0; is<isize; is++) gout>>Ene(i,is);
-    Ene[i].resize(isize);
+    for (int is=0; is<isize; is++) gout>>Ene0(i,is);
+    Ene0[i].resize(isize);
     for (int is=0; is<isize; is++) gout>>Spin(i,is);
     Spin[i].resize(isize);
     gout.ignore(1000,'\n');
@@ -456,8 +475,21 @@ void ClusterData::ParsInput(ifstream& gout)
     tsize += isize;
   }
 
+  // We will store energies in more compressed--efficient way for later computing.
+  Eind.resize(nsize+1,max_size);
+  Enes.resize(tsize);
+  int iind=0;
+  for (int i=1; i<=nsize; i++){
+    int m=0;
+    for (int j=0; j<msize_[i]; j++){
+      Eind(i,j) = iind;
+      Enes[iind] = Ene0(i,j);
+      iind++;
+    }
+  }
+
   gout.ignore(1000,'\n');
-  Ene0 = Ene;
+  //Ene0 = Ene;
   
   for (int i=1; i<=nsize; i++){
     for (int ib=0; ib<N_flavors; ib++){
@@ -490,14 +522,6 @@ void ClusterData::ParsInput(ifstream& gout)
     clog<<"Have HB2"<<endl;
     QHB1=true;
     common::QHB2=true;
-    getline(gout,str); // # Uc = U[ifl,j1,j2,ifl]-U[ifl,j1,ifl,j2]:
-    Uc.resize(N_ifl);
-    for (int ifl=0; ifl<N_ifl; ifl++) Uc[ifl].resize(N_ifl,N_ifl);
-    for (int ifl=0; ifl<N_ifl; ifl++)
-      for (int j1=0; j1<N_ifl; j1++)
-	for (int j2=0; j2<N_ifl; j2++)
-	  gout>>Uc[ifl](j1,j2);
-    getline(gout,str); // newline
   }else{
     // high frequency expansion, the first few moments of self-energy
     if (gout){
@@ -507,17 +531,27 @@ void ClusterData::ParsInput(ifstream& gout)
       ImagSigma = str;
     }
   }
-  getline(gout,str); // # number of operators needed
+  bool read_comment=true;
+  if (common::QHB2){
+    getline(gout,str); // # Uc = U[ifl,j1,j2,ifl]-U[ifl,j1,ifl,j2]:
+    int a, b, c, d;
+    double u;
+    for (int i=0; i<100000; i++){
+      getline(gout,str);
+      stringstream ss(str); //covert input to a stream for conversion to int
+      ss >> a >> b >> c >> d >> u;
+      if (!ss) break;
+      UC.push_back(Uentry(a,b,c,d,u));
+    }
+    read_comment=false;
+  }
+  if (read_comment) getline(gout,str); // # number of operators needed
   gout>>Osize;
-  cout<<"Number of operators needed "<<Osize<<endl;
+  clog<<"Number of operators needed "<<Osize<<endl;
   gout.ignore(1000,'\n');
   getline(gout,str);
   HF_M.resize(Osize);
   
-  //Nj.resize(nsize+1,N_ifl);
-  
-  //cout<<"N_unique_fl="<<N_unique_fl<<endl;
-  //????
   for (int op=0; op<Osize; op++){// Operator for the high frequency moments, called Op in the string above
     if (!gout.good()) cerr<<"Something wrong in reading cix file high frequency expansion"<<endl;
     HF_M[op].resize(N_unique_fl,nsize+1);
@@ -540,7 +574,7 @@ void ClusterData::ParsInput(ifstream& gout)
     }else{
       cerr<<"Something wrong reading cix: Number of entries for Operator is not correct"<<endl;
     }
-    cout<<"off_diagonal="<<off_diagonal<<endl;
+    clog<<"off_diagonal="<<off_diagonal<<endl;
     
     gout.seekg(pos1);
     for (int i=1; i<=nsize; i++){
@@ -585,51 +619,37 @@ void ClusterData::EvaluateMa(double beta, double mu, double U)
 
   for (int i=1; i<=nsize; i++){
     double dE = -Ns[i]*mu + 0.5*Ns[i]*(Ns[i]-1)*U;
-    for (int m=0; m<Ene[i].size(); m++) Ene(i,m) += dE;
+    //for (int m=0; m<Ene0[i].size(); m++){
+    for (int m=0; m<msize(i); m++)
+      //Ene(i,m) += dE;
+      Enes[Eind(i,m)] += dE;  // correcting for F0==U and the chemical potential
   }
 
-  if (common::QHB2){
-    for (int ifl=0; ifl<N_ifl; ifl++)
-      for (int j1=0; j1<N_ifl; j1++)
-	for (int j2=0; j2<N_ifl; j2++)
-	  if (j1==j2 && ifl!=j1) Uc[ifl](j1,j2) += U;
-
-
-    /*
-    cout<<"Uc="<<endl;
-    cout.precision(2);
-    for (int ifl=0; ifl<N_ifl; ifl++){
-      for (int j1=0; j1<N_ifl; j1++){
-	for (int j2=0; j2<N_ifl; j2++)
-	  cout<<setw(6)<<Uc[ifl](j1,j2)<<" ";
-	cout<<endl;
-      }
-    }
-    cout<<endl;
-    */
-  }
   
-  //  cout<<"GS are:"<<endl;
   gs_ind.resize(nsize+1);
   for (int i=1; i<=nsize; i++){
     int imin = 0;
+    /*
     for (int m=1; m<Ene[i].size(); m++)
       if (Ene(i,m)<Ene(i,imin)) imin = m;
+    */
+    for (int m=1; m<msize(i); m++)
+      if (Enes[Eind(i,m)]<Enes[Eind(i,imin)]) imin = m;
     gs_ind[i] = imin;
-    //    cout<<setw(3)<<i<<" "<<setw(4)<<gs_ind[i]<<endl;
+    //    clog<<setw(3)<<i<<" "<<setw(4)<<gs_ind[i]<<endl;
   }
  
   Zatom=0;
-  for (int i=1; i<=size(); i++)
+  for (int i=1; i<=nsize; i++)
     for (int m=0; m<msize(i); m++)
-      Zatom += Number(1,-Ene[i][m]*beta);
+      Zatom += Number(1,-Enes[Eind(i,m)]*beta);
   
   Patom.resize(size());
   Patom_.resize(size()+1,max_size);
   for (int i=1; i<=size(); i++){
     double sum=0;
     for (int m=0; m<msize(i); m++){
-      Patom_(i,m) = divide(Number(1,-Ene[i][m]*beta),Zatom);
+      Patom_(i,m) = divide(Number(1,-Enes[Eind(i,m)]*beta),Zatom);
       sum += Patom_(i,m);
     }
     Patom[i-1] = sum;
@@ -730,7 +750,7 @@ vector<pair<double,double> > FindHighFrequencyExp_original(int Nf, const mesh1D&
 
 vector<pair<double,double> > FindHighFrequencyExp(int Nf, const mesh1D& omi, const function2D<dcomplex>& fi)
 {// Looking for the form : a/(iom-eps). We will determine a and eps and store into ah.first=a and ah.second=eps
-  cout.precision(16);
+  //  cout.precision(16);
   vector<pair<double,double> > ah(fi.size_N());
   for (int b=0; b<fi.size_N(); b++){
     double S=0, Sy=0, Sz=0;
@@ -745,7 +765,8 @@ vector<pair<double,double> > FindHighFrequencyExp(int Nf, const mesh1D& omi, con
     double bx = Sz/S;
     //cout<<"b="<<b<<" got ax="<<ax<<" got bx="<<bx<<endl;
     ah[b].first = -ax;    // a
-    ah[b].second = bx/ax; // eps
+    if (fabs(ax)>1e-15) ah[b].second = bx/ax; // eps
+    else ah[b].second = 0.0;
   }
   return ah;
 }
@@ -806,7 +827,7 @@ bool ReadDelta(int Ns, istream& input, int n, int m, mesh1D& omi, function2D<dco
   tomi.SetUp(0);
   int Nhighf = min(Nhigh, static_cast<int>(tomi.size()*0.4)); // correction 21.4.2008 : Shuld not compute high frequency from low frequency points
   ah = FindHighFrequencyExp(Nhighf, tomi, tDeltaw); 
-
+  
   //int imax = static_cast<int>((tomi.last()*beta/M_PI-1)/2. + 0.5);
   int imax = static_cast<int>((tomi.last()*beta/M_PI+1)/2. + 1e-6); // correction, Jun 2015
   omi.resize(imax); // Matsubara mesh for this temperature
@@ -851,18 +872,33 @@ bool ReadDelta(int Ns, istream& input, int n, int m, mesh1D& omi, function2D<dco
 
 void DeltaFourier(int Ntau, double beta, mesh1D& tau, vector<spline1D<double> >& Delta, const mesh1D& omi, const function2D<dcomplex>& Deltaw, const vector<pair<double,double> >& ah)
 {
-  tau.MakeEquidistantMesh(Ntau,0,beta);
-  for (size_t ib=0; ib<Delta.size(); ib++) Delta[ib].resize(tau.size());
+  //tau.MakeEquidistantMesh(Ntau,0,beta);
+  GiveDoubleExpMesh(tau,beta,Ntau);
+  
+  for (size_t ib=0; ib<Delta.size(); ib++) Delta[ib].resize(tau.size())
+					     ;
   for (size_t ib=0; ib<Delta.size(); ib++){
     InverseFourier(Deltaw[ib], omi, Delta[ib], tau, ah[ib], beta); // Here needs to be corrected!
-    /*
-    ofstream check(NameOfFile("check.dat",ib).c_str());
-    check<<"# ah = "<<ah[ib].first<<" "<<ah[ib].second<<endl; 
-    for (int i=0; i<tau.size(); i++) check<<tau[i]<<" "<<Delta[ib][i]<<endl;
-    */
-    double df0 = (Delta[ib][1]-Delta[ib][0])/(tau[1]-tau[0]);      // If Delta[ib][itau]>0 set it to something negative
+    //*** DEBUG
+    //ofstream check(NameOfFile("check.dat",ib).c_str());
+    //check<<"# ah = "<<ah[ib].first<<" "<<ah[ib].second<<endl; 
+    //for (int i=0; i<tau.size(); i++) check<<tau[i]<<" "<<Delta[ib][i]<<endl;
+    //***
     int n = tau.size();
-    double dfn = (Delta[ib][n-1]-Delta[ib][n-2])/(tau[n-1]-tau[n-2]);
+    //double df0 = (Delta[ib][1]-Delta[ib][0])/(tau[1]-tau[0]);      // If Delta[ib][itau]>0 set it to something negative
+    //double dfn = (Delta[ib][n-1]-Delta[ib][n-2])/(tau[n-1]-tau[n-2]);
+    spline1D<double>& Dc = Delta[ib];
+    double x1 = 0.5*(tau[1]+tau[0]);
+    double df1 = (Dc[1]-Dc[0])/(tau[1]-tau[0]); // derivative in the first midpoint
+    double x2 = 0.5*(tau[2]+tau[1]);
+    double df2 = (Dc[2]-Dc[1])/(tau[2]-tau[1]); // derivative in the second midpoint
+    double df0 = df1 + (df2-df1)*(0.0-x1)/(x2-x1); // extrapolated derivative at 0
+    x1 = 0.5*(tau[n-1]+tau[n-2]);
+    df1 = (Dc[n-1]-Dc[n-2])/(tau[n-1]-tau[n-2]); // derivative at the last mindpoint
+    x2 = 0.5*(tau[n-2]+tau[n-3]);
+    df2 = (Dc[n-2]-Dc[n-3])/(tau[n-2]-tau[n-3]); // derivative at the point before the last point
+    double dfn = df1 + (df2-df1)*(common::beta-x1)/(x2-x1);  // extrapolated derivative
+    
     Delta[ib].splineIt(tau,df0,dfn);
   }
 }
@@ -874,6 +910,7 @@ void DeltaFourier(int Ntau, double beta, mesh1D& tau, vector<spline1D<double> >&
 
 void ClusterData::Compute_Nmatrices()
 {
+  /*
   if (common::Segment){
     Njs.resize(size()+1,N_flavors);
     Njs=0.0;
@@ -920,7 +957,48 @@ void ClusterData::Compute_Nmatrices()
       }
     }
   }
-    
+  */
+  Njm.resize(size()+1,Nvfl);
+  Njm_c.resize(size()+1,Nvfl);
+  Njm_z.resize(size()+1);
+  Njm_c = 0;
+  Njm_z = 0;
+  for (int ist=0; ist<size(); ist++){
+    int istate = praState(ist);
+    for (int ifl=0; ifl<N_ifl; ifl++){
+      for (int bfls=0; bfls<ifl_dim[ifl]; bfls++){
+	for (int bfle=0; bfle<ifl_dim[ifl]; bfle++){
+	  int fls = fl_from_ifl[ifl][bfls];
+	  int fle = fl_from_ifl[ifl][bfle];
+	  int op_nodag = 2*fle+1;
+	  int i_m_state = Fi(op_nodag)[istate];
+	  if (i_m_state==0) continue;
+	  int op_dagg = 2*fls;
+	  int istate_new = Fi(op_dagg)[i_m_state];
+	  if (istate_new!=istate) continue;
+	  int fl2 = vfl_index[ifl](bfls,bfle);// Note that we are computing  psi^+_{bfls} psi_{bfle}
+	  Njm(istate,fl2).resize(msize(istate),msize(istate));
+	  function2D<double>& M = Njm(istate,fl2);
+	  Multiply(M, FM(op_dagg)[i_m_state],FM(op_nodag)[istate]);
+	  // check if it is zero
+	  double dsum=0.0;
+	  for (int i=0; i<M.size_N(); i++)
+	    for (int j=0; j<M.size_Nd(); j++)
+	      dsum += fabs(M(i,j));
+	  if (dsum>1e-10) Njm_c(istate,fl2)=2; // means Njm is nonzero, but not idenity
+	  dsum=0.0;
+	  for (int i=0; i<M.size_N(); i++)
+	    for (int j=0; j<M.size_Nd(); j++){
+	      double c = i==j ? 1.0 : 0.0;
+	      dsum += fabs(M(i,j)-c);
+	    }
+	  if (dsum<1e-10) Njm_c(istate,fl2)=1; // means Njm is equal to idenity
+	  if (Njm_c(istate,fl2)==2) Njm_z[istate]=1; // at least one nontrivial N for this istate
+	}
+      }
+    }
+  }
+  
   /*
   cout<<"fl_fl="<<endl;
   for (int ii=0; ii<fl_fl.size(); ii++){
@@ -951,20 +1029,23 @@ void ClusterData::Compute_Nmatrices()
     }
   }
   */
+  /*
+  for (int istate=1; istate<=size(); istate++){
+    for (int fl2=0; fl2<Nvfl; fl2++){
+      function2D<double>& M = Njm(istate,fl2);
+      cout<<" istate="<<setw(2)<<istate<<" fl2="<<setw(2)<<fl2<<" Njm_c="<<int(Njm_c(istate,fl2))<<" Njm_z="<<int(Njm_z[istate])<<" size="<<M.size_N()<<","<<M.size_Nd()<<endl;
+      for (int j1=0; j1<M.size_N(); j1++){
+      	for (int j2=0; j2<M.size_Nd(); j2++)
+      	  cout<<M(j1,j2)<<" ";
+      }
+      cout<<endl;
+    }
+  }
+  */
 }
-
 
 void ClusterData::RecomputeCix(function2D<double>& AProb, double asign, double treshold, function1D<NState>& praStates)
 {
-  
-  for (int i=0; i<nsize; i++) for (int j=0; j<msize_[i+1]; j++) AProb[i][j]/=asign;
-  
-  ofstream out("Probability.dat"); out.precision(16);
-  out<<"# asign="<<asign<<endl;
-  for (int j=0; j<AProb.size_N(); j++)
-    for (int k=0; k<AProb[j].size(); k++)
-      out<<setw(3)<<j+1<<" "<<setw(3)<<k<<" "<<setw(20)<<AProb[j][k]<<endl;
-  
   vector<deque<int> > redundant(nsize);
   function1D<int> new_msize_(msize_);
   //  deque<int> remove;
@@ -1122,13 +1203,59 @@ void ClusterData::RecomputeCix(function2D<double>& AProb, double asign, double t
     }
   }
 
-  Ene = Ene0;
+  //Ene = Ene0;
   for (int i=1; i<=nsize; i++){
     double dE = -Ns[i]*common::mu + 0.5*Ns[i]*(Ns[i]-1)*common::U;
-    for (int m=0; m<Ene[i].size(); m++) Ene(i,m) += dE;
+    for (int m=0; m<Ene0[i].size(); m++) Enes[Eind(i,m)] = Ene0(i,m) + dE;
   }
 }
 
+void ClusterData::Construct_Ucf(function4D<double>& Ucf, double U) const
+{
+  Ucf.resize(N_flavors,N_flavors,N_flavors,N_flavors);
+  Ucf = 0.0;
+  for (int k=0; k<UC.size(); k++){
+    if (UC[k].a>=N_flavors || UC[k].b>=N_flavors || UC[k].c>=N_flavors || UC[k].d>=N_flavors) {cerr<<" In HB2::U component out of range..."<<endl; exit(1);}
+    Ucf(UC[k].a,UC[k].b,UC[k].c,UC[k].d) = UC[k].u;
+  }
+  for (int a=0; a<N_flavors; a++)
+    for (int b=0; b<N_flavors; b++)
+      Ucf(a,b,b,a) += U;  // F0 contribution
+}
+/*
+void ClusterData::Get_HB2_Uc(function2D<function2D<double> >& Uc, double U)
+{
+  function4D<double> Ucf(N_flavors,N_flavors,N_flavors,N_flavors);
+  Construct_Ucf(Ucf, U);
+  Uc.resize(N_ifl,N_ifl);
+  for (int ifl=0; ifl<N_ifl; ifl++)
+    for (int jfl=0; jfl<N_ifl; jfl++){
+      Uc(ifl,jfl).resize(v2fl_index[ifl].size(), v2fl_index[jfl].size());
+      Uc(ifl,jfl) = 0.0;
+    }
+
+  // Uc[ifl,jfl][(i,b),(j,k)] = U[(ifl,i),(jfl,j),(jfl,k),(ifl,b)] - U[(ifl,i),(jfl,j),(ifl,b),(jfl,k)]
+  for (int ifl=0; ifl<N_ifl; ifl++){
+    for (int i=0; i<ifl_dim[ifl]; i++){
+      for (int b=0; b<ifl_dim[ifl]; b++){
+	int ib = tfl_index[ifl](i,b);
+	int a = fl_from_ifl[ifl][i];
+	int d = fl_from_ifl[ifl][b];
+	for (int jfl=0; jfl<N_ifl; jfl++){
+	  for (int j=0; j<ifl_dim[jfl]; j++){
+	    for (int k=0; k<ifl_dim[jfl]; k++){
+	      int jk = tfl_index[jfl](j,k);
+	      int b = fl_from_ifl[jfl][j];
+	      int c = fl_from_ifl[jfl][k];
+	      Uc(ifl,jfl)(ib,jk) = Ucf(a,b,c,d)-Ucf(a,b,d,c);
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+*/
 void Inverse_Gf(int dim, int N_unique_fl, const deque<int>& bfl_index, const deque<int>& sign, const deque<int>& conjg, int im, const function2D<dcomplex>& Gf, function2D<dcomplex>& Gf_1)
 {
   static function2D<dcomplex> g(dim,dim), gi(dim,dim);
@@ -1157,6 +1284,108 @@ void Inverse_Gf(int dim, int N_unique_fl, const deque<int>& bfl_index, const deq
       if (conjg[ib]) gf = gf.conj();
       Gf_1(bfl_index[ib], im) += gf;
       ib++;
+    }
+  }
+}
+
+void F_times_Inverse_G(functionb<dcomplex>& Sg, const functionb<dcomplex>& Ff, const functionb<dcomplex>& Gf, const ClusterData& cluster)
+{//(cluster.ifl_dim[ifl], cluster.N_unique_fl, cluster.bfl_index[ifl], cluster.sign[ifl], cluster.conjg[ifl], im, Gf, Gf_1);
+  Sg = 0.0;
+  for (int ifl=0; ifl<cluster.N_ifl; ifl++){
+    int dim = cluster.ifl_dim[ifl];
+    const deque<int>& _bfl_index_ = cluster.bfl_index[ifl];
+    if (dim==1){
+      int ii = cluster.bfl_index[ifl][0];
+      Sg[ii] += Ff[ii]/Gf[ii];
+      continue;
+    }
+    function2D<dcomplex> g(dim,dim), gi(dim,dim), fi(dim,dim), si(dim,dim);
+    int ib=0;
+    for (int i1=0; i1<dim; i1++){ // creates a matrix of G and F
+      for (int i2=0; i2<dim; i2++){
+	dcomplex gf = Gf[_bfl_index_[ib]];
+	dcomplex ff = Ff[_bfl_index_[ib]];
+	if (cluster.sign[ifl][ib]==-1){
+	  gf *= -1;
+	  ff *= -1;
+	}
+	if (cluster.conjg[ifl][ib]){
+	  gf = gf.conj();
+	  ff = ff.conj();
+	}
+	g[i1][i2] = gf;
+	fi[i1][i2] = ff;
+	ib++;
+      }
+    }
+    gi.Inverse(g);      // This is just G^{-1}
+    si.MProduct(fi,gi); // This gives  F * G^{-1}
+    
+    ib=0;
+    for (int i1=0; i1<dim; i1++){ // Now compresses S into smaller array
+      for (int i2=0; i2<dim; i2++){
+	dcomplex sf = si[i1][i2];
+	if (cluster.sign[ifl][ib]==-1) sf *= -1;
+	if (cluster.conjg[ifl][ib]) sf = sf.conj();
+	Sg[_bfl_index_[ib]] += sf;
+	ib++;
+      }
+    }
+  }
+  for (int i=0; i<cluster.N_unique_fl; i++) Sg[i] /= cluster.fl_deg[i];
+}
+
+// F_sampled = Fsvd[fl_aj][fl_ik][:]
+template<class T>
+void Multiply_F_with_U(function2D<T>& Ft, const vector<function2D<T> >& F_sampled, double U, const ClusterData& cluster){
+  function4D<double> Uc(cluster.N_flavors,cluster.N_flavors,cluster.N_flavors,cluster.N_flavors);
+  cluster.Construct_Ucf(Uc, U);
+  int Ft_sizeNd = F_sampled[0].size_Nd();
+  Ft.resize(cluster.N_unique_fl,Ft_sizeNd);
+  Ft = 0.0;
+  function1D<T> tfc(Ft_sizeNd);
+  // \psi_ia  \psi^+_ii \psi^+_ij \psi_ik
+  for (int ia=0; ia<cluster.N_flavors; ia++){
+    int ifla = cluster.ifl_from_fl[ia];
+    int bea = cluster.bfl_from_fl[ia];
+    for (int ib=0; ib<cluster.N_flavors; ib++){
+      int iflb = cluster.ifl_from_fl[ib];
+      if (iflb != ifla) continue;
+      int bsb = cluster.bfl_from_fl[ib];
+      int ab_ind = cluster.tfl_index[ifla](bea,bsb);
+      tfc = 0.0;
+      for (int ii=0; ii<cluster.N_flavors; ii++){
+	int ifli = cluster.ifl_from_fl[ii];
+	int bsi = cluster.bfl_from_fl[ii];
+	for (int ij=0; ij<cluster.N_flavors; ij++){
+	  int iflj = cluster.ifl_from_fl[ij];
+	  int bsj = cluster.bfl_from_fl[ij];
+	  for (int ik=0; ik<cluster.N_flavors; ik++){
+	    int iflk = cluster.ifl_from_fl[ik];
+	    int bek = cluster.bfl_from_fl[ik];
+	    if (ifla==ifli && iflj==iflk){
+	      // corresponds to  \psi_a \psi_i^+
+	      int fl_ai = cluster.vfl_index[ifla](bea,bsi);  // combined index for (ia,ii)
+	      // corresponds to  \psi_j^+ \psi_k
+	      int fl_jk = cluster.vfl_index[iflk](bsj,bek);  // combined index for (ij,ik)
+	      double UU = 0.5*(Uc(ii,ij,ik,ib)-Uc(ij,ii,ik,ib));
+	      // <m|\psi_a \psi_i^+|n><n|\psi_j^+ \psi_k|m>
+	      const funProxy<T>& _Fsvd_ = F_sampled[fl_ai][fl_jk];
+	      for (int l=0; l<Ft_sizeNd; l++) tfc[l] += _Fsvd_[l] * UU;
+	    }else if (ifla==iflj && ifli==iflk){
+	      // corresponds to \psi_a \psi_j^+
+	      int fl_aj = cluster.vfl_index[ifla](bea,bsj);  // combined index for (ia,ij)
+	      // corresponds to \psi_i^+ \psi_k
+	      int fl_ik = cluster.vfl_index[iflk](bsi,bek);  // combined index for (ii,ik)
+	      double UU = 0.5*(Uc(ii,ij,ik,ib)-Uc(ij,ii,ik,ib));
+	      const funProxy<T>& _Fsvd_ = F_sampled[fl_aj][fl_ik];
+	      for (int l=0; l<Ft_sizeNd; l++) tfc[l] -= _Fsvd_[l] * UU;
+	    }
+	  }
+	}
+      }
+      int i_unique = cluster.bfl_index[ifla][ab_ind];
+      Ft[i_unique] += tfc;
     }
   }
 }

@@ -90,6 +90,7 @@ public:
   function1D(const function1D& m);//copy constructor
   // INITIALIZATION ROUTINES
   void resize(int N_);
+  void resize_preserve(int n);
   void resize_virtual(int N_);
   // OPERATORS
   function1D& operator=(const function1D& m); // copy constructor
@@ -102,6 +103,7 @@ public:
 //************************************************************************//
 template <class T>
 class spline1D : public functionb<T>{
+public:
   T* f2;       // second derivatives
   double *dxi; // x_{j+1}-x_j
 public:
@@ -125,7 +127,7 @@ public:
   // ADVANCED FUNCTIONS
   T integrate();
   template <class mesh1D>
-  dcomplex Fourier(double om, const mesh1D& xi);
+  dcomplex Fourier(double om, const mesh1D& xi) const;
   template <class mesh1D>
   T Sum_iom(const mesh1D& iom) const;
 };
@@ -134,7 +136,7 @@ template <class T>
 class funProxy : public functionb<T>{
 public:
   void Initialize(int N_, T* f_);
-  void ReInitialize(int N_, T* f_);
+  void ReInitialize(int N0_, int N_, T* f_);
   void resize(int N_);
   funProxy& operator=(const functionb<T>& m);
   ~funProxy(){};
@@ -161,9 +163,6 @@ public:
   ~function2D();
   funProxy<T>& operator[](int i) {Assert3(i<N0 && i>=0,"Out of range in function2D[] ", i, N0); return f[i];}
   const funProxy<T>& operator[](int i) const {Assert3(i<N0 && i>=0,"Out of range in function2D[] ", i, N0); return f[i];}
-  
-  //const T& operator()(int i, int j) const {Assert5(i<N0 && j<Nd0 && i>=0 && j>=0,"Out of range in function2D(i,j) ", i, j, N0, Nd0); return f[i].f[j];}
-  //T& operator()(int i, int j) {Assert5(i<N0 && j<Nd0 && i>=0 && j>=0,"Out of range in function2D(i,j) ", i, j, N0, Nd0); return f[i].f[j];}
 
   const T& operator()(int i, int j) const {Assert5(i<N0 && j<Nd0 && i>=0 && j>=0,"Out of range in function2D(i,j) ", i, j, N0, Nd0); return data[i*Nd0+j];}
   T& operator()(int i, int j) {Assert5(i<N0 && j<Nd0 && i>=0 && j>=0,"Out of range in function2D(i,j) ", i, j, N0, Nd0); return data[i*Nd0+j];}
@@ -178,7 +177,9 @@ public:
   int lda() const {return Nd0;}
   void resize(int N_, int Nd_);
   void resize_clear(int N_, int Nd_);
-
+  void resize_virtual(int N_, int Nd_);
+  void resize_preserve(int N_, int Nd_);
+  
   function2D(const function2D<T>& fun);
   function2D& operator=(const function2D& m);
   function2D& operator+=(double x);
@@ -194,10 +195,15 @@ public:
   template <class functor, class W>
   void Set(functor& functn, const function2D<W>& Um);
 
+  function2D& minus(const function2D& B, const function2D& C);
+  function2D& plus(const function2D& B, const function2D& C);
+  // Be careful: Product performs matrix multiplication of  C = A * B^T
   void Product(const function2D& A, const function2D& B, int start=0, int end=-1, const T& alpha=1, const T& beta=0);
-  void DotProduct(const function2D& A, const function2D& B, const T& alpha=1, const T& beta=0);
+  // Be carefu: TProduct performs matrix multiplication of C = B * A^T
   void TProduct(const function2D& A, const function2D& B, const T& alpha=1, const T& beta=0);
+  // Be careful: MProduct performs matrix multiplication of C = A * B
   void MProduct(const function2D& A, const function2D& B, const T& alpha=1, const T& beta=0);
+  void DotProduct(const function2D& A, const function2D& B, const T& alpha=1, const T& beta=0);
   void SMProduct(const function2D& A, const function2D& B, const T& alpha=1, const T& beta=0);
   void TMProduct(const function2D& A, const function2D& B, const T& alpha, const T& beta);
   void SymmProduct(const function2D& A, const function2D& B, const T& alpha=1, const T& beta=0);
@@ -208,6 +214,36 @@ public:
   int Inverse(const function2D<T>& A);
   void AddPart(const function2D& m, double x);
   friend void Multiply(function2D<double>& C, const function2D<double>& A, const function2D<double>& B);
+};
+
+template<class T>
+class function2DProxy : public function2D<T>{
+// A class to take slices of other higher dimensional arrays, and making them appear 2D arrays
+  void* _memory_;
+public:
+  function2DProxy(T* _data_, int _N_, int _Nd_, int _Nd0_)
+  {
+    this->data = _data_;
+    this->N0 = _N_;
+    this->N = _N_;
+    this->Nd = _Nd_;
+    this->Nd0 = _Nd0_;
+    _memory_ = operator new (sizeof(funProxy<T>)*this->N0);
+    Assert(_memory_!=NULL,"Out of memory");
+    this->f = new (_memory_) funProxy<T>[this->N0];
+    for (int i=0; i<this->N0; i++) this->f[i].Initialize(this->Nd0,this->data+i*this->Nd0);
+
+    cout<<"N="<<this->N<<" Nd="<<this->Nd<<" N0="<<this->N0<<" Nd0="<<this->Nd0<<endl;
+  }
+  ~function2DProxy()
+  {
+    for (int i=0; i<this->N0; i++) this->f[i].~funProxy<T>();
+    operator delete(_memory_);
+    _memory_ = NULL;
+  }
+  void resize(int N_, int Nd_) {cerr<<"ERROR : Can not resize Proxy class !"<<endl; exit(1);};
+  void resize_clear(int N_, int Nd_) {cerr<<"ERROR : Can not resize Proxy class !"<<endl; exit(1);};
+  void SetEqual(const function2D<T>& m) {cerr<<"ERROR : Can not resize Proxy class !"<<endl; exit(1);};
 };
 
 // functionb ////////////////////////////////////////////////////////////////
@@ -260,7 +296,11 @@ inline function1D<T>::function1D(int N_) : functionb<T>(N_)
 
 template<class T>
 inline function1D<T>::~function1D()
-{ delete[] this->f;  this->f = NULL; this->N=0; this->N0=0;}
+{
+  if (this->f!=NULL) delete[] this->f;
+  this->f = NULL;
+  this->N = this->N0 = 0;
+}
 
 template<class T>
 inline void function1D<T>::resize(int n)
@@ -271,6 +311,19 @@ inline void function1D<T>::resize(int n)
     this->N0=n;
   }
   this->N = n;
+}
+
+template<class T>
+inline void function1D<T>::resize_preserve(int n)
+{
+  if (n>this->N0){
+    T* new_f = new T[n]; // The default constructor is called on all the data
+    for (int i=0; i<this->N0; i++) new_f[i] = this->f[i];
+    if (this->f) delete[] this->f;
+    this->f = new_f;
+    this->N0=n;
+  }
+  //this->N = n;
 }
 
 template<class T>
@@ -428,7 +481,7 @@ inline T spline1D<T>::integrate()
 
 template <class T>
 template <class mesh1D>
-inline dcomplex spline1D<T>::Fourier(double om, const mesh1D& xi)
+inline dcomplex spline1D<T>::Fourier(double om, const mesh1D& xi) const
 {
   dcomplex ii(0,1);
   dcomplex sum=0;
@@ -444,6 +497,7 @@ inline dcomplex spline1D<T>::Fourier(double om, const mesh1D& xi)
       val += dxi[i]*dxi[i]/(6.*u4)*(f2[i]*(exp*(6+u2)+2.*(u2-3.*ii*u-3.))+f2[i+1]*(6+u2+2.*exp*(u2+3.*ii*u-3.)));
     }
     sum += dxi[i]*dcomplex(cos(om*xi[i]),sin(om*xi[i]))*val;
+    //sum += xi.Dh(i)*dcomplex(cos(om*xi[i]),sin(om*xi[i]))*val;
   }
   return sum;
 }
@@ -488,9 +542,11 @@ inline void funProxy<T>::Initialize(int N_, T* f_)
 }
 
 template <class T>
-inline void funProxy<T>::ReInitialize(int N_, T* f_)
+inline void funProxy<T>::ReInitialize(int N0_, int N_, T* f_)
 {
-  this->N = N_; this->f = f_;
+  this->N0 = N0_;
+  this->N = N_;
+  this->f = f_;
 }
 
 template <class T>
@@ -514,13 +570,16 @@ template<class T>
 function2D<T>::function2D(int N_, int Nd_) : N0(N_), Nd0(Nd_), N(N_), Nd(Nd_) 
 {
   memory = operator new (sizeof(funProxy<T>)*N0+sizeof(T)*Nd0*N0+HPoffset);
-  
   Assert(memory!=NULL,"Out of memory");
-  
   f = new (memory) funProxy<T>[N0];
   
   int offset = sizeof(funProxy<T>)*N0+HPoffset;
   data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
+  
+  // First call the default constructor on all newly allocated data
+  for (int i=0; i<N0; i++)
+    for (int j=0; j<Nd0; j++)
+      new(&data[i*Nd0+j])T;
   
   for (int i=0; i<N0; i++) f[i].Initialize(Nd0,data+i*Nd0);
 }
@@ -531,8 +590,9 @@ function2D<T>::~function2D()
   for (int i=0; i<N0; i++){
     f[i].~funProxy<T>();
   }
-  operator delete(memory);
+  if (memory!=NULL) operator delete(memory);
   memory = NULL;
+  N0=Nd0=N=Nd=0;
 }
 
 template <class T>
@@ -569,7 +629,7 @@ void function2D<T>::SetEqual(const function2D& m)
     for (int i=0; i<N; i++) memcpy(f[i].f, m.f[i].f, sizeof(T)*Nd);
   } else{
     int msize = sizeof(funProxy<T>)*m.N+sizeof(T)*m.Nd*m.N+HPoffset;
-    operator delete(memory);
+    if (memory!=NULL) operator delete(memory);
     memory = operator new (msize);
     Assert(memory!=NULL,"Out of memory");
     N0 = m.N;
@@ -579,10 +639,16 @@ void function2D<T>::SetEqual(const function2D& m)
     f = new (memory) funProxy<T>[N0];
     int offset = sizeof(funProxy<T>)*N0+HPoffset;
     data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
-    for (int i=0; i<N0; i++){
+    // First call the default constructor on all newly allocated data
+    for (int i=0; i<N0; i++)
+      for (int j=0; j<Nd0; j++)
+	new(&data[i*Nd0+j])T;
+    for (int i=0; i<N0; i++)
       f[i].Initialize(Nd0, data+i*Nd0);
-      memcpy(data+i*Nd0, m.data+i*m.Nd0, sizeof(T)*Nd0);
-    }
+    
+    for (int i=0; i<N0; i++)
+      for (int j=0; j<Nd0; j++)
+	data[i*Nd0+j] = m.data[i*m.Nd0+j];
   }
 }
 
@@ -601,7 +667,10 @@ inline function2D<T>::function2D(const function2D& m) : memory(NULL)
   int offset = sizeof(funProxy<T>)*N0+HPoffset;
   data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
   for (int i=0; i<N0; i++) f[i].Initialize(Nd0, data+i*Nd0);
-  memcpy(data, m.data, sizeof(T)*Nd0*N0);
+  //memcpy(data, m.data, sizeof(T)*Nd0*N0);
+  for (int i=0; i<N0; i++)
+    for (int j=0; j<Nd0; j++)
+      data[i*Nd0+j] = m.data[i*m.Nd0+j];
 }
 
 template <class T>
@@ -618,11 +687,63 @@ inline void function2D<T>::resize(int N_, int Nd_)
     int offset = sizeof(funProxy<T>)*N+HPoffset;
     data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
     for (int i=0; i<N; i++) f[i].Initialize(Nd, data+i*Nd);
+    // Next call the default constructor on all newly allocated data
+    for (int i=0; i<N_; i++)
+      for (int j=0; j<Nd_; j++)
+	new(&data[i*Nd_+j])T; 
   } else{
     N = N_; Nd = Nd_;
   }
 }
 
+template <class T>
+inline void function2D<T>::resize_virtual(int N_, int Nd_)
+{
+  if (N_>N0 || Nd_>Nd0){
+    cerr<<"Can not resize virtually beyond boundary "<<N_<<">"<<N0<<" || "<<Nd_<<">"<<Nd0<<endl;
+  } else{
+    N = N_; Nd = Nd_;
+  }
+}
+
+template <class T>
+inline void function2D<T>::resize_preserve(int N_, int Nd_)
+{
+  if (N_>N0 || Nd_>Nd0){
+    int msize = sizeof(funProxy<T>)*N_ +sizeof(T)*Nd_*N_+HPoffset;
+    void* new_memory = operator new (msize);
+    Assert(new_memory!=NULL,"Out of memory");
+
+    int offset = sizeof(funProxy<T>)*N_+HPoffset;
+    T* new_data = reinterpret_cast<T*>(static_cast<char*>(new_memory)+offset);
+
+    const funProxy<T>* f_old = f;
+    f = new (new_memory) funProxy<T>[N_];
+
+    // First call the default constructor on all newly allocated data
+    for (int i=0; i<N_; i++)
+      for (int j=0; j<Nd_; j++)
+	new(&new_data[i*Nd_+j])T;
+    
+    for (int i=0; i<N_; i++) f[i].ReInitialize(Nd_, f_old[i].N, new_data+i*Nd_);
+
+    // The old part of the matrix needs to be copied by calling operator=
+    for (int i=0; i<N0; i++)
+      for (int j=0; j<Nd0; j++)
+	new_data[i*Nd_+j] = data[i*Nd0+j];
+    
+    data = new_data;
+    //N = N_;
+    N0 = N_;
+    //Nd = Nd_;
+    Nd0 = Nd_;
+    operator delete(memory);
+    memory = new_memory;
+  }
+  //else{
+  //  N = N_; Nd = Nd_;
+  //}
+}
 
 template <class T>
 inline void function2D<T>::resize_clear(int N_, int Nd_)
@@ -638,6 +759,10 @@ inline void function2D<T>::resize_clear(int N_, int Nd_)
     int offset = sizeof(funProxy<T>)*N+HPoffset;
     data = reinterpret_cast<T*>(static_cast<char*>(memory)+offset);
     for (int i=0; i<N; i++) f[i].Initialize(Nd, data+i*Nd);
+    // Next call the default constructor on all newly allocated data
+    for (int i=0; i<N_; i++)
+      for (int j=0; j<Nd_; j++)
+	new(&data[i*Nd_+j])T; 
   } else{
     N = N_; Nd = Nd_;
   }
@@ -671,6 +796,31 @@ inline void function2D<T>::Set(functor& functn, const function2D<W>& Um)
       f[i][j] = functn(Um[i][j]);
 }
 
+template <class T>
+inline function2D<T>& function2D<T>::minus(const function2D& B, const function2D& C)
+{
+  const T* __restrict__ _B_ = B.MemPt();
+  const T* __restrict__ _C_ = C.MemPt();
+  T* __restrict__ _data_ = data;
+  for (int i=0; i<N; i++){
+    int offset = i*Nd0;
+    for (int j=0; j<Nd; j++) _data_[j+offset] = _B_[j+offset] - _C_[j+offset];
+  }
+  return *this;
+}
+template <class T>
+inline function2D<T>& function2D<T>::plus(const function2D& B, const function2D& C)
+{
+  const T* __restrict__ _B_ = B.MemPt();
+  const T* __restrict__ _C_ = C.MemPt();
+  T* __restrict__ _data_ = data;
+  for (int i=0; i<N; i++){
+    int offset = i*Nd0;
+    for (int j=0; j<Nd; j++) _data_[j+offset] = _B_[j+offset] + _C_[j+offset];
+  }
+  return *this;
+}
+
 // template <class T>
 // inline void function2D<T>::Product(const function2D& A, const function2D& B, const T& alpha=1, const T& beta=0)
 // {
@@ -683,9 +833,9 @@ inline void function2D<T>::Set(functor& functn, const function2D<W>& Um)
 template <class T>
 inline void function2D<T>::Product(const function2D& A, const function2D& B, int start, int end, const T& alpha, const T& beta)
 {
-  if (end==0){end=B.N;}
-  if (A.Nd != B.Nd || !B.N || !A.N || !A.Nd || !B.Nd || N0<A.N || Nd0<end-start || end>B.N || start>=B.N)
-    std::cerr << " Matrix sizes not correct" << std::endl;
+  if (end==-1){end=B.N;}
+  if (A.Nd != B.Nd || !B.N || !A.N || !A.Nd || !B.Nd || N0<A.N || Nd0<end-start || end>B.N || start>=B.N) std::cerr << " Matrix sizes not correct" << std::endl;
+  //cout<<"A.N="<<A.N<<" B.Nd="<<B.Nd<<" B.Nd0="<<B.Nd0<<" A.Nd0="<<A.Nd0<<" Nd0="<<Nd0<<endl;
   xgemm("T", "N", end-start, A.N, B.Nd, alpha, B[start].MemPt(), B.Nd0, A.MemPt(), A.Nd0, beta, MemPt(), Nd0);
   N = A.N; Nd = end-start;  
 }
@@ -1014,6 +1164,14 @@ inline int Eigensystem(fun2D& H, fun1D& E, fun2D& AL, fun2D& AR)
   return 0;
 }
 
+template <class fun2D, class fun1D>
+inline int SymEigensystem(fun2D& H, fun1D& E)
+{
+  static fun1D work(4*H.size_N());
+  xsyev(H.size_N(), H.MemPt(), H.fullsize_Nd(), E.MemPt(), work.MemPt(), work.size(), "V");
+  return 0;
+}
+
 // inline int Eigenvalues(function2D<double>& H, function1D<dcomplex>& E)
 // {
 //   static function1D<double> work(4*H.size_N());
@@ -1023,8 +1181,24 @@ inline int Eigensystem(fun2D& H, fun1D& E, fun2D& AL, fun2D& AR)
 //   xgeev_(H.size_N(), H.MemPt(), H.fullsize_Nd(), E.MemPt(), wr.MemPt(), wi.MemPt(), work.MemPt(), work.size());
 // }
 
-inline double Det(function2D<double>& H)
+inline void dger(function2D<double>& A, double alpha, const functionb<double>& x, const functionb<double>& y)
 {
+  int one=1;
+  int ny = y.size(), nx = x.size();
+  int lda = A.fullsize_Nd();
+  dger_( &ny, &nx, &alpha, y.MemPt(), &one, x.MemPt(), &one, A.MemPt(), &lda);
+}
+inline void dger(double* A, double alpha, const functionb<double>& x, const functionb<double>& y)
+{
+  int one=1;
+  int ny = y.size(), nx = x.size();
+  int lda = ny;
+  dger_( &ny, &nx, &alpha, y.MemPt(), &one, x.MemPt(), &one, A, &lda);
+}
+
+inline double Det(const function2D<double>& A)
+{
+  function2D<double> H(A);
   static function1D<double> work(4*H.size_N());
   static function1D<double> wr(H.size_Nd()), wi(H.size_Nd());
   work.resize(4*H.size_N()); wr.resize(H.size_Nd()); wi.resize(H.size_Nd());
@@ -1033,6 +1207,49 @@ inline double Det(function2D<double>& H)
   for (int i=0; i<H.size_N(); i++) res *= dcomplex(wr[i],wi[i]);
   return res.real();
 }
+
+/*
+inline double Det2(const function2D<double>& A)
+{
+  // solve Ax=B using A=UDU' factorization, D is placed in A
+  // where A represents a qxq matrix, b a 1xq vector
+  function1D<int> ipiv(A.size_Nd());
+  function2D<double> D(A);
+  int info = xgetrf(D.size_Nd(), D.MemPt(), D.fullsize_Nd(), ipiv.MemPt());
+  if( info < 0 ) { cerr<<"In Det and dgetrf the "<<-info<<"-th argument had an illegal value"<<endl;}
+  if( info > 0 ) { cerr<<"In Det and dgetrf the U("<<info<<") is exactly zero and might cause a problem."; }
+  // compute the determinant det = det(A)
+  // if ipiv[i] > 0, then D(i,i) is a 1x1 block diagonal
+  // if ipiv[i] = ipiv[i-1] < 0, then D(i-1,i-1),
+  // D(i-1,i), and D(i,i) form a 2x2 block diagonal
+  double det = 1.0;
+  for(int i = 0; i < A.size_N(); i++ ){
+    if( ipiv[i] > 0){
+      det *= D(i,i);
+    } else if( i > 0 && ipiv[i] < 0 && ipiv[i-1] == ipiv[i]){
+      det *= D(i,i)*D(i-1,i-1) - D(i-1,i)*D(i-1,i);
+    }
+  }
+  return det;
+}
+*/
+template <class container>
+inline double Determinant(const container& A0)
+{
+  if (A0.size_Nd()!=A0.size_N()) {std::cerr<<"Can't compute determinant of nonquadratic matrix!"<<std::endl; return 0;}
+  container A(A0);// copy constructor
+  int info;
+  int n = A.size_N();
+  int lda = A.fullsize_Nd();
+  function1D<int> ipiv(n);
+  dgetrf_(&n, &n, A.MemPt(), &lda, ipiv.MemPt(), &info);
+  if (info) {std::cerr<<"LU factorization complains : "<<info<<std::endl; return 0;}
+  double det = 1;
+  for (int i=0; i<n; i++) det *= ((ipiv[i]==i+1) ? 1 : -1) * A(i,i);
+  return det;
+}
+
+
 
 inline int SymmEigensystem(function2D<dcomplex>& H, function1D<double>& E)
 {
@@ -1056,8 +1273,10 @@ inline void function2D<T>::Product(const std::string& transa, const std::string&
     xgemm(transb, transa, B.Nd, A.N, B.N, alpha, B.MemPt(), B.Nd0, A.MemPt(), A.Nd0, beta, MemPt(), Nd0);
     N = A.N; Nd = B.Nd;
   }else if((transa=="T"||transa=="C") && transb=="N"){
-    if (A.N != B.N || !B.Nd || !A.Nd || !A.N || !B.N || N0<A.Nd || Nd0<B.Nd)
+    if (A.N != B.N || !B.Nd || !A.Nd || !A.N || !B.N || N0<A.Nd || Nd0<B.Nd){
       std::cerr << " Matrix sizes not correct" << std::endl;
+      cout<<"A.N="<<A.N<<" B.N="<<B.N<<" A.Nd="<<A.Nd<<" B.Nd="<<B.Nd<<" N0="<<N0<<" Nd0="<<Nd0<<endl;
+    }
     xgemm(transb, transa, B.Nd, A.Nd, B.N, alpha, B.MemPt(), B.Nd0, A.MemPt(), A.Nd0, beta, MemPt(), Nd0);
     N = A.Nd; Nd = B.Nd;
   }else if (transa=="N" && (transb=="T"||transb=="C")){
@@ -1071,21 +1290,6 @@ inline void function2D<T>::Product(const std::string& transa, const std::string&
     xgemm(transb, transa, B.N, A.Nd, B.Nd, alpha, B.MemPt(), B.Nd0, A.MemPt(), A.Nd0, beta, MemPt(), Nd0);
     N = A.Nd; Nd = B.N;
   }
-}
-
-template <class container>
-double Determinant(container& A)
-{
-  if (A.size_Nd()!=A.size_N()) {std::cerr<<"Can't compute determinant of nonquadratic matrix!"<<std::endl; return 0;}
-  int info;
-  int n = A.size_N();
-  int lda = A.fullsize_Nd();
-  function1D<int> ipiv(n);
-  dgetrf_(&n, &n, A.MemPt(), &lda, ipiv.MemPt(), &info);
-  if (info) {std::cerr<<"LU factorization complains : "<<info<<std::endl; return 0;}
-  double det = 1;
-  for (int i=0; i<n; i++) det *= ((ipiv[i]==i) ? 1 : -1) * A(i,i);
-  return det;
 }
 
 template <int N, int K, int M>
@@ -1163,9 +1367,21 @@ class function3D{
   T* f;
 public:
   int N0, N1, N2;
-  function3D(int N0_, int N1_, int N2_) : N0(N0_), N1(N1_), N2(N2_), f(NULL)
+  function3D() : N0(0), N1(0), N2(0), f(NULL) {};
+  function3D(int N0_, int N1_, int N2_) : f(NULL), N0(N0_), N1(N1_), N2(N2_)
   {
     f = new T[N0*N1*N2];
+  }
+  void resize(int N0_, int N1_, int N2_){
+    int size = N0_*N1_*N2_;
+    if (size > N0*N1*N2){// old storage too small
+      delete[] f;
+      f = new T[N0_*N1_*N2_];
+      if (f==NULL) std::cerr<<"Could not allocate memory for function3D of size "<<size*sizeof(T)/(1024*1024)<<"MB"<<std::endl;
+    }
+    N0 = N0_;
+    N1 = N1_;
+    N2 = N2_;
   }
   ~function3D()
   {
@@ -1177,11 +1393,103 @@ public:
   }
   T& operator()(int i0, int i1, int i2)
   {
+    Assert(i0<N0 && i0>=0 && i1<N1 && i1>=0 && i2<N2 && i2>=0,"Out of range in function3D[] ");
     return f[i2 + N2*(i1 + N1*i0)];
   }
   int ind(int i0, int i1, int i2) const
   {return i2 + N2*(i1 + N1*i0);}
+  double* operator[](int i0)
+  { return &f[N2*N1*i0]; }
+  const double* operator[](int i0) const
+  { return &f[N2*N1*i0]; }
+  function3D& operator*=(const T& c);
+  function3D& operator=(const T& c);
 };
+template <class T>
+function3D<T>& function3D<T>::operator*=(const T& c)
+{
+  for (int i0=0; i0<N0; i0++)
+    for (int i1=0; i1<N1; i1++){
+      T* __restrict__ f = &(operator()(i0,i1,0));
+      for (int i2=0; i2<N2; i2++) f[i2]*=c;
+    }
+  return *this;
+};
+template <class T>
+function3D<T>& function3D<T>::operator=(const T& c)
+{
+  for (int i0=0; i0<N0; i0++)
+    for (int i1=0; i1<N1; i1++){
+      T* __restrict__ f = &(operator()(i0,i1,0));
+      for (int i2=0; i2<N2; i2++) f[i2]=c;
+    }
+  return *this;
+};
+
+template <class T>
+class function4D{
+  T* f;
+public:
+  int N0, N1, N2, N3;
+  function4D() : N0(0), N1(0), N2(0), N3(0), f(NULL) {};
+  function4D(int N0_, int N1_, int N2_, int N3_) : f(NULL), N0(N0_), N1(N1_), N2(N2_), N3(N3_)
+  {
+    f = new T[N0*N1*N2*N3];
+  }
+  void resize(int N0_, int N1_, int N2_, int N3_){
+    int size = N0_*N1_*N2_*N3_;
+    if (size > N0*N1*N2*N3){// old storage too small
+      delete[] f;
+      f = new T[N0_*N1_*N2_*N3_];
+      if (f==NULL) std::cerr<<"Could not allocate memory for function4D of size "<<size*sizeof(T)/(1024*1024)<<"MB"<<std::endl;
+    }
+    N0 = N0_;
+    N1 = N1_;
+    N2 = N2_;
+    N3 = N3_;
+  }
+  ~function4D()
+  {
+    delete[] f;
+  }
+  T operator()(int i0, int i1, int i2, int i3) const
+  {
+    return f[i3 + N3*(i2 + N2*(i1 + N1*i0))];
+  }
+  T& operator()(int i0, int i1, int i2, int i3)
+  {
+    Assert(i0<N0 && i0>=0 && i1<N1 && i1>=0 && i2<N2 && i2>=0 && i3<N3 && i3>=0, "Out of range in function4D[] ");
+    return f[i3 + N3*(i2 + N2*(i1 + N1*i0))];
+  }
+  int ind(int i0, int i1, int i2, int i3) const
+  {return i3 + N3*(i2 + N2*(i1 + N1*i0));}
+  
+  function4D& operator*=(const T& c);
+  function4D& operator=(const T& c);
+};
+template <class T>
+function4D<T>& function4D<T>::operator*=(const T& c)
+{
+  for (int i0=0; i0<N0; i0++)
+    for (int i1=0; i1<N1; i1++)
+      for (int i2=0; i2<N2; i2++){
+	T* __restrict__ fc = &(operator()(i0,i1,i2,0));
+	for (int i3=0; i3<N3; i3++) fc[i3]*=c;
+      }
+  return *this;
+};
+template <class T>
+function4D<T>& function4D<T>::operator=(const T& c)
+{
+  for (int i0=0; i0<N0; i0++)
+    for (int i1=0; i1<N1; i1++)
+      for (int i2=0; i2<N2; i2++){
+	T* __restrict__ fc = &(operator()(i0,i1,i2,0));
+	for (int i3=0; i3<N3; i3++) fc[i3]=c;
+      }
+  return *this;
+};
+
 
 template <class T>
 class function5D{
@@ -1203,6 +1511,7 @@ public:
   }
   T& operator()(int i0, int i1, int i2, int i3, int i4)
   {
+    Assert(i0<N0 && i0>=0 && i1<N1 && i1>=0 && i2<N2 && i2>=0 && i3<N3 && i3>=0 && i4<N4 && i4>=0, "Out of range in function5D[] ");
     return f[i4 + N4*(i3 + N3*(i2 + N2*(i1 + N1*i0)))];
   }
   void resize(int N0_, int N1_, int N2_, int N3_, int N4_)
@@ -1227,7 +1536,7 @@ function5D<T>& function5D<T>::operator*=(const T& c)
     for (int i1=0; i1<N1; i1++)
       for (int i2=0; i2<N2; i2++)
 	for (int i3=0; i3<N3; i3++){
-	  T* f = &(operator()(i0,i1,i2,i3,0));
+	  T* __restrict__ f = &(operator()(i0,i1,i2,i3,0));
 	  for (int i4=0; i4<N4; i4++) f[i4]*=c;
 	}
   return *this;
