@@ -40,14 +40,21 @@ def GetLambdas(UJ_icase, projector_file='projectorw.dat', options_Nk=8):
         lmbda = 0.000001
         epsilon=1.
         if UJ_icase[icase][0]>0:
-            lmbda = optimize.brentq(GetCoulombU, 0., 3., args=(Rx,Ag,Bg,l,Nk,UJ_icase[icase][0]))
+            Uc = UJ_icase[icase][0]
+            lmbda = optimize.brentq(GetCoulombU, 0., 3., args=(Rx,Ag,Bg,l,Nk,Uc))
             epsilon=1.
             if UJ_icase[icase][1]>0:
-                sol = optimize.root(GetCoulombUJ, [lmbda,epsilon], args=(Rx,Ag,Bg,l,Nk,UJ_icase[icase][0],UJ_icase[icase][1]))
+                Jc = UJ_icase[icase][1]
+                sol = optimize.root(GetCoulombUJ, [lmbda,epsilon], args=(Rx,Ag,Bg,l,Nk,Uc,Jc))
                 if sol.success:
                     (lmbda,epsilon) = sol.x
                 else:
                     print 'ERROR:', sol.message
+            if len(UJ_icase[icase])>3 :
+                nfraction = UJ_icase[icase][3]
+                lmbda *= nfraction
+                Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,False)
+                epsilon = Fk[0]/Uc
         
         print 'lambda=', lmbda, 'epsilon=', epsilon
         Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,True)

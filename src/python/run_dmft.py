@@ -859,6 +859,12 @@ if __name__ == '__main__':
 
 
     if p['DCs'][:5]=='exact':
+        Nmax=[]
+        for i in iSigind.keys():
+            ic = icols_ind[i][0]
+            iatom, l, qsplit = inl.cps[ic][0]  # Doesn't take into account cluster problems correctly
+            Nmax.append(2*(2*l+1))
+
         # Finds connection between impurity and projector
         impurity_projector = Connect_ImpurityProjector(icols_ind,iSigind,struct)
         print >> fh_info, 'connection -- impurity_projector=', impurity_projector
@@ -873,14 +879,26 @@ if __name__ == '__main__':
             lmbda=1e-6
             if p[iprms].has_key('DC_lmbda'): # if user wants to use finite lambda with exactd DC, it should set iparamsx['DC_lmbda']
                 lmbda = p[iprms]['DC_lmbda'][0]
-            UJ_icase[icase]=[U,JH,lmbda]       # Saves U into U_icase, which is needed below to compute lambda
+            nfraction=1.0
+            if p[iprms].has_key('nf0'):
+                n0 = p[iprms]['nf0'][0]
+                nfraction = (Nmax[imp]-n0)/(Nmax[imp]+0.0)
+            UJ_icase[icase]=[U,JH,lmbda,nfraction]       # Saves U into U_icase, which is needed below to compute lambda
+        
+        print 'UJ_icase=', UJ_icase
         
         import RCoulombU
-        if len(p['DCs'])>5 and p['DCs'][:6]=='exactd':
+        if len(p['DCs'])>5 and p['DCs'][:6]=='exactd':      # epsilon screening
+            print 'Have exactd!'
             UlamJ = RCoulombU.GetDielectricFunctions(UJ_icase)  # Computes dielectric function epsilon and sets yukawa lambda=1e-6
-        else:
+        elif len(p['DCs'])>5 and p['DCs'][:6]=='exacty':    # yukawa screening
+            for icase in UJ_icase.keys():
+                UJ_icase[icase][3]=1.0 # all nfractions equal to 1.0, hence yukawa
             print 'UJ_icase=', UJ_icase
             UlamJ = RCoulombU.GetLambdas(UJ_icase) # Computes yukawa lambda and dielectric function so that they match user defined U & J.
+        else :  # mixure between exactd and exacty
+            print 'UJ_icase=', UJ_icase
+            UlamJ = RCoulombU.GetLambdas(UJ_icase)
             
         for imp,icase in enumerate(impurity_projector): # Saves into impurity
             iprms = 'iparams'+str(imp)
@@ -923,7 +941,6 @@ if __name__ == '__main__':
 
     shutil.copy2(dmfe.ROOT+'/dmft', '.')  # For parallel execution, executable has to be on the current directory
     shutil.copy2(dmfe.ROOT+'/dmft2', '.') # For parallel execution, executable has to be on the current directory
-
 
     if os.path.isfile(w2k.case+".incup") and os.path.isfile(w2k.case+".incdn") and os.path.getsize(w2k.case+".incup")>0 and os.path.getsize(w2k.case+".incdn")>0:
         wopt['updn']=True # Computing J_Hunds by constrained-DMFT, hence need different core density for up and dn spin.

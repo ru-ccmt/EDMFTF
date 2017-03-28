@@ -191,6 +191,10 @@ subroutine CorLDA(Ec,Vc,rs)
   Vc = Ec - rs*Ecrs/3.
   Vc = Vc*H2Ry  ! From Hartree to Rydbergs
   Ec = Ec*H2Ry  ! From Hartree to Rydbergs
+  !if (ISNAN(GG)) then
+  !print *, 'rs=', rs, 'RS12=', RS12, 'RS32=', RS32, 'RSP=', RSP, 'Q1=', Q1, 'Q2=', Q2, 'GG=', GG, 'GGRS=', GGRS
+  !endif
+  !print *, 'rs=', rs, Ec, Vc
 end subroutine CorLDA
 
 subroutine CorrLDA(Ec, Vc, rsi, lambda, N)
@@ -230,6 +234,10 @@ subroutine EcVc_reduce_di_2(rs,eps,fn,qn,N)
   cd = (/3.64370598, 0.03636027, -0.03886317, 0.00693599/)
 
   do i=1,N
+     if (rs(i) .gt. 40) then
+        qn(i)=0.0
+        CYCLE
+     endif
      a = ca(1) + rs(i) * ca(2) + rs(i)**2 * ca(3)
      b = 0.001*(cb(1)*sqrt(rs(i))+cb(2)*rs(i))/(1+ (cb(3)*rs(i))**9)
      d = cd(1) + rs(i) * cd(2) + rs(i)**2 * cd(3) + rs(i)**3 * cd(4)
@@ -330,7 +338,12 @@ subroutine CorrLDA_2(Ec, Vc, rs, lambda, eps, N)
      CALL CorLDA(Ec(i),Vc(i),rs(i))
   enddo
   CALL EcVc_reduce_yw_2(rs,lambda,fn_l,qn_l,N)
+  !print *, 'l=', lambda, 'fn_l=', fn_l
+  !print *, 'rs=', rs, 'qn_l=', qn_l
   CALL EcVc_reduce_di_2(rs,eps,fn_e,qn_e,N)
+  !print *, 'e=', eps, 'fn_e=', fn_e
+  !print *, 'rs=', rs, 'qn_e=', qn_e
+
   fn(:) = fn_l(:)*fn_e(:)
   qn(:) = qn_l(:)*fn_e(:)+fn_l(:)*qn_e(:)
   

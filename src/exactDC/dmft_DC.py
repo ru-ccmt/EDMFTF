@@ -1,5 +1,5 @@
-# @Copyright 2007 Kristjan Haule
 #!/usr/bin/env python
+# @Copyright 2007 Kristjan Haule
 import argparse
 from scipy import *
 #from pylab import *
