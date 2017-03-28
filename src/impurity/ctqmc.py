@@ -86,7 +86,9 @@ class IMP_CTQMC(object):
             print >> fh_T
 
         # parameters, which will be given to ctqmc and will be written to PARAMS
-        self.sparams={'exe':'ctqmc', 'Sig':'Sig.out', 'Delta':'Delta.inp', 'cix':'actqmc.cix', 'nom':100, 'aom':5, 'sderiv': 0.02, 'Ntau':1000, 'SampleGtau':1000, 'Naver':100000000, 'Ncout':1000000, 'Nmax':1024, 'GlobalFlip':1000000, 'Gf':'Gf.out', 'OffDiagonal':'real'}
+        _nom_ = 100
+        if params.has_key('beta'): _nom_ = int(3*params['beta'][0])
+        self.sparams={'exe':'ctqmc', 'Sig':'Sig.out', 'Delta':'Delta.inp', 'cix':'actqmc.cix', 'nom':_nom_, 'mode':'GH', 'aom':1, 'Ncout':1000000, 'GlobalFlip':1000000, 'Gf':'Gf.out', 'OffDiagonal':'real'}
 
         # If old distribution of kinks exists, it is copied to imp directory
         status = glob.glob("status.*")
@@ -108,7 +110,7 @@ class IMP_CTQMC(object):
 
         # The following variables will be set by the following procedure:
         #   if the variable is defined in params, it takes its value from params otherwise it checks its definition in database
-        vars = ['l', 'para', 'qOCA', 'kOCA', 'mOCA', 'Ex', 'Ep', 'J', 'cx', 'Eoca', 'qatom', 'n', 'Ekeep', 'Nmax', 'Ekeepc', 'Nmaxc', 'Ewindow', 'max_M_size', 'CoulombF', 'OCA_G', 'add_occupancy', 'HB2']
+        vars = ['l', 'para', 'qOCA', 'kOCA', 'mOCA', 'Ex', 'Ep', 'J', 'cx', 'Eoca', 'qatom', 'n', 'Ekeep', 'Ekeepc', 'Nmaxc', 'Ewindow', 'max_M_size', 'CoulombF', 'add_occupancy', 'HB2']
         
         self.spr={}
         for var in vars:
@@ -118,7 +120,8 @@ class IMP_CTQMC(object):
                 self.spr[var] = database[var]
             if params.has_key('atom_'+var):
                 self.spr[var] = params['atom_'+var][0]
-                
+        
+        self.spr['OCA_G']=False # no need for oca diagrams here
         # Some variables have different name in database and input file
         # spr['n'] -- params['nc']  -- database['n']
         if params.has_key('nc'):

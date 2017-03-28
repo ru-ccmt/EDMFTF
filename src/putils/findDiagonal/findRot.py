@@ -79,9 +79,15 @@ if __name__ == '__main__':
 
         if so:
             T2Cnew = f5dr.GiveNewT2C(hc, T2C)
+            inext=1
+            for i in range(len(Sigind)):
+                if Sigind[i,i]>0:
+                    Sigind[i,i] = inext;
+                    inext += 1
         else:
             T2Cnew = f3dr.GiveNewT2C(hc, T2C)
         
         inl.cftrans[icix][:len(hc),:] = T2Cnew[:,:]
+        
     shutil.copy(w2k.case+'.indmfl', w2k.case+'.indmfl_findRot')
     inl.write(w2k.case+'.indmfl', only_write_stored_data=True)

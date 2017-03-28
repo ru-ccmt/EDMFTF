@@ -211,9 +211,9 @@ CTQMC<Rand>::CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nma
   NGtv(0), gsign(1), asign(0), asign_fast(0), ratio_minM(minM), ratio_minD(minD), successfullC(common::N_ifl), successfullM(common::N_ifl)
 {
 
-  cerr<<"Zatom="<<cluster.Zatom<<" log(Zatom)="<<cluster.Zatom.exp_dbl()<<endl;
-  (*xout)<<"log(Zatom)="<<cluster.Zatom.exp_dbl()<<endl;
-
+  //cerr<<"Zatom="<<cluster.Zatom<<" log(Zatom)="<<cluster.Zatom.exp_dbl()<<endl;
+  //(*xout)<<"log(Zatom)="<<cluster.Zatom.exp_dbl()<<endl;
+  
   // all atomic states are generated
   for (int j=0; j<npraStates.size(); j++) npraStates[j].SetPraState(j,cluster);
 
@@ -2675,10 +2675,22 @@ double CTQMC<Rand>::sample(long long max_steps)
     succM += successfullM[ifl];
     succAR += successfullC[ifl];
   }
-  (*yout)<<"Acceptance ratio: add/rm="<<succAR/(max_steps*common::PChangeOrder)<<"  mv="<<succM/(max_steps*(1.-common::PChangeOrder+1e-20))<<" number of accepted steps="<<successful<<" sign at finish "<<gsign<<endl;
-  for (int ifl=0; ifl<common::N_ifl; ifl++){
-    (*yout)<<"acceptance add/rm for orbital ["<<ifl<<"]="<<setw(7)<<std::left<<successfullC[ifl]/static_cast<double>(successful)<<" "<<std::right;
-    (*yout)<<"acceptance  move  for orbital ["<<ifl<<"]="<<setw(7)<<std::left<<successfullM[ifl]/static_cast<double>(successful)<<" "<<std::right<<endl;
+
+  if (common::my_rank==0){
+    (*xout)<<"Acceptance ratio: add/rm="<<succAR/(max_steps*common::PChangeOrder)<<"  mv="<<succM/(max_steps*(1.-common::PChangeOrder+1e-20))<<" number of accepted steps="<<successful<<" sign at finish "<<gsign<<endl;
+    for (int ifl=0; ifl<common::N_ifl; ifl++){
+      (*xout)<<"acceptance add/rm for orbital ["<<ifl<<"]="<<setw(7)<<std::left<<successfullC[ifl]/static_cast<double>(successful)<<" "<<std::right;
+      (*xout)<<"acceptance  move  for orbital ["<<ifl<<"]="<<setw(7)<<std::left<<successfullM[ifl]/static_cast<double>(successful)<<" "<<std::right<<endl;
+    }
+#ifdef _TIME
+    (*xout)<<"t_add="<<t_add.elapsed()<<" t_rm="<<t_rm.elapsed()<<" t_mv="<<t_mv.elapsed();
+    (*xout)<<" t_accept="<<t_accept.elapsed()<<" t_measure="<<t_measure.elapsed();
+    (*xout)<<" t_trial1="<<t_trial1.elapsed()<<" t_trial2="<<t_trial2.elapsed()<<" t_trial3="<<t_trial3.elapsed();
+    (*xout)<<" t_g="<<t_g.elapsed();
+    if (common::QHB2) (*xout)<<" t_f="<<t_f.elapsed()<<" t_nj="<<t_nj.elapsed()<<" t_fgf="<<t_fgf.elapsed();
+    if (common::SampleVertex>0) (*xout)<<" t_vh="<<t_vh.elapsed();
+    (*xout)<<endl;
+#endif  
   }
   // HERE YOU SHOULD CHECK GTAU VARIATION
   return aver_observables[0];
@@ -3180,8 +3192,17 @@ int main(int argc, char *argv[])
   int my_rank, mpi_size, Master;
   MPI_Init(argc, argv, my_rank, mpi_size, Master);
 
-  if (mpi_size>1){
-    yout = new ofstream(NameOfFile("nohup_imp.out",my_rank).c_str());
+  if (mpi_size>1){ // we have parallel run
+    string filename = NameOfFile("nohup_imp.out",my_rank); // each processor has his own log-file
+#ifdef _DEBUG
+    yout = new ofstream(filename.c_str());  // in debug mode all processor print out where they are
+#else
+    if (my_rank==Master){                   // in non-debug mode, we print only on master
+      yout = new ofstream(filename.c_str());
+    }else{
+      yout = new ofstream("/dev/null");    // the rest of processors are redirected to /dev/null. Otherwise it slows down the code...
+    }
+#endif
   }else{
     yout = &cout;
   }
@@ -3523,6 +3544,8 @@ int main(int argc, char *argv[])
   
   int cNmax = Nmax_from_StatusFiles(my_rank);
   cNmax = max(Nmax,cNmax);
+  
+  if (my_rank==Master) (*xout)<<"log(Zatom)="<<cluster.Zatom.exp_dbl()<<endl;
   
   CTQMC<RanGSL> ctqmc(rand, cluster, BathP, cNmax, iom_large, Deltaw, svd, ah, nom, nomv, nomb, nOm, Ntau, minM, minD, my_rank==Master);
 

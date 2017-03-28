@@ -584,15 +584,24 @@ def test2(fin, fout, Norder):
 
     
 if __name__ == '__main__':
+    import sys
 
     #test6('sig.inpx',340,40)
     #sys.exit(0)
 
 
-    dat=loadtxt('sig.inpx').transpose()
+    dat=loadtxt('Gf.out').transpose()
     om=dat[0]
-    Gm=dat[1]+dat[2]*1j
-    test1(om,Gm,'fermi',0.001,300,35)
+    execfile('maxent_params.dat')
+    beta = pi/om[0]
+    tau = linspace(0,beta,params['Ntau']+1)
+
+    for i in range(len(dat)/2):
+        Gm=dat[2*i+1]+dat[2*i+2]*1j
+        Gt = InverseFourier(Gm, om, tau, beta,  params['Nf'], params['statistics'])
+        savetxt('Gtau.dat.'+str(i), vstack((tau,Gt)).transpose() )
+        (Aw, omega) = MaximumEntropy(params, tau, Gt)
+        savetxt('Aw.dat.'+str(i), vstack((omega,Aw)).transpose() )
     sys.exit(0)
     
     

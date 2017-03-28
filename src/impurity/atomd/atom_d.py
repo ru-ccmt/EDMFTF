@@ -1557,32 +1557,52 @@ def FastIsing(Nrange):
     if HB2 : print >> fcix, 'HB2'
     else: print >> fcix, 'HB1'
     
+
     if (HB2 and Q3d):
-        print >> fcix, "# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"
-        for bs1,m1 in enumerate(bath):
-            s1 = (bs1*2)/len(bath)
+        ii=0
+        iind={}
+        for i1,bs1 in enumerate(baths):
+            m1 = bs1[0]
+            s1 = bs1[1]
             if m1 not in bkeep: continue
-            for bs2,m2 in enumerate(bath):
-                s2 = (bs2*2)/len(bath)
+            iind[i1]=ii
+            ii+=1
+        print >> fcix, "# UCoulomb : (m1,s1) (m2,s2) (m3,s2) (m4,s1)  Uc[m1,m2,m3,m4]"
+        for i1,bs1 in enumerate(baths):
+            m1 = bs1[0]
+            s1 = bs1[1]
+            if m1 not in bkeep: continue
+            for i2,bs2 in enumerate(baths):
+                m2 = bs2[0]
+                s2 = bs2[1]
                 if m2 not in bkeep: continue
-                for bs3,m3 in enumerate(bath):
-                    s3 = (bs3*2)/len(bath)
+                for i3,bs3 in enumerate(baths):
+                    m3 = bs3[0]
+                    s3 = bs3[1]
+                    if (s2!=s3): continue
                     if m3 not in bkeep: continue
-                    Uc = 0.0
-                    if s2==s3:
-                        if s1==s2: Uc = UHa[m1,m2,m3]-UFo[m1,m2,m3] # Equal spins: Hartree and Fock
-                        else: Uc = UHa[m1,m2,m3], # Opposite spins: Hartree Only
-                    print >> fcix, "%10.6f" % Uc,
-                print >> fcix
-    
+                    for i4,bs4 in enumerate(baths):
+                        m4 = bs4[0]
+                        s4 = bs4[1]
+                        if (s4!=s1): continue
+                        if m4 not in bkeep: continue
+                        Uc = 0.0
+                        for k in range(0,l+1):
+                            Uc += real(UC[k,m1,m2,m3,m4])*Fk[k,l]
+                        if abs(Uc)>1e-6:
+                            print >> fcix, "%2d %2d %2d %2d  %12.8f" % (iind[i1],iind[i2],iind[i3],iind[i4],Uc)
+
     if (HB2 and not Q3d):
-        print >> fcix, "# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"
-        for bs1 in bath:
-            for bs2 in bath:
-                for bs3 in bath:
-                    Uc = UHa[bs1,bs2,bs3]-UFo[bs1,bs2,bs3] # Hartree and Fock
-                    print >> fcix, "%10.6f" % Uc,
-                print >> fcix
+        print >> fcix, "# UCoulomb : (m1,s1) (m2,s2) (m3,s2) (m4,s1)  Uc[m1,m2,m3,m4]"
+        for bs1 in bkeep:
+            for bs2 in bkeep:
+                for bs3 in bkeep:
+                    for bs4 in bkeep:
+                        Uc = 0.0
+                        for k in range(0,l+1):
+                            UC += real(UC[k,bs1,bs2,bs3,bs4])*Fk[k,l]
+                        if abs(Uc)>1e-6:
+                            print >> fcix, "%2d %2d %2d %2d  %12.8f" % (bs1,bs2,bs3,bs4,Uc)
     
                 
     print >> fcix, '# number of operators needed'
@@ -1640,7 +1660,7 @@ if __name__ == '__main__':
     CoulombF = 'Full' #'Bulla_Jarrel' #'Full' # 'Bulla_Jarrel' # 'Full' 'Oles'
     OCA_G=True
     PrintReal=True
-    HB2 = False
+    HB2 = True
     Eimp = [0.0]
     Nmax = 1024
     para=1
@@ -1931,16 +1951,16 @@ if __name__ == '__main__':
     else:
         nw=2*(2*l+1)
     
-    if (HB2):
-        # New for self-energy sampling
-        UHa=zeros((nw,nw,nw))
-        UFo=zeros((nw,nw,nw))
-        for m1 in range(nw):
-            for m2 in range(nw):
-                for m3 in range(nw):
-                    for k in range(0,l+1):
-                        UHa[m1,m2,m3] += real(UC[k,m1,m2,m3,m1])*Fk[k,l]
-                        UFo[m1,m2,m3] += real(UC[k,m1,m2,m1,m3])*Fk[k,l]
+    #if (HB2):
+    #    # New for self-energy sampling
+    #    UHa=zeros((nw,nw,nw))
+    #    UFo=zeros((nw,nw,nw))
+    #    for m1 in range(nw):
+    #        for m2 in range(nw):
+    #            for m3 in range(nw):
+    #                for k in range(0,l+1):
+    #                    UHa[m1,m2,m3] += real(UC[k,m1,m2,m3,m1])*Fk[k,l]
+    #                    UFo[m1,m2,m3] += real(UC[k,m1,m2,m1,m3])*Fk[k,l]
 
     if Nrange:
         FastIsing(Nrange)
@@ -2572,7 +2592,7 @@ if __name__ == '__main__':
             OCAF.sort(lambda x,y: cmp(y[1],x[1]))
             for i in range(len(OCAF)):
                 excitedE = [Eq[j]-Egs[j] for j in OCAF[i][0]]
-                states_involved = [pu[l] for l in OCAF[i][0][:4]]
+                states_involved = [pu[lx] for lx in OCAF[i][0][:4]]
                 #print states_involved
                 if (-1 in states_involved): continue  # One of the states is not considered
                 if max(excitedE)>Eoca:  continue      # We take it into account only if all states that are involved, have energy close to the ground state energy for this occupancy
@@ -2724,25 +2744,14 @@ if __name__ == '__main__':
     else: print >> fcix, 'HB1'
 
     if (HB2 and Q3d):
-        #print >> fcix, "# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"
-        #for bs1 in baths:
-        #    m1 = bs1[0]
-        #    s1 = bs1[1]
-        #    if m1 not in bkeep: continue
-        #    for bs2 in baths:
-        #        m2 = bs2[0]
-        #        s2 = bs2[1]
-        #        if m2 not in bkeep: continue
-        #        for bs3 in baths:
-        #            m3 = bs3[0]
-        #            s3 = bs3[1]
-        #            if m3 not in bkeep: continue
-        #            Uc = 0.0
-        #            if s2==s3:
-        #                if s1==s2: Uc = UHa[m1,m2,m3]-UFo[m1,m2,m3] # Equal spins: Hartree and Fock
-        #                else: Uc = UHa[m1,m2,m3], # Opposite spins: Hartree Only
-        #            print >> fcix, "%10.6f" % Uc,
-        #        print >> fcix
+        ii=0
+        iind={}
+        for i1,bs1 in enumerate(baths):
+            m1 = bs1[0]
+            s1 = bs1[1]
+            if m1 not in bkeep: continue
+            iind[i1]=ii
+            ii+=1
         print >> fcix, "# UCoulomb : (m1,s1) (m2,s2) (m3,s2) (m4,s1)  Uc[m1,m2,m3,m4]"
         for i1,bs1 in enumerate(baths):
             m1 = bs1[0]
@@ -2766,10 +2775,10 @@ if __name__ == '__main__':
                         for k in range(0,l+1):
                             Uc += real(UC[k,m1,m2,m3,m4])*Fk[k,l]
                         if abs(Uc)>1e-6:
-                            print >> fcix, "%2d %2d %2d %2d  %12.8f" % (i1,i2,i3,i4,Uc)
+                            print >> fcix, "%2d %2d %2d %2d  %12.8f" % (iind[i1],iind[i2],iind[i3],iind[i4],Uc)
 
     if (HB2 and not Q3d):
-        print >> fcix, "# Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"
+        print >> fcix, "# UCoulomb : (m1,s1) (m2,s2) (m3,s2) (m4,s1)  Uc[m1,m2,m3,m4]"
         for bs1 in bkeep:
             for bs2 in bkeep:
                 for bs3 in bkeep:
