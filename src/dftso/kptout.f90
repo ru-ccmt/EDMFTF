@@ -57,11 +57,20 @@ subroutine kptout(ss,bname,weight,ikp,kv,jspin,nv,ne,must_compute)
         endif
      endif
      if (.not.vector_para) then
+        if (.not.must_compute) then 
+           nv_plus_nnrlo = nv(1)+nnrlo          ! all G's incluing local orbitals and p1/2 states
+           allocate(kt(3,nv_plus_nnrlo))          ! so that send-receive will work
+           allocate(vt(nv_plus_nnrlo,neig) )           
+        endif
         ! if vector_para=False, all but master node did not write anythning yet.
         ! It needs to communicate its results with master node
         !call mpi_SendReceive1(ss,weight,bname,nv_plus_nnrlo,neig,kt,isi,jspin,must_compute)
         !call mpi_SendReceive2(en(:neig),vt,nv_plus_nnrlo,isi,neig,must_compute)
         call mpi_SendReceive12(ss,weight,bname, en(:neig),vt, nv_plus_nnrlo,neig,kt,isi,jspin,must_compute)
+        if (.not.must_compute) then 
+           deallocate(kt)
+           deallocate(vt)           
+        endif
      endif
      if (must_compute) then
         deallocate( kt )

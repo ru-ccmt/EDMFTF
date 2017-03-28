@@ -11,7 +11,7 @@ PROGRAM lapwso
   USE rotmat, ONLY: allocate_rotmat, det
   USE vns, ONLY: allocate_vns
   USE ams, ONLY: init_ams
-  USE hmsout, ONLY: deallocate_hmsout
+  USE hmsout, ONLY: deallocate_hmsout, allocate_hmsout
   USE meigve_mod, ONLY: meigve
   USE param, ONLY: hblock, labc, labc2, lmax, lomax, nato, ndif, nloat, nmat, nrad, num2, nume, nume2, filename_V_sp !,  , filename_V_sp, filename_V_vns
   USE mpi, ONLY: Qprint, FilenameMPI, FilenameMPI2, start_MPI, stop_MPI, myrank, master, vector_para, nprocs, filename_vector, filename_energy, filename_vectorso, filename_energyso, filename_norm, ikps, Scatter_Vector_data, mpi_bcast_V_vsp, pr_proc, WriteProcesses
@@ -401,6 +401,8 @@ PROGRAM lapwso
         call cputim(dtime1)
         cp(3)=cp(3)+dtime1-dtime0
         deallocate(vec)
+     else
+        CALL allocate_hmsout(nmat,nume2)
      endif
   
      call cputim(dtime0)     
@@ -408,9 +410,9 @@ PROGRAM lapwso
      call cputim(dtime1)
      cp(4)=cp(4)+dtime1-dtime0
      
-     if (must_compute) then
-        call deallocate_hmsout
-     endif
+     !if (must_compute) then
+     call deallocate_hmsout
+     !endif
      
   ENDDO
   call cputim(dt4)
