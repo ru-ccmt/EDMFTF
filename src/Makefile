@@ -31,6 +31,7 @@ install :
 	cp impurity/atomd/atom_d.py ${DESTDIR}/
 	cp impurity/atom_ctqmc/atomh ${DESTDIR}/
 	cp impurity/ctqmc/ctqmc ${DESTDIR}/
+	cp impurity/ctqmc/ctqmcf ${DESTDIR}/
 	cp impurity/*.py ${DESTDIR}/
 	cp impurity/link/link.py ${DESTDIR}/
 	cp dmft2/dmft2 ${DESTDIR}/

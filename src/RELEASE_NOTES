@@ -1,6 +1,38 @@
 New in this version
 
-1) Ferromagnetic metals now work even in the absence of SO. One needs to prepare
+1) CTQMC was substantially reconfigured. The Green's function or self-energy 
+  (or even the two particle vertex) can now be sampled both in the Matsubara frequency (old way)
+   and in more efficient SVD basis ( These are SVD vectors of the analytic continuation kernel). 
+   This last method removes all noise at intermediate frequency.
+
+   We also made all arrays dynamic, so that Nmax variable (maximum perturbation order) is not needed anymore.
+
+   Acceptance step was speed up substantially by taking into account proportionality of the state_evolutions.
+
+   The self-energy sampling should now work in general, although it seems to have some issue in non-segment picture.
+
+   The exchange move was implemented in general case. We added a set of new variables, in particular mode. 
+   The new tutorial on ctqmc explains all details of the ctqmc:
+
+   http://hauleweb.rutgers.edu/tutorials/Tutorial0.html
+
+2) Spin-orbit coupling should be much faster now with MPI communication for both lapw1 and lapwso. 
+   When we deal with large vector files, we can now use efficient mpi parallelization and 
+   distribute vectors over many processors, or, merge into a single vector file through
+   MPI calls. Both ways should work.
+
+3) Resonant X-ray  scattering implemented, although not documented yet.
+
+4) more user frienly scripts : findRot.py, local_axis.py and local2global.py
+
+5) dmft1 now uses less memory, hence larger unit cell should now work.
+
+6) Exact double couniting should work now. We have "exactd" (better for insulators), 
+   "exact" and "exacty" (better for metals), which differ in real space screening.
+
+7) Optimization of structures should work now.
+
+8) Ferromagnetic metals now work even in the absence of SO. One needs to prepare
    case.indmfldn (for spin-down) as well as case.indmfl (for spin-up) file. 
    The impurity input file case.indmfi should ecompass both spin-up and spin-down
    components.
@@ -9,34 +41,30 @@ New in this version
    in the presence of both spins. The dmft2 calculation will then skip recomputing 
    the chemical potentail.
 
-2) Forces are implemented. They seem to work, but one needs to be careful
-   as they are new.
+9) Forces are implemented and work.
 
-3) ctqmc is much better now for 'Ising' interaction, i.e., much more
+10)ctqmc is much better now for 'Ising' interaction, i.e., much more
    trial steps are accepted. It seems slower for the same M, but it
    has roughly 5-times better statistics, or, it is 3-times more
    efficient. New Monte-Carlo step is implemented, which considerably
    reduces auto-correlation time.
 
-4) total energies are working. They are printed in info.iterate. In
+11)total energies are working. They are printed in info.iterate. In
    addition, free energy can be calculated. We print F+T*S_imp. One
    can also calculate S_imp (by raising the temperature in impurity
    calculation) and get DMFT free energy.
 
-5) Double countings have changed. In addition to the old "nominal"
+12)Double countings have changed. In addition to the old "nominal"
    double counting, we support now "exact" double counting, and 
    "exactd" double counting, as well as well as
    other standard forms such as fully localized ("FLL") and around
    mean field ("AMF").
-  "exactd" uses dielectric screening model, while "exact" uses Yukawa model
-  for real space Coulomb interaction.
-  The double-countings are:
-   -exact  : uses Yukawa model for screened interaction in real space
-   -exactd : uses dielectric model for screened interaction in real space
-   -
+  "exactd" uses dielectric screening model, while "exacty" uses Yukawa model
+  for real space Coulomb interaction. "exact" is a mixture of the two, which 
+  should be more universal.
 
 
-6) Much more flexible projectors are now implemented. For example,
+13)Much more flexible projectors are now implemented. For example,
    projector4 is similar to projector2, however, it projects to the
    same set of bands throughout the Brillouin zone. Projector5 also
    projects to the fixed set of bands, but it can take an arbitrary
@@ -46,7 +74,7 @@ New in this version
    wave function can extend arbitrary far into interstitial. To use
    that, an extra radius should be set in case.indmfl file.
 
-7) several bug fixes....
+14) several bug fixes....
 
 
 ----------------------------------------------
