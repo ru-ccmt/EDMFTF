@@ -104,11 +104,20 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     ssize = RealSigma.size()+1+ImagSigma.size()+1;
   }
   
-  MPI::COMM_WORLD.Bcast(&isize, 1, MPI::INT, Master);
-  MPI::COMM_WORLD.Bcast(&dsize, 1, MPI::INT, Master);
-  MPI::COMM_WORLD.Bcast(&ssize, 1, MPI::INT, Master);  
-  MPI::COMM_WORLD.Bcast(&QHB1, 1, MPI::BOOL, Master);
-  MPI::COMM_WORLD.Bcast(&common::QHB2, 1, MPI::BOOL, Master);
+  //MPI::COMM_WORLD.Bcast(&isize, 1, MPI::INT, Master);
+  MPI_Bcast(&isize, 1, MPI_INT, Master, MPI_COMM_WORLD);
+  //MPI::COMM_WORLD.Bcast(&dsize, 1, MPI::INT, Master);
+  MPI_Bcast(&dsize, 1, MPI_INT, Master, MPI_COMM_WORLD);
+  //MPI::COMM_WORLD.Bcast(&ssize, 1, MPI::INT, Master);  
+  MPI_Bcast(&ssize, 1, MPI_INT, Master, MPI_COMM_WORLD);  
+  //MPI::COMM_WORLD.Bcast(&QHB1, 1, MPI::BOOL, Master);
+  int HB1 =  static_cast<int>(QHB1); // need to convert to int, as C does not have bool type
+  MPI_Bcast(&HB1, 1, MPI_INT, Master, MPI_COMM_WORLD);
+  QHB1 = static_cast<bool>(HB1);
+  //MPI::COMM_WORLD.Bcast(&common::QHB2, 1, MPI::BOOL, Master);
+  int HB2 = static_cast<int>(common::QHB2); // need to convert to int, as C does not have bool type
+  MPI_Bcast(&HB2, 1, MPI_INT, Master, MPI_COMM_WORLD);
+  common::QHB2 = static_cast<bool>(HB2);
   
   int* ibuff = new int[isize];
   double* dbuff = new double[dsize];
@@ -294,9 +303,12 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
 
   
   //common::gout<<my_rank<<": Before second bcast"<<endl;
-  MPI::COMM_WORLD.Bcast(ibuff, isize, MPI::INT, Master);
-  MPI::COMM_WORLD.Bcast(dbuff, dsize, MPI::DOUBLE, Master);
-  MPI::COMM_WORLD.Bcast(sbuff, ssize, MPI::CHAR, Master);
+  //MPI::COMM_WORLD.Bcast(ibuff, isize, MPI::INT, Master);
+  MPI_Bcast(ibuff, isize, MPI_INT, Master, MPI_COMM_WORLD);
+  //MPI::COMM_WORLD.Bcast(dbuff, dsize, MPI::DOUBLE, Master);
+  MPI_Bcast(dbuff, dsize, MPI_DOUBLE, Master, MPI_COMM_WORLD);
+  //MPI::COMM_WORLD.Bcast(sbuff, ssize, MPI::CHAR, Master);
+  MPI_Bcast(sbuff, ssize, MPI_CHAR, Master, MPI_COMM_WORLD);
   //common::gout<<my_rank<<": After second bcast"<<endl;
   
   if (my_rank!=Master){
@@ -667,7 +679,8 @@ void BCastDelta(int my_rank, int Master, mesh1D& iom_large, function2D<dcomplex>
   }
 
   // only sizes are brodcast
-  MPI::COMM_WORLD.Bcast(isize, 4, MPI::INT, Master);
+  //MPI::COMM_WORLD.Bcast(isize, 4, MPI::INT, Master);
+  MPI_Bcast(isize, 4, MPI_INT, Master, MPI_COMM_WORLD);
   // Vectors might not be implemented in a simple way. Changing vector to plane array.
   ah_buf = new double[isize[3]*2];
   
@@ -681,10 +694,13 @@ void BCastDelta(int my_rank, int Master, mesh1D& iom_large, function2D<dcomplex>
     Deltaw.resize(isize[1],isize[2]);
   }
 
-  MPI::COMM_WORLD.Bcast(iom_large.MemPt(), isize[0], MPI::DOUBLE, Master);
+  //MPI::COMM_WORLD.Bcast(iom_large.MemPt(), isize[0], MPI::DOUBLE, Master);
+  MPI_Bcast(iom_large.MemPt(), isize[0], MPI_DOUBLE, Master, MPI_COMM_WORLD);
   int Deltaw_size = isize[1]*isize[2];
-  MPI::COMM_WORLD.Bcast(Deltaw.MemPt(), Deltaw_size, MPI::DOUBLE_COMPLEX, Master);
-  MPI::COMM_WORLD.Bcast(ah_buf, isize[3]*2, MPI::DOUBLE, Master);
+  //MPI::COMM_WORLD.Bcast(Deltaw.MemPt(), Deltaw_size, MPI::DOUBLE_COMPLEX, Master);
+  MPI_Bcast(Deltaw.MemPt(), Deltaw_size, MPI_DOUBLE_COMPLEX, Master, MPI_COMM_WORLD);
+  //MPI::COMM_WORLD.Bcast(ah_buf, isize[3]*2, MPI::DOUBLE, Master);
+  MPI_Bcast(ah_buf, isize[3]*2, MPI_DOUBLE, Master, MPI_COMM_WORLD);
   
   if (my_rank!=Master){
     iom_large.SetUp(0);
