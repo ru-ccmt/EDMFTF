@@ -214,6 +214,7 @@ public:
   int Inverse(const function2D<T>& A);
   void AddPart(const function2D& m, double x);
   friend void Multiply(function2D<double>& C, const function2D<double>& A, const function2D<double>& B);
+  friend void Multiply_N_T(function2D<double>& C, const function2D<double>& A, const function2D<double>& B);
 };
 
 template<class T>

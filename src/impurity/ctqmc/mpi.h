@@ -6,7 +6,7 @@ using namespace std;
 
 void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<dcomplex>& Gd, function2D<dcomplex>& Sd,
 	    function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
-	    function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
+	    function2D<dcomplex>& asuscg, int DOsize, function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
 	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleSusc, bool SampleTransitionP)
 {
   function2D<double> cAverageProbability;
@@ -16,6 +16,7 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
   function2D<dcomplex> cGd;
   function2D<dcomplex> cSd;
   function2D<double> cSusc;
+  function2D<dcomplex> casuscg;
   function2D<double> cGtau;
   function1D<int> cGd_deg;
   function2D<double> cAP_transition;
@@ -28,6 +29,7 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
     cGtau.resize(Gtau.fullsize_N(),Gtau.fullsize_Nd());
     ckaver.resize(kaver.size());
     if (SampleSusc) cSusc.resize(susc.fullsize_N(), susc.fullsize_Nd());
+    if (SampleSusc && DOsize>0) casuscg.resize(asuscg.fullsize_N(),asuscg.fullsize_Nd());
     cGd_deg.resize(Gd_deg.size());
     if (SampleTransitionP) cAP_transition.resize(AP_transition.fullsize_N(),AP_transition.fullsize_Nd());
   }
@@ -74,7 +76,9 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
   if (SampleSusc)
     //MPI::COMM_WORLD.Reduce(susc.MemPt(), cSusc.MemPt(), susc.fullsize2(), MPI_DOUBLE, MPI_SUM, Master);
     MPI_Reduce(susc.MemPt(), cSusc.MemPt(), susc.fullsize2(), MPI_DOUBLE, MPI_SUM, Master, MPI_COMM_WORLD);
-
+  if (SampleSusc && DOsize>0)
+    MPI_Reduce(asuscg.MemPt(), casuscg.MemPt(), asuscg.fullsize2()*2, MPI_DOUBLE, MPI_SUM, Master, MPI_COMM_WORLD);
+  
   //MPI::COMM_WORLD.Reduce(Gd_deg.MemPt(), cGd_deg.MemPt(), Gd_deg.size(), MPI_INT, MPI_SUM, Master);
   MPI_Reduce(Gd_deg.MemPt(), cGd_deg.MemPt(), Gd_deg.size(), MPI_INT, MPI_SUM, Master, MPI_COMM_WORLD);
   
@@ -132,6 +136,10 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
     if (SampleSusc){
       susc = cSusc;
       susc *= (1./mpi_size);
+    }
+    if (SampleSusc && DOsize>0){
+      asuscg = casuscg;
+      asuscg *= (1./mpi_size);
     }
     asign *= (1./mpi_size);
     asign_fast *= (1./mpi_size);

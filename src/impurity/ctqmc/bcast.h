@@ -46,9 +46,19 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     // Id.first
     isize += Id.size();
     // ssize0
-    isize +=1; 
+    isize += 1; 
     // Enes.size()
-    isize +=1;
+    isize += 1;
+    // DOsize
+    isize += 1;
+    if (DOsize>0){
+      // DF_i
+      isize += DF_i.size_N()*DF_i.size_Nd();
+      // DF_inv
+      isize += DF_inv.size_N()*DF_inv.size_Nd();
+      // DF_M(,).sizes()
+      isize += DF_M.size_N()*DF_M.size_Nd()*2;
+    }
     if (common::QHB2){
       // UC
       isize += 4*UC.size() + 1;
@@ -87,20 +97,17 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     
     // Id.second
     dsize += Id.size();
+
+    // DF_M
+    for (int i=0; i<DF_M.size_N(); i++)
+      for (int j=0; j<DF_M.size_Nd(); j++)
+	dsize += DF_M(i,j).size_N() * DF_M(i,j).size_Nd();
     
     // Uc
     if (common::QHB2){
-      //dsize += N_ifl*N_ifl*N_ifl;
       dsize += UC.size();
     }
     
-    // Nj
-    /*
-    for (int i=1; i<=nsize; i++)
-      for (int ifl=0; ifl<N_ifl; ifl++)
-         dsize += Nj(i,ifl)(i2,i1).size_N()*Nj(i,ifl)(i2,i1).size_Nd();
-    */
-
     ssize = RealSigma.size()+1+ImagSigma.size()+1;
   }
   
@@ -186,7 +193,6 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     for (int i=0; i<F_M.size_N(); i++){
       for (int j=0; j<F_M.size_Nd(); j++){
 	//common::gout<<my_rank<<") F_M("<<i<<","<<j<<").size="<<F_M(i,j).size_N()<<" "<<F_M(i,j).size_Nd()<<endl;
-	
 	ibuff[++ip] = F_M(i,j).size_N();
 	ibuff[++ip] = F_M(i,j).size_Nd();
       }
@@ -197,7 +203,29 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     for (map<int,double>::const_iterator i=Id.begin(); i!=Id.end(); i++) ibuff[++ip] = i->first;
     // RealSigma
     ibuff[++ip] = RealSigma.size();
+    // Enes
     ibuff[++ip] = Enes.size();
+    // DOsize
+    ibuff[++ip] = DOsize;
+    
+    if (DOsize>0){
+      // DF_i
+      for (int i=0; i<DF_i.size_N(); i++)
+	for (int j=0; j<DF_i.size_Nd(); j++)
+	  ibuff[++ip] = DF_i(i,j);
+      // DF_inv
+      for (int i=0; i<DF_inv.size_N(); i++)
+	for (int j=0; j<DF_inv.size_Nd(); j++)
+	  ibuff[++ip] = DF_inv(i,j);
+      // DF_M(,).sizes()
+      for (int i=0; i<DF_M.size_N(); i++){
+	for (int j=0; j<DF_M.size_Nd(); j++){
+	  ibuff[++ip] = DF_M(i,j).size_N();
+	  ibuff[++ip] = DF_M(i,j).size_Nd();
+	}
+      }
+    }
+    
     if (common::QHB2){
       ibuff[++ip] = UC.size();
       for (int k=0; k<UC.size(); k++){
@@ -241,9 +269,6 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     // F_M
     for (int i=0; i<F_M.size_N(); i++){
       for (int j=0; j<F_M.size_Nd(); j++){
-
-	//common::gout<<"F_M("<<i<<","<<j<<").size="<<F_M(i,j).size_N()<<" "<<F_M(i,j).size_Nd()<<endl;
-	
 	for (int k=0; k<F_M(i,j).size_N(); k++){
 	  for (int l=0; l<F_M(i,j).size_Nd(); l++){
 	    dbuff[++dp] = F_M(i,j)(k,l);
@@ -270,24 +295,22 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     //for (map<int,double>::const_iterator i=Id.begin(); i!=Id.end(); i++) common::gout<<i->second<<" ";
     //common::gout<<endl;
 
+    // DF_M
+    if (DOsize>0){
+      for (int i=0; i<DF_M.size_N(); i++){
+	for (int j=0; j<DF_M.size_Nd(); j++){
+	  for (int k=0; k<DF_M(i,j).size_N(); k++){
+	    for (int l=0; l<DF_M(i,j).size_Nd(); l++){
+	      dbuff[++dp] = DF_M(i,j)(k,l);
+	    }
+	  }
+	}
+      }
+    }
     // Uc
     if (common::QHB2){
-      /*
-      for (int ifl=0; ifl<N_ifl; ifl++)
-	for (int j1=0; j1<N_ifl; j1++)
-	  for (int j2=0; j2<N_ifl; j2++)
-	    dbuff[++dp] = Uc[ifl](j1,j2);
-      */
       for (int k=0; k<UC.size(); k++)  dbuff[++dp] = UC[k].u;
     }
-    // Nj
-    /*
-    for (int i=1; i<=nsize; i++)
-      for (int ifl=0; ifl<N_ifl; ifl++)
-	for (int i1=0; i1<Nj(i,ifl).size_N(); i1++)
-	  for (int i2=0; i2<Nj(i,ifl).size_Nd(); i2++)
-	    dbuff[++dp] = Nj(i,ifl)(i2,i1);
-    */
     
     // strings
     strcpy(sbuff, RealSigma.c_str());
@@ -412,7 +435,32 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     
     int ssize0 = ibuff[++ip];
     int Enes_size = ibuff[++ip];
+    
+    // DOsize
+    DOsize = ibuff[++ip];
 
+    if (DOsize>0){
+      // DF_i(DOsize,nsize+1)
+      DF_i.resize(DOsize,nsize+1);
+      for (int i=0; i<DOsize; i++)
+	for (int j=0; j<nsize+1; j++)
+	  DF_i(i,j) = ibuff[++ip];
+      // DF_inv
+      DF_inv.resize(DOsize,nsize+1);
+      for (int i=0; i<DOsize; i++)
+	for (int j=0; j<nsize+1; j++)
+	  DF_inv(i,j) = ibuff[++ip];
+      // DF_M(,).sizes()
+      DF_M.resize(DOsize,nsize+1);
+      for (int i=0; i<DOsize; i++){
+	for (int j=0; j<nsize+1; j++){
+	  int _N_ = ibuff[++ip];
+	  int _Nd_ = ibuff[++ip];
+	  DF_M(i,j).resize(_N_,_Nd_);
+	}
+      }
+    }
+    
     if (common::QHB2){
       int UC_size = ibuff[++ip];
       UC.resize(UC_size);
@@ -476,9 +524,6 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
     for (int i=0; i<F_M.size_N(); i++){
       for (int j=0; j<F_M.size_Nd(); j++){
 	F_M(i,j).resize(F_M_sizes(i,j).first,F_M_sizes(i,j).second);
-
-	//common::gout<<"F_M("<<i<<","<<j<<").size="<<F_M(i,j).size_N()<<" "<<F_M(i,j).size_Nd()<<endl;
-	
 	for (int k=0; k<F_M(i,j).size_N(); k++){
 	  for (int l=0; l<F_M(i,j).size_Nd(); l++){
 	    F_M(i,j)(k,l) = dbuff[++dp];
@@ -507,38 +552,24 @@ int ClusterData::BcastClusterData(int my_rank, int Master)
 
     // Id.second
     for (int i=0; i<Idsize; i++) Id[Id_first[i]] = dbuff[++dp];
+
+    if (DOsize>0){
+      // DF_M
+      for (int i=0; i<DF_M.size_N(); i++){
+	for (int j=0; j<DF_M.size_Nd(); j++){
+	  for (int k=0; k<DF_M(i,j).size_N(); k++){
+	    for (int l=0; l<DF_M(i,j).size_Nd(); l++){
+	      DF_M(i,j)(k,l) = dbuff[++dp];
+	    }
+	  }
+	}
+      }
+    }
     
     // Uc
     if (common::QHB2){
       for (int k=0; k<UC.size(); k++)  UC[k].u = dbuff[++dp];
-      /*
-      Uc.resize(N_ifl);
-      for (int ifl=0; ifl<N_ifl; ifl++) Uc[ifl].resize(N_ifl,N_ifl);
-
-      for (int ifl=0; ifl<N_ifl; ifl++){
-	for (int j1=0; j1<N_ifl; j1++)
-	  for (int j2=0; j2<N_ifl; j2++)
-	    Uc[ifl](j1,j2) = dbuff[++dp];
-      }
-      */
     }
-    
-    //common::gout<<"ip="<<ip<<" dp="<<dp<<endl;
-    
-    // Nj
-    /*
-    Nj.resize(nsize+1,N_ifl);
-    for (int i=1; i<=nsize; i++)
-      for (int ifl=0; ifl<N_ifl; ifl++){
-	Nj(i,ifl).resize(msize_[i],msize_[i]);
-	for (int i1=0; i1<Nj(i,ifl).size_N(); i1++)
-	  for (int i2=0; i2<Nj(i,ifl).size_Nd(); i2++)
-	    Nj(i,ifl)(i2,i1) = dbuff[++dp];
-      }
-    */
-    //common::gout<<"Id.second=";
-    //for (map<int,double>::const_iterator i=Id.begin(); i!=Id.end(); i++) common::gout<<i->second<<" ";
-    //common::gout<<endl;
     
     if (dp+1!=dsize) {cerr<<"ERROR: During BcastClusterData dp!=dsize "<<dp<<" "<<dsize<<endl; return 1;}
 

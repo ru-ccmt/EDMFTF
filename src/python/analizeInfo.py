@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# @Copyright 2007 Kristjan Haule
 from scipy import *
 import glob
 import sys
@@ -16,7 +15,7 @@ for line in data:
     iic.append(n)
 ind=[]
 for j in range(len(iic)-1):
-    if iic[j+1]<iic[j]: ind.append(j)
+    if iic[j+1]<=iic[j]: ind.append(j)
 ind.append(len(data)-1)
 
 for j in ind:

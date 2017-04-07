@@ -49,8 +49,7 @@ private:
   vector<int> gflip_index;              //yes
 public:
   int Nm, nsize, N_ifl, N_flavors, Nvfl;//yes
-  int max_size, Osize;                  //yes
-  
+  int max_size, Osize, DOsize;          //yes
   function1D<double> Sz;                //yes
   function1D<int> ifl_dim;              //yes
   function1D<int> ifl_from_fl;          //yes
@@ -65,6 +64,8 @@ public:
   vector<deque<int> > bfl_index;        //yes
   Number Zatom;                         //no
   function1D<function2D<function2D<double> > > HF_M; //yes
+  function2D<int> DF_i, DF_inv;         // (DOsize,nsize+1)
+  function2D<function2D<double> > DF_M; // (DOsize,nsize+1,size_new,size_old);
   function1D<double> natom;             //no
   int N_unique_fl;                      //yes
   function1D<int> fl_deg;               //yes
@@ -481,6 +482,7 @@ void ClusterData::ParsInput(ifstream& gout, ostream& yout)
   int iind=0;
   for (int i=1; i<=nsize; i++){
     int m=0;
+    Eind[i].resize(msize_[i]);
     for (int j=0; j<msize_[i]; j++){
       Eind(i,j) = iind;
       Enes[iind] = Ene0(i,j);
@@ -514,6 +516,7 @@ void ClusterData::ParsInput(ifstream& gout, ostream& yout)
   string str;
   QHB1=false;
   getline(gout,str);
+  //cout<<"str on HB="<<str<<endl;
   common::QHB2=false;
   if (str.find("HB1",0)!=string::npos){
     clog<<"Have HB1"<<endl;
@@ -534,21 +537,35 @@ void ClusterData::ParsInput(ifstream& gout, ostream& yout)
   bool read_comment=true;
   if (common::QHB2){
     getline(gout,str); // # Uc = U[ifl,j1,j2,ifl]-U[ifl,j1,ifl,j2]:
+    //cout<<"str on Uc="<<str<<endl;
     int a, b, c, d;
     double u;
     for (int i=0; i<100000; i++){
       getline(gout,str);
       stringstream ss(str); //covert input to a stream for conversion to int
       ss >> a >> b >> c >> d >> u;
+      //cout<<"a,b,c,d="<<a<<" "<<b<<" "<<c<<" "<<d<<" u="<<u<<endl;
       if (!ss) break;
       UC.push_back(Uentry(a,b,c,d,u));
     }
     read_comment=false;
   }
   if (read_comment) getline(gout,str); // # number of operators needed
-  gout>>Osize;
-  clog<<"Number of operators needed "<<Osize<<endl;
-  gout.ignore(1000,'\n');
+
+  //gout>>Osize;
+  //gout.ignore(1000,'\n');
+  string line;
+  getline(gout,line);
+  istringstream lines(line);
+  lines >> Osize;
+  DOsize=0;
+  int _DOsize_=0;
+  lines >> _DOsize_;
+  if (lines){
+    DOsize = _DOsize_;
+  }
+
+  clog<<"Number of operators needed "<<Osize<<"  "<<DOsize<<endl;
   getline(gout,str);
   HF_M.resize(Osize);
   
@@ -599,6 +616,69 @@ void ClusterData::ParsInput(ifstream& gout, ostream& yout)
       }
     }	
     getline(gout,str);
+  }
+
+  //function2D<int> DF_i(DOsize,nsize+1);
+  //function2D<function2D<double> > DF_M(DOsize,nsize+1,size2,size1);
+  if (DOsize>0){
+    DF_i.resize(DOsize,nsize+1);
+    DF_inv.resize(DOsize,nsize+1);
+    DF_i=0;
+    DF_inv=0;
+    DF_M.resize(DOsize,nsize+1);
+    for (int op=0; op<DOsize; op++){ // Operators to be usef for dynamic susceptibility
+      if (!gout.good()) cerr<<"Something wrong in reading cix file high frequency expansion"<<endl;
+      for (int i=1; i<=nsize; i++){
+	int it, jt, size1, size2;
+	gout>>it>>jt;
+	if (it!=i){
+	  cerr<<"ERROR in cix file, dynamic operators, i="<<i<<" while it="<<it<<endl;
+	  exit(1);
+	}
+	if (jt<0 || jt>nsize){
+	  cerr<<"ERROR in cix file, dynamic operators, jt not in range. It is "<<jt<<" and should be between 1 and "<<nsize<<endl;
+	  exit(1);
+	}
+	if (jt==0) {
+	  DF_i(op,i)=0;
+	  gout.ignore(1000,'\n');
+	  continue;
+	}
+	gout>>size1>>size2;
+	if (size1!=msize_[i]){
+	  cerr<<"ERROR in cix file, dynamic operators, size1["<<i<<"]="<<size1<<" msize="<<msize_[i]<<endl;
+	  exit(1);
+	}
+	if (size2!=msize_[jt]){
+	  cerr<<"ERROR in cix file, dynamic operators, size2["<<i<<"]="<<size2<<" msize="<<msize_[jt]<<endl;
+	  exit(1);
+	}
+	DF_i(op,i)=jt;
+	DF_inv(op,jt)=i;
+	DF_M(op,i).resize(size2,size1);
+	for (int i1=0; i1<size1; i1++){
+	  for (int i2=0; i2<size2; i2++){
+	    double m;
+	    gout>>m;
+	    DF_M(op,i)(i2,i1)=m;
+	  }
+	}
+	gout.ignore(1000,'\n');
+      }
+    }
+    /*
+    for (int i=1; i<=nsize; i++){
+      if (DF_i(0,i)>0){
+	cout<<i<<" "<<DF_i(0,i)<<" ";
+	for (int i1=0; i1<DF_M(0,i).size_Nd(); i1++){
+	  for (int i2=0; i2<DF_M(0,i).size_N(); i2++){
+	    cout<<" "<<DF_M(0,i)(i2,i1)<<" ";
+	  }
+	}
+	cout<<endl;
+      }
+    }
+    */
   }
 }
 

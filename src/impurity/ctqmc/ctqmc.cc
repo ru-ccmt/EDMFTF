@@ -17,7 +17,6 @@
 //  Implement generalized (off-diagonal) susceptibility
 //  Add two kinks like Patrick
 //  Frequency dependent interaction
-//  Update Probability only when meassure it, not every accepted step
 //
 #include <cstdlib>
 #include <cmath>
@@ -105,13 +104,14 @@ private:
   function2D<double> P_transition;// Transition probability from state to state
 public:  
   function2D<double> AP_transition;// Avergae Transition probability from state to state
+  function2D<dcomplex> asuscg;       // sum/average of generalized susceptibility
 private:
   int nsusc;
   function2D<double> susc;           // current frequency dependent susceptibility
   function2D<double> aver_susc;      // sampled frequency dependent susceptibility
   function2D<dcomplex> dsusc;        // temporary variable for frequency dependent susceptibility
   function2D<dcomplex> dsusc1;       // temporary variable for frequency dependent susceptibility
-  
+  function2D<dcomplex> suscg;        // generalized susceptibility
   vector<function2D<double> > Gtau;  // Green's function in imaginary time (not so precise)
   int NGta;                          // number of measurements of Gtau
   function2D<dcomplex> dexp;         // differences e^{iom*tau_{l+1}}-e^{iom*tau_l} needed for frequency dependent response functions
@@ -410,6 +410,9 @@ CTQMC<Rand>::CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nma
     dsusc1.resize(nsusc*cluster.nsize, nomb);
     dexp.resize(Nmax+1,nom);
     aver_susc = 0;
+    suscg.resize(cluster.DOsize,biom.size());
+    asuscg.resize(cluster.DOsize,biom.size());
+    asuscg = 0;
   }else{
     susc.resize(nsusc,1);
   }
@@ -1838,22 +1841,6 @@ void CTQMC<Rand>::ComputeFinalAverage(function1D<double>& mom0, double& nf, doub
   (*xout)<<left<<"Tr(Sigma*G)="<<setw(10)<<TrSigma_G<<" ";
 }
 
-template <int boson_ferm>
-inline const funProxy<dcomplex>& find_Op_in_intervals(int ip, const vector<nIntervals>& intervals, const NOperators& Operators)
-{
-  IntervalIndex p_ifl = Operators.iifl(ip);
-  int ifl = p_ifl.ifl;
-  int itp = p_ifl.type;
-  int in = p_ifl.in;
-  return intervals[ifl]. template exp_direct<boson_ferm>(itp,in);
-}
-
-template <int boson_ferm>// e^{iom*beta}
-double e_om_beta(){ return -100;};
-template <>
-double e_om_beta<0>(){return 1;}// bosonic
-template <>
-double e_om_beta<1>(){return -1;}// fermionic
 
 template <int boson_ferm>
 void ComputeFrequencyPart(const vector<nIntervals>& intervals, const NOperators& Operators, int omsize, function2D<dcomplex>& dexp)
@@ -2135,6 +2122,13 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 	  }
 	}
       }
+    }
+
+    if (common::SampleSusc && cluster.DOsize>0){
+      //GeneralizedSusceptibility(Trace, matrix_element, state_evolution_left, state_evolution_right, Operators, npraStates, cluster, istep);
+      suscg=0.0;
+      GeneralizedSusceptibility(suscg, Trace, matrix_element, biom, intervals, state_evolution_left, state_evolution_right, Operators, npraStates, cluster, istep);
+      asuscg.AddPart(suscg,trusign);
     }
   }else{
     if (!common::QHB2 && !common::cmp_vertex){
@@ -2626,6 +2620,7 @@ double CTQMC<Rand>::sample(long long max_steps)
     for (size_t ifl=0; ifl<Gaver.size(); ifl++) Gaver[ifl] *= 1./asign;
     if (common::QHB2)
       for (int fl2=0; fl2<cluster.Nvfl; fl2++) Faver[fl2] *= 1./asign;
+    if (common::SampleSusc && cluster.DOsize>0) asuscg *= 1./asign;
   }
   
   kaver *= 1./asign_fast;
@@ -3333,7 +3328,7 @@ int main(int argc, char *argv[])
     if (str=="PreciseP")    inp>>PreciseP;
     if (str=="sderiv")      inp>>sderiv;
     if (str=="minDeltat")   inp>>minDeltat;
-    if (str=="SampleSusc")  inp>>SampleSusc;
+    if (str=="SampleSusc")  {int iSampleSusc; inp>>iSampleSusc; SampleSusc=iSampleSusc;}
     if (str=="SampleVertex")inp>>SampleVertex;
     if (str=="maxNoise")    inp>>maxNoise;
     if (str=="LazyTrace")   inp>>LazyTrace;
@@ -3654,7 +3649,7 @@ int main(int argc, char *argv[])
   */
   if (!common::Qsvd)
     Reduce(my_rank, Master, mpi_size, ctqmc.Histogram(), Gd, Fd, ctqmc.AverageProbability(), ctqmc.asign, ctqmc.asign_fast, ctqmc.Observables(),
-	   ctqmc.k_aver(), ctqmc.Susc(), Gtau, ctqmc.VertexH, ctqmc.VertexF, Gd_deg, ctqmc.AP_transition,
+	   ctqmc.k_aver(), ctqmc.Susc(), ctqmc.asuscg, cluster.DOsize, Gtau, ctqmc.VertexH, ctqmc.VertexF, Gd_deg, ctqmc.AP_transition,
 	   common::cmp_vertex, common::QHB2, common::SampleSusc, common::SampleTransitionP);
   else
     ReduceS(my_rank, Master, mpi_size, ctqmc.Histogram(), Gd_, Ft, ctqmc.AverageProbability(), ctqmc.asign, ctqmc.asign_fast, ctqmc.Observables(),
@@ -3968,6 +3963,16 @@ int main(int argc, char *argv[])
 	out<<omega<<" ";
 	for (int l=0; l<nsusc; l++) out<<alpha_susc[l]/sqr(omega)<<" ";
 	out<<endl;
+      }
+      if (cluster.DOsize>0){
+	ofstream out("suscg.dat"); out.precision(16);
+	int nom_s = ctqmc.iomb().size();
+	for (int im=0; im<nom_s; im++){
+	  out<<ctqmc.iomb()[im]<<" ";
+	  for (int l=0; l<cluster.DOsize; l++) out<<ctqmc.asuscg(l,im)<<" ";
+	  out<<endl;
+	}
+	
       }
     }
     if (common::SampleTransitionP){

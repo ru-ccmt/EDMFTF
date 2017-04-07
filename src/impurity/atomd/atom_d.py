@@ -718,15 +718,16 @@ class operateLS(object):
     def S2(self, state):
         l2p1 = self.Nband
         sts=[]
+        # calculating \sum_{a,b} S^z_a S^z_b + 1/2*(S^+_a S^-_b + S^-_a S^+_b)
         # diagonal part
         dd=0;
         for ilz in range(l2p1):
-            up=0; dn=0
+            up=0; dn=0  # this comes from 1/2(S^+_a S^-_a + S^-_a S^+_a)
             if self.mask_u[ilz] & state: up = 1
             if self.mask_d[ilz] & state: dn = 1
             # if only up or only down in certain lz
             if up+dn==1: dd += 0.5
-        # Sz^2
+        # Sz^2 + diagonal part of S^+ S^-
         fct = (0.5*self.Sz(state))**2 + dd
         # store diagonal
         sts.append([state,fct])
@@ -751,6 +752,20 @@ class operateLS(object):
                         sts.append([jstate, isig*jsig])
         return sts
 
+    def S_minus(self, state):
+        l2p1 = self.Nband
+        sts=[]
+        # off diagonal
+        for ilz in range(l2p1):
+            im1 = self.mask_u[ilz]
+            im2 = self.mask_d[ilz]
+            ib1 = bool(state & im1)
+            ib2 = bool(state & im2)
+            if ib1 and not ib2: # S^-_i gives nonzero
+                isig = self.sign(state, min(im1,im2), max(im1,im2))
+                istate = state^im1^im2
+                sts.append([istate, isig])
+        return sts
     
     def PairHop(self, state):
         """ Computes the pair-hopping term:  D_a^\dagger D_a , where D_a creates or
@@ -1556,7 +1571,7 @@ def FastIsing(Nrange):
     
     if HB2 : print >> fcix, 'HB2'
     else: print >> fcix, 'HB1'
-    
+
 
     if (HB2 and Q3d):
         ii=0
@@ -1667,6 +1682,8 @@ if __name__ == '__main__':
     small = 1e-6
     small_t2c=1e-5
     Nrange=[]
+    PrintSminus=False
+    ORB=[] #ORB=[0,0,1,-1,0,0,0,1,-1,0] # [z^2,x^2-y^2,xz,yz,xy,...]
     OLD_CTQMC=False
     args = sys.argv[1:]
     if ('-h' in args) or ('--help' in args):
@@ -1691,6 +1708,7 @@ if __name__ == '__main__':
                     Ncentral      -- a list of central occupancies for OCA [1]
                     OCA_G         -- bool - comput input for OCA as well
                     para          -- is this paramagnetic or magnetic run
+                    ORB           -- index for orbtal susceptibility
                  """
         sys.exit(0)
     Q3d=None
@@ -1716,7 +1734,8 @@ if __name__ == '__main__':
     print >> fh_info, 'Ewindow=', Ewindow
     print >> fh_info, 'max_M_size=', max_M_size
     print >> fh_info, 'para=', para
-
+    print >> fh_info, 'ORB=', ORB
+    
     ftrans='Trans.dat'
     if (len(glob.glob(ftrans))!=0):
         print >> fh_info, 'Reading file', ftrans
@@ -1860,7 +1879,7 @@ if __name__ == '__main__':
     for i in range(len(baths)): kbth0.append([i])
 
 
-    print max(bathi)
+    #print max(bathi)
     if max(bathi)>=len(Eimp):
         print 'You specified wrong dimension for Eimp! Boiling out.... Need at least '+str(max(bathi)+1)+' components'
         sys.exit(1)
@@ -2005,9 +2024,15 @@ if __name__ == '__main__':
     #print 'Eimpc1='
     #mprint(Eimpc)
 
+    
     Ene=[] # Energy
     Te=[]  # eigenvectors
     S2w=[] # Spin
+    #### NEW
+    if PrintSminus:
+        Si_minus={}
+        Sm_minus={}
+    #### NEW
     for ni,ns in enumerate(wstates):
 
         #print 'Br:', 'n=', ns[0], 'sz=', ns[1]/2.
@@ -2031,6 +2056,27 @@ if __name__ == '__main__':
                     ii = ps[0]
                     iu = states.index(ii)
                     S2[js,iu] += ps[1]
+        ##### NEW
+        if PrintSminus:
+            j_minus=-1
+            for j in range(len(wstates)):
+                if (wstates[j][0]==ns[0] and wstates[j][1]==ns[1]-2):
+                    j_minus = j
+                    break
+            if j_minus>=0:
+                n_new = len(wstates[j_minus][2])
+                S_minus = zeros((len(states),n_new),dtype=complex)
+                #print 'n=', ns[0], 'sz=', ns[1]/2., 'j_minus=', j_minus, 'n=', wstates[j_minus][0], 'sz=', wstates[j_minus][1]/2., 'states=', wstates[j_minus][2]
+                for js,st in enumerate(states):
+                    stn = op.S_minus(st)
+                    #print 'stn=', stn
+                    for ps in stn:
+                        ii = ps[0]
+                        states_plus = wstates[j_minus][2]
+                        iu = states_plus.index(ii)
+                        S_minus[js,iu] += ps[1]
+        ###### NEW
+
         
         Ham = zeros((len(states),len(states)),dtype=complex)
 
@@ -2126,6 +2172,16 @@ if __name__ == '__main__':
             S2w.append( [0 for i in range(len(S2))] )
         
 
+
+        ##### NEW
+        if PrintSminus:
+            if (j_minus>=0):
+                #print 'len(Te)=', len(Te), 'j_minus=', j_minus
+                _S_minus_ = matrix(conj(Tx.transpose())) * S_minus * matrix(Te[j_minus])
+                Si_minus[ni]=j_minus
+                Sm_minus[ni]= real(_S_minus_)
+        ##### NEW
+            
         #print >> fh_info, 'E=', '%f '*len(Ex) % tuple(Ex)
         print >> fh_info, 'state, E, |largest_coeff|'
         for ie in range(len(Ex)):
@@ -2262,6 +2318,8 @@ if __name__ == '__main__':
     Enes = []
     S2ws = []
     Occ=[]
+    rS_minus={}
+    iS_minus={}
     for ii,iwp in enumerate(pseudostates):
         iw = iwp[0]
         ip = iwp[1]
@@ -2276,7 +2334,7 @@ if __name__ == '__main__':
                 if ifi_ins>=0:
                     ifinal = indpseudo[(ifi,ifi_ins)]
             iFinal[ii,ib] = ifinal
-            
+
         Ens=[]
         occ=[]
         S2s=[]
@@ -2288,7 +2346,29 @@ if __name__ == '__main__':
         Enes.append(Ens)
         Occ.append(occ)
         S2ws.append(S2s)
-
+        ### NEW
+        if PrintSminus:
+            if Si_minus.has_key(iw):
+                _N_ = wstate[0]
+                _Sz_ = wstate[1]
+                for jj,jwp in enumerate(pseudostates):
+                    jw = jwp[0]
+                    jp = jwp[1]
+                    if (wstates[jw][0]==_N_ and wstates[jw][1]==_Sz_-2):
+                        if jw!=Si_minus[iw]:
+                            print 'ERROR in S_minus. The two indices are different jw=', jw, 'Si=', Si_minus[iw]
+                        group_final = wgr[jw][jp]
+                        SM_minus = zeros((len(group),len(group_final)))
+                        for iig,ig in enumerate(group):
+                            for jjg,jg in enumerate(group_final):
+                                SM_minus[iig,jjg] = Sm_minus[iw][ig,jg]
+                        if sum(abs(SM_minus))>1e-7:
+                            #print 'possible S- between ii+=', ii+1, 'and jj+=', jj+1, 'where jw=', jw, 'Si=', Si_minus[iw], 'wgr=', wgr[jw][jp], 'shape(S_minus)=', shape(Sm_minus[iw])
+                            #mprint(sys.stdout, SM_minus)
+                            rS_minus[ii] = SM_minus
+                            iS_minus[ii] = jj
+        ### NEW
+    
     #print 'pseudostates=', pseudostates
     #print 'Enes='
     #for ii in range(len(Enes)):
@@ -2791,26 +2871,25 @@ if __name__ == '__main__':
 
                 
     print >> fcix, '# number of operators needed'
-
+    
     if not add_occupancy:
         print >> fcix, '0'
     else:
-        print >> fcix, '1'
+        print >> fcix, '1',
+        if ORB: print >> fcix, '1',
+        elif PrintSminus: print >> fcix, '2',
+        print >> fcix
         print >> fcix, '# Occupancy '
         
         for i in range(len(lowE)):
             ii = lowE[i][0]
             ind0 = lowE[i][1]
 
-            #tkbth = kbth
-            #if HB2: tkbth=kbth0
-            
             for ikb,bt in enumerate(tkbth):
                 Oub = zeros((len(ind0),len(ind0)),dtype=float)
                 for ib in bt:
                     Nm = zeros((len(ind0),len(ind0)),dtype=float)
                     if len(rNn[ii][ib])>0:  
-                        #Nm = rNn[ii][ib]
                         for j in range(len(ind0)):
                             for k in range(len(ind0)):
                                 Nm[j,k] = rNn[ii][ib][ind0[j],ind0[k]]
@@ -2824,7 +2903,82 @@ if __name__ == '__main__':
                         if abs(ff)<small: ff=0.0
                         print >> fcix, ff,
                 print >> fcix
-    
+
+
+        #### NEW
+        if ORB:
+            print >> fcix, '# Orbital susc with ', ORB
+            for i in range(len(lowE)):
+                ii = lowE[i][0]
+                ind0 = lowE[i][1]
+                DM = zeros((len(bkeep),len(ind0),len(ind0)),dtype=float)
+                for iib,ib in enumerate(bkeep):
+                    N1m = zeros((len(ind0),len(ind0)),dtype=float)
+                    if len(rNn[ii][ib])>0:  
+                        for j in range(len(ind0)):
+                            for k in range(len(ind0)):
+                                N1m[j,k] = rNn[ii][ib][ind0[j],ind0[k]]
+                                
+                    DM[iib,:,:] = identity(len(ind0))-N1m
+                
+                Dorb = zeros((len(ind0),len(ind0)),dtype=float)
+                for ib in range(len(bkeep)):
+                    Dorb += DM[ib,:,:]*ORB[ib]
+                    
+                print >> fcix, "%3d %3d " % (i+1,i+1),
+                print >> fcix, "%2d %2d" % (len(ind0), len(ind0)), 
+                for iw,i0 in enumerate(ind0):
+                    for iz,j0 in enumerate(ind0):
+                        ff = Dorb[iw,iz]
+                        if abs(ff)<small: ff=0.0
+                        print >> fcix, ff,
+                print >> fcix
+            
+        if PrintSminus:
+            Sp_i={}
+            Sp_m={}
+            print >> fcix, '# S_minus followed by S_plus'
+            for i in range(len(lowE)):
+                ii = lowE[i][0]
+                ind0 = lowE[i][1]
+                print >> fcix, "%3d " % (i+1,),
+                if iS_minus.has_key(ii):
+                    ifinal = iS_minus[ii]
+                    low_ifinal = inv_lowE1[ifinal]
+                    print >> fcix, "%3d " % (low_ifinal+1,),
+                    if low_ifinal>=0: 
+                        ind0 = lowE[i][1]
+                        ind1 = lowE[low_ifinal][1]
+                        print >> fcix, "%2d %2d" % (len(ind0), len(ind1)), 
+                        Sp_i[low_ifinal+1] = i+1
+                        Sp_m[low_ifinal+1] = zeros((len(ind1),len(ind0)))
+                        for l0,i0 in enumerate(ind0):
+                            for l1,j0 in enumerate(ind1):
+                                x = rS_minus[ii][i0,j0]
+                                if abs(x)<1e-10: x=0.0
+                                Sp_m[low_ifinal+1][l1,l0] = x
+                                print >> fcix, x,
+                    else:
+                        print >> fcix, "%2d %2d" % (0, 0),
+                else:
+                    print >> fcix, "%3d %2d %2d" % (0, 0, 0),
+                print >> fcix
+                
+            #print >> fcix, '# S_plus'
+            for i in range(len(lowE)):
+                print >> fcix, "%3d " % (i+1,),
+                if Sp_i.has_key(i+1):
+                    ifinal = Sp_i[i+1]
+                    M = Sp_m[i+1]
+                    print >> fcix, "%3d %2d %2d " % (ifinal,shape(M)[0], shape(M)[1]), 
+                    for i0 in range(shape(M)[0]):
+                        for j0 in range(shape(M)[1]):
+                            print >> fcix, M[i0,j0],
+                    #print >> fcix
+                else:
+                    print >> fcix, "%3d %2d %2d" % (0, 0, 0),
+                print >> fcix
+        #### NEW
     if (OLD_CTQMC):
         print >> fcix, '# Data for HB1'
         

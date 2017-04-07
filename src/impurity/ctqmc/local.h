@@ -1,6 +1,23 @@
 // @Copyright 2007 Kristjan Haule
 // 
 
+template <int boson_ferm>
+inline const funProxy<dcomplex>& find_Op_in_intervals(int ip, const vector<nIntervals>& intervals, const NOperators& Operators)
+{
+  IntervalIndex p_ifl = Operators.iifl(ip);
+  int ifl = p_ifl.ifl;
+  int itp = p_ifl.type;
+  int in = p_ifl.in;
+  return intervals[ifl]. template exp_direct<boson_ferm>(itp,in);
+}
+
+template <int boson_ferm>// e^{iom*beta}
+double e_om_beta(){ return -100;};
+template <>
+double e_om_beta<0>(){return 1;}// bosonic
+template <>
+double e_om_beta<1>(){return -1;}// fermionic
+
 void StartStateEvolution(function2D<NState>& state_evolution_left,
 			 function2D<NState>& state_evolution_right,
 			 const function1D<NState>& praStates,
@@ -47,6 +64,7 @@ void Get_N_at_Operator2(functionb<double>& Njc, int ops, const function1D<Number
 			const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right,
 			const NOperators& Operators, const function1D<NState>& praStates, const ClusterData& cluster, long long istep)
 {// This routine returns the value of operator N measured at an existing creation operator, which has index ops.
+ // Operator N is inserted before t_s.
  // If we have diagram with the following configuration <...... psi^+(t_s) ........>
  // We evaluate the following quantity:   <...... psi^+(t_s)psi^+{a}(t_s)psi{b}(t_s) ........>/<...... psi^+(t_s) ........>
  // for two baths {a} and {b}, which have a common index ii.
@@ -2052,4 +2070,192 @@ Number ComputeTryalForExchange(int ip_a, int ip_b,  const function2D<NState>& st
     }
   }
   return m_new;
+}
+
+
+
+
+
+
+void GeneralizedSusceptibility(function2D<dcomplex>& suscg, const function1D<Number>& Trace, const Number& matrix_element, const mesh1D& iomb,
+			       const vector<nIntervals>& intervals, const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right,
+			       const NOperators& Operators, const function1D<NState>& praStates, const ClusterData& cluster, long long istep)
+{// This routine returns the value of operator N measured at an existing creation operator, which has index ops.
+ // If we have diagram with the following configuration <...... psi^+(t_s) ........>
+ // We evaluate the following quantity:   <...... psi^+(t_s)psi^+{a}(t_s)psi{b}(t_s) ........>/<...... psi^+(t_s) ........>
+ // for two baths {a} and {b}, which have a common index ii.
+  static NState lstate(common::max_size,common::max_size), rstate(common::max_size,common::max_size), lpstate(common::max_size,common::max_size);
+  static Number mm;
+  function2D<double> tmp(common::max_size,common::max_size), Ml_OT_Mr(common::max_size,common::max_size);
+  //function2D<double> Ml_OT_Mr_O(common::max_size,common::max_size);
+  int Nop = Operators.size();
+
+  /*
+  cout<<"Operators are "<<endl;
+  for (int i=0; i<Nop; i++) cout<<setw(3)<<i<<" ";
+  cout<<endl;
+  for (int i=0; i<Nop; i++) cout<<setw(3)<<Operators.typ(i)<<" ";
+  cout<<endl;
+  cout<<"Zi= ";
+  for (int ist=0; ist<praStates.size(); ist++) cout<<Trace[ist].mantisa<<" ";
+  cout<<endl;
+  */
+  
+  function1D<dcomplex> ones(iomb.size());
+  ones = 1.0;
+  dcomplex imag(0.0,1.0);
+
+  for (int isusc=0; isusc<cluster.DOsize; isusc++){
+
+    double this_weight=0.0;
+    for (int ist=0; ist<praStates.size(); ist++){
+      
+      int kstate = cluster.DF_i(isusc,ist+1);
+      if (kstate==0) continue;
+    
+      double Zi = (Trace[ist]/matrix_element).dbl();
+
+      //cout<<"  &  ist+1="<<ist+1<<" kstate="<<kstate<<" Zi="<<Zi<<" left.size="<<state_evolution_left[ist].size()<<endl;
+    
+      //if (fabs(Zi)<1e-10) continue;
+    
+      const function2D<double>& OT = cluster.DF_M(isusc,ist+1);
+      //       time evolution  <-------------
+      // [ist+1]  O^+ [kstate] M_r [mstate] O [istate] M_l [ist+1]
+      //   m             n             b         a            m
+    
+      //if (state_evolution_left[ist].size()<=Operators.size() || state_evolution_right[ist].size()<=Operators.size()) continue;
+
+      for (int ops=0; ops<=Operators.size(); ops++){
+
+	bool not_last = ops<Nop;
+      
+	double t1 = not_last ? Operators.t(ops) : common::beta;
+	double t0 = ops>0    ? Operators.t(ops-1): 0.0;
+
+	/*
+	if (ist+1==2){
+	  if (ops==0 || ops==Nop){// we have
+	    if (Trace[2-1].mantisa !=0 && ops==Nop) this_weight += (t1-t0);  // <beta|S^-S^+..........|t=0>
+	    if (Trace[3-1].mantisa !=0 && ops==0  ) this_weight += (t1-t0);  // <beta|S^- ........ S^+|t=0>
+	  }else if (state_evolution_left[ist][ops-1].istate==2){
+	    //this_weight += (t1-t0)*Zi;
+	  }
+	}
+	*/
+	
+	if (state_evolution_left[ist].size()<=ops-1) continue;
+	
+	if (ops!=0) lstate = state_evolution_left[ist][ops-1];
+	else lstate = praStates[ist];
+      
+	int istate = lstate.istate;
+	int mstate = cluster.DF_i(isusc,istate);
+	if (mstate==0) continue;
+	
+	if (not_last){
+	  if ( state_evolution_right[kstate-1].size() <= Nop-1-ops ) continue;
+	  rstate = state_evolution_right[kstate-1][Nop-1-ops];
+	}else{
+	  rstate = praStates[kstate-1];
+	}
+	
+	if (rstate.istate!=mstate){
+	  cout<<"ERROR mstate!=rstate : "<<mstate<<" state_right["<<kstate<<"]["<<Nop-1-ops<<"]="<<rstate.istate<<endl;
+	  cout<<"Ones more kstate="<<kstate<<" ii="<<Nop-1-ops<<" state="<<state_evolution_right[kstate-1][Nop-1-ops].istate<<endl;
+	  cout<<"Nop="<<Nop<<" op="<<ops<<endl;
+	  cout<<"Printing all rstate.istates. For lstate look at "<<ops-1<<" and for rstate look at "<<Nop-1-ops<<endl;
+	  cout<<"state_evolution_right[kstate].size="<<state_evolution_right[kstate-1].size()<<" Nop="<<Nop<<endl;
+	  for (int k=1; k<=praStates.size(); k++){
+	    cout<<"right "<<setw(3)<<k<<": ";
+	    for (int l=0; l<state_evolution_right[k-1].size(); l++) cout<<setw(3)<<state_evolution_right[k-1][l].istate<<" ";
+	    cout<<endl;
+	    cout<<"left  "<<setw(3)<<k<<": ";
+	    for (int l=0; l<state_evolution_left[k-1].size(); l++) cout<<setw(3)<<state_evolution_left[k-1][l].istate<<" ";
+	    cout<<endl;
+	  }
+	}
+	
+	const function2D<double>& O = cluster.DF_M(isusc,istate);
+      
+	if ( rstate.M.size_Nd()!= OT.size_N() ) cout<<"ERROR OT.size_N="<<OT.size_N()<<" while rstate.size_N="<<rstate.M.size_Nd()<<endl;
+	if ( lstate.M.size_Nd()!= OT.size_Nd()) cout<<"ERROR OT.size_Nd="<<OT.size_Nd()<<" while lstate.size_Nd="<<lstate.M.size_Nd()<<endl;
+	if ( lstate.M.size_N() != O.size_Nd() ) cout<<"ERROR O.size_Nd="<<O.size_Nd()<<" while lstate.size_N="<<lstate.M.size_N()<<endl;
+	if ( rstate.M.size_N() != O.size_N()  ) cout<<"ERROR O.size_N="<<O.size_N()<<" while rstate.size_Nd="<<rstate.M.size_Nd()<<endl;
+	if (O.size_Nd() != cluster.msize(istate)) cout<<"ERROR O.size_Nd="<<O.size_Nd()<<" while istate.size="<<cluster.msize(istate)<<endl;
+	if (O.size_N()  != cluster.msize(mstate)) cout<<"ERROR O.size_N ="<<O.size_N()<< " while mstate.size="<<cluster.msize(mstate)<<endl;
+
+	// lstate.M * OT^T * rstate.M^T
+	Multiply_N_T(tmp,lstate.M,OT);
+	Multiply_N_T(Ml_OT_Mr, tmp, rstate.M);
+
+	/*
+	  double dsum=0.0;
+	  for (int a=0; a<O.size_Nd(); a++)     // goes over istate==lstate.istate
+	  for (int b=0; b<O.size_N(); b++){   // goes over mstate==rstate.istate
+	  Ml_OT_Mr_O(a,b) = Ml_OT_Mr(a,b)  * O(b,a);
+	  dsum += Ml_OT_Mr_O(a,b);
+	  }
+	  //if (fabs(dsum)<1e-10) cout<<"dsum = "<<dsum<<endl;
+	  */
+      
+	const dcomplex* __restrict__ _expw0_;
+	const dcomplex* __restrict__ _expw1_;
+	if (ops==0) _expw0_ = ones.MemPt();
+	else _expw0_ = find_Op_in_intervals<0>(ops-1, intervals, Operators).MemPt();
+	if (not_last) _expw1_ = find_Op_in_intervals<0>(ops,   intervals, Operators).MemPt();
+	else _expw1_ = ones.MemPt();
+      
+	const double* __restrict__ _exp_a = &Operators.exp_(ops)[cluster.Eind(istate,0)];
+	const double* __restrict__ _exp_b = &Operators.exp_(ops)[cluster.Eind(mstate,0)];
+	funProxy<dcomplex>& susc = suscg[isusc];
+
+	/*
+	double w0 = divide( Number(Ml_OT_Mr(0,0)*O(0,0), lstate.exponent + rstate.exponent + _exp_a[0]), matrix_element);
+	if (fabs(w0)>0.1 && Zi==0){
+	  cout<<"Should debug"<<endl;
+	}
+	*/
+
+	//cout<<"ist+1="<<ist+1<<" istate="<<istate<<endl;
+	for (int a=0; a<cluster.msize(istate); a++){     // goes over istate==lstate.istate
+	  for (int b=0; b<cluster.msize(mstate); b++){   // goes over mstate==rstate.istate
+	    double Ea = cluster.Enes[cluster.Eind(istate,a)];
+	    double Eb = cluster.Enes[cluster.Eind(mstate,b)];
+	    double Ml_Ot_Mr_O = Ml_OT_Mr(a,b)  * O(b,a);
+	    if (fabs(_exp_a[a] + Ea*(t1-t0))>1e-6) cout<<"ERROR Exponents wrong!"<<endl;
+	    if (fabs(_exp_b[b] + Eb*(t1-t0))>1e-6) cout<<"ERROR Exponents2 wrong!"<<endl;
+	    if (_exp_a[a] > _exp_b[b]){
+	      double e_Eb_Ea_dt = exp(_exp_b[b] - _exp_a[a]);
+	      double exponent = lstate.exponent + rstate.exponent + _exp_a[a];
+	      double w = divide( Number(Ml_Ot_Mr_O, exponent), matrix_element);
+	      if (Ea == Eb) susc[0] += w*(t1-t0);
+	      else susc[0] += w*(1.0 - e_Eb_Ea_dt)/(Eb-Ea);
+	      for (int im=1; im<iomb.size(); im++)  susc[im] += w*(_expw1_[im] - _expw0_[im] * e_Eb_Ea_dt)/(iomb[im]*imag+Eb-Ea);
+
+	      //cout<<"w="<<w<<" Zi="<<Zi<<" sc="<<susc[0]<<" t1="<<t1<<" t0="<<t0<<endl;
+	      
+	    }else{
+	      double e_Ea_Eb_dt = exp(_exp_a[a] - _exp_b[b]);
+	      double exponent = lstate.exponent + rstate.exponent + _exp_b[b];
+	      double w = divide( Number(Ml_Ot_Mr_O, exponent), matrix_element);
+	      if (Ea == Eb) susc[0] += w*(t1-t0);
+	      else susc[0] += w*(e_Ea_Eb_dt - 1.0)/(Eb-Ea);
+	      for (int im=1; im<iomb.size(); im++)  susc[im] += w*(_expw1_[im] * e_Ea_Eb_dt - _expw0_[im])/(iomb[im]*imag+Eb-Ea);
+	      
+	      //cout<<"w="<<w<<" Zi="<<Zi<<" sc="<<susc[0]<<" t1="<<t1<<" t0="<<t0<<endl;
+	      
+	    }
+	  }
+	}
+	//cout<<"susc[0]="<<suscg[isusc][0]<<endl;
+	//if (fabs(dsum)<1e-10) cout<<"dsum = "<<dsum<<endl;
+	//cout<<"ops="<<ops<<" ist+1="<<ist+1<<" istate="<<istate<<" mstate="<<mstate<<" kstate="<<kstate<<endl;
+	if (rstate.istate!=mstate){
+	  exit(1);
+	}
+      }
+    }
+    //cout<<"this_weight="<<this_weight<<" susc="<<suscg[0][0].real()<<endl;
+  }
 }
