@@ -156,7 +156,8 @@ class IMP_CTQMC(object):
             self.cx=0.0
     
         if self.l==3:
-            self.params['exe']='ctqmcf'
+            #self.params['exe']='ctqmcf'
+            self.spr['exe']='ctqmcf'
 
 
     def _exe(self, params, DCs, extn, UpdateAtom, gbroad=0.0, kbroad=0.0, maxAc=200.):
