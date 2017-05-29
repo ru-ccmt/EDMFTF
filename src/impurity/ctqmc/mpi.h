@@ -297,8 +297,9 @@ using namespace std;
 
 void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<dcomplex>& Gd, function2D<dcomplex>& Sd,
 	    function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver, function2D<double>& susc,
-	    function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
-	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleSusc, bool SampleTransitionP){};
+	    function2D<dcomplex>& asuscg, int DOsize, function2D<double>& Gtau, function5D<dcomplex>& VertexH, function5D<dcomplex>& VertexF, function1D<int>& Gd_deg,
+	    function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleSusc, bool SampleTransitionP){}
+
 
 void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<double>& Gd, function2D<double>& Ft,
 	     function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver,
