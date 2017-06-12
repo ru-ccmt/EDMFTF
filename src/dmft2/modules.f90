@@ -37,6 +37,10 @@ MODULE defs
   REAL*8,PARAMETER       :: Ry2eV= 13.60569253d0 
 END MODULE defs
 
+module fact
+  REAL*8  :: FCT(100)
+end module fact
+
 MODULE ams
   REAL*8          :: atom_mass(103)
 

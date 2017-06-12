@@ -16,7 +16,7 @@ SUBROUTINE RECPR (NWAVE,INDMAX,KXMAX,KYMAX,KZMAX,GMAX)
   INTEGER        :: IM(3),NST,ISTM(3,NSYM)
   COMPLEX*16     :: TAUP(NSYM)                                     
   CHARACTER*67   :: ERRMSG
-  LOGICAL        :: KDELTA
+  LOGICAL        :: KDELTA, TPrint
   REAL*8, pointer:: ABSK(:)
   REAL*8         :: DELTA, ABMAX, ABST
   INTEGER        :: KMAX(3), M(3)
@@ -28,7 +28,7 @@ SUBROUTINE RECPR (NWAVE,INDMAX,KXMAX,KYMAX,KZMAX,GMAX)
   real*4,  allocatable :: radii(:),iradii(:)
   integer, allocatable :: ihkl1(:,:),ihkl2(:,:),icnt(:)
   DATA DELTA/0.01D0/
-
+  TPrint = .False.
   ABMAX=-999
   if (Qprint) WRITE(6,*) ' KXMAX,KYMAX,KZMAX',KXMAX,KYMAX,KZMAX
   KMAX(1)=1                                                     
@@ -207,7 +207,13 @@ SUBROUTINE RECPR (NWAVE,INDMAX,KXMAX,KYMAX,KZMAX,GMAX)
      IM(1:3)=KZZ(1:3,I)                                              
      CALL STERN(IM,NST,ISTM,TAUP,iz,tau,iord,Qcomplex)
      INST(I)=NST                                                    
-     if (Qprint) WRITE(6,1020) I,KZZ(1,I),KZZ(2,I),KZZ(3,I),absk(i),nst             
+     if (Qprint) then
+        if (TPrint .or. I.lt.10) then
+           WRITE(6,1020) I,KZZ(1,I),KZZ(2,I),KZZ(3,I),absk(i),nst
+        else if (I.eq.10) then
+           WRITE(6,*) '......'
+        endif
+     endif
      DO JJ=1,NST   
         if(iabs(istm(1,jj)).gt.kxmax) kxmax=iabs(istm(1,jj))
         if(iabs(istm(2,jj)).gt.kymax) kymax=iabs(istm(2,jj))

@@ -10,8 +10,9 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
   IMPLICIT NONE
   REAL*8, intent(out)    :: logG, eimp_nd, eimp_nd2, DeltaG, forb(3,natm), TrGSigVdc
   COMPLEX*16, intent(in) :: Gdloc(ntcix,nomega,nipc), s_oo(maxsize,ncix)
-  REAL*8, intent(in)     :: Edimp(ntcix), DM(maxdim,maxdim,ncix), Nds(nipc,ntcix)
-  INTEGER, intent(in)    :: Sigind(maxdim,maxdim,ncix), Sigind_orig(maxdim,maxdim,ncix), cixdim(ncix), csize(ncix) !, cix(natom,4)
+  REAL*8, intent(in)     :: Edimp(ntcix), Nds(nipc,ntcix)
+  COMPLEX*16, intent(in) :: DM(maxdim,maxdim,ncix)
+  INTEGER, intent(in)    :: Sigind(maxdim,maxdim,ncix), Sigind_orig(maxdim,maxdim,ncix), cixdim(ncix), csize(ncix)
   INTEGER, intent(in)    :: maxsize, ncix, maxdim, ntcix
   COMPLEX*16, intent(in) :: sigma(maxsize,ncix,nomega)
   INTEGER, intent(in)    :: nomega, nipc, fh_sig
@@ -139,7 +140,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
            write(sitx,'(I3)') it2
            open(999,file=TRIM('gd_debug.')//trim(ADJUSTL(sitx)),status='unknown')
            do iom=1,nom_all
-              write(999,'(F18.12,1x,2F18.12,2x,F18.12)') omega_all(iom)*Ry2eV, Gdloc_(iom)/Ry2eV, dble(log(-Gdloc_(iom)))
+              write(999,'(F18.12,1x,2F18.12,2x,2F18.12,1x,2F18.12)') omega_all(iom)*Ry2eV, Gdloc_(iom)/Ry2eV, 1/(omega_all(iom)*IMAG-epsinf(it2))/Ry2eV, dble(log(-Gdloc_(iom))), dble(log(-1/(omega_all(iom)*IMAG-epsinf(it2))))
            enddo
            close(999)
 
@@ -150,7 +151,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
               do ip=1,nipc
                  write(999,'(2F18.12,3x)', advance='no') Gdloc(it2,iom,ip)/Ry2eV
               enddo
-              write(999,'(2F18.12,3x)', advance='no') sigma(it,icix,iom)*Ry2eV
+              write(999,'(2F18.12,3x)', advance='no') sigma(it2,1,iom)*Ry2eV
               write(999,*)
            enddo
            close(999)
@@ -173,7 +174,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
         eimp_nd = eimp_nd + Edimp(it2)*ndtot(it2)     ! Tr(eimp*n)
         eimp_nd2 = eimp_nd2 + epsinf(it2)*ndtot(it2)  ! Tr((eimp+s_oo)*n)
         !print *, 'sginf=', second_order_correction*deg(it2)*Ry2eV
-        WRITE(*,'(I3,1x,6F22.14)') it2, tlogGD, tlogG0, dble(sec), tlogGX, second_order_correction, logG
+        WRITE(*,'(I3,1x,8F22.14)') it2, tlogGD, tlogG0, dble(sec), tlogGX, second_order_correction, logG, Edimp(it2), ndtot(it2)
 
         icix = icx_ind(it2)
         it = it_ind(it2)

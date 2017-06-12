@@ -85,7 +85,7 @@ SUBROUTINE Read_Vec_Spin_DontStore(nemin, DM_nemin, DM_nemax, more_kpoints, n0, 
   REAL*8     :: wAsr
   COMPLEX*16 :: wAsc
   REAL*8   :: wE, wgh
-  INTEGER :: wkx, wky, wkz, nemax
+  INTEGER :: nemax!, wkx, wky, wkz, 
   ! locals
   INTEGER :: i, itape, ios, ne, num
   REAL*8  :: s,t,z
@@ -228,6 +228,8 @@ SUBROUTINE CompressSigmaTransformation2(STrans, lgTrans, lg_deg, DMFTU, Sigind, 
                              endif
                           enddo
                        ENDDO
+                       ! Strans  <= DMFTU * Sigma * DMFTU^+
+                       ! lgTrans <= DMFTU^+  G * DMFTU
                     endif
                  enddo
               enddo
@@ -291,7 +293,7 @@ END SUBROUTINE Get_A_Dimensions
 
 
 SUBROUTINE Set_A_Arrays(iorbital, nindo, cix_orb, iSx, noccur, cixdim, cfX, CF, norbitals, iso, natom, nl, ll, cix, ncix, maxdim, maxdim2, lmaxp, Sigind, csize, maxsize)
-  USE com_mpi,ONLY: myrank, master, Qprint
+  USE com_mpi,ONLY: Qprint!, myrank, master
   IMPLICIT NONE
   INTEGER, intent(out)   :: iorbital(natom,lmaxp+1), nindo(norbitals), cix_orb(norbitals), iSx(maxdim2,norbitals), noccur(maxsize,ncix), cixdim(ncix)
   COMPLEX*16, intent(out):: cfX(maxdim2,maxdim2,norbitals,norbitals)
@@ -349,6 +351,7 @@ SUBROUTINE Set_A_Arrays(iorbital, nindo, cix_orb, iSx, noccur, cixdim, cfX, CF, 
      enddo
   end if
 
+  cfX=0.d0
   DO iorb1=1,norbitals
      nind1 = nindo(iorb1)
      if ( cix_orb(iorb1).EQ.0 ) CYCLE
@@ -398,7 +401,7 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
   USE p_project, ONLY: phi_jl, al_ucase, dri, rix_mat!, rix, max_lcase
   USE mod_lo, ONLY: lomain
   !USE w_atpar, ONLY: ri_mat
-  USE Forces, ONLY: Qforce, forcea
+  USE Forces, ONLY: forcea!, Qforce
   !use com, ONLY: nat
   IMPLICIT NONE
   complex*16, intent(out)  :: DMFTU(nbands,maxdim2,norbitals,nipc)
@@ -447,7 +450,6 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
      latom = iatom(icase)   ! The succesive number of atom (all atoms counted)
      jatom = isort(latom)   ! The sort of the atom  ( == w_jatom(iucase) )
 
-     !!! BRISI POPRAVI
      Qforce_j = (nipc.eq.4) .AND.forcea(0,jatom)
      
      CALL retrieve_w_atpar(jatom,lfirst,lmmax)
@@ -473,8 +475,6 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
      rotloc_x_BR1_x_rotij = matmul( rotloc_x_BR1, rotij(:,:,latom) )
      crotloc_x_BR1 = matmul(crotloc(:,:,icase), BR1)
      nonzero_shft = sum(abs(shft(latom,:))) .GT. 1e-10
-
-
      DO is=1,iso  !--- over both spins
         alm(:,:) = 0.0         !------  ALM(m,band,nrf,is) will hold product of eigenvectors and a/b expansion coefficients --!
         blm(:,:) = 0.0
@@ -521,10 +521,6 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
               PHSHEL=EXP(IMAG*(ARG1+ARG2+ARGT2))
               do lcase=1,nl(icase) !----------- loop over L(jatom) requested in the ionput ---------------!
                  l=ll(icase,lcase) !------ current L --!
-                 !DO  m=1,2*l+1
-                 !   index = l**2+m
-                 !   h_yl(index,i-ii+1)=conjg(yl(index))*phshel !----- h_yl is rotated yl when k is rotated to k' -----!
-                 !END DO
                  h_yl(l*l+1:(l+1)**2, i-ii+1) = dconjg(yl(l*l+1:(l+1)**2))*phshel
               enddo
               IF(Qforce_j) THEN
@@ -652,8 +648,6 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
            deallocate( h_k )
            deallocate( h_ablyl_hk )
         endif
-
-
         !-------------- Adds localized orbitals to alm. -------------------!
         if (nlo.ne.0) call lomain(crotloc(:,:,icase),is,DM_nemin,DM_nemax,lfirst,latom,n0,jatom,alm,blm,clm,Qforce_j,aalm,bblm,cclm,lmaxp)
 
@@ -823,9 +817,10 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
            DMFTU(:,:nind2,iorb2,ip) = DMFTU(:,:nind2,iorb2,ip) + conjg(tmp(:,:nind2))
         enddo
      ENDDO
-     
   ENDDO
 
+
+  
   DEALLOCATE( URx, tmp )
 
 END SUBROUTINE Build_DMFT_Projector
@@ -839,7 +834,7 @@ SUBROUTINE Diagonalize_DMFT_WEIGHTS(zw2, Aweight, nbands, DM_nemin, DM_nemaxx, d
   INTEGER,    intent(inout):: DM_nemaxx
   LOGICAL,    intent(in)   :: determine_DM_nemaxx
   ! locals
-  INTEGER    :: timx, i, j, l, n, nbandsx, num
+  INTEGER    :: i, j, n, nbandsx, num
   INTEGER, allocatable    :: imx(:)
   COMPLEX*16, allocatable :: zweight(:,:), znew(:), Anew(:,:)
   COMPLEX*16 :: cc
@@ -966,7 +961,7 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
   USE dmfts,   ONLY: DM_Emin, DM_Emax, maxsize, iso, ncix, Sigind, csize, maxdim, projector!, lmaxp, nl, cix, DM_EF, ll, 
   USE com_mpi,ONLY: myrank, master, FilenameMPI, Reduce_MPI, FindMax_MPI, reduce_MPI0,pr_proc,vector_para,vectors,nvector,fvectors,Qprint
   USE p_project,ONLY: phi_jl, rix, P_rfi, kNri, n_al_ucase, dri, l_al_ucase, j_al_ucase
-  USE sym2,  ONLY: iord
+  !USE sym2,  ONLY: iord
   !USE MProjector, ONLY: Build_DMFT_Projector2
   IMPLICIT NONE
   COMPLEX*16, intent(out):: Olapm(maxdim,maxdim,ncix), SOlapm(maxdim,maxdim,ncix)
@@ -994,12 +989,15 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
   INTEGER    :: jatom, isize, nbands, itape, is, i, iorb1, iorb2, icix, nind1, nind2, ind1, ind2, cixdm, ip, iq, it, iikp, iks, ivector, nkp
   REAL*8     :: t1c, t2c, t1w, t2w, wg
   !
-  COMPLEX*16, allocatable :: olocf(:,:), work(:),tmp1(:,:)
+  COMPLEX*16, allocatable :: olocf(:,:), work(:),tmp1(:,:), solap(:,:)
   REAL*8, allocatable     :: ws(:), rwork(:)
   INTEGER, allocatable    :: iwork(:)
-  INTEGER :: lwork, lrwork, liwork, info, iind, ir, l, Nri, nipc, isym
+  INTEGER :: lwork, lrwork, liwork, info, iind, ir, l, Nri, nipc!, isym
   ! for p_interstitial
   REAL*8, allocatable     :: aKR(:), jlr(:), jlp(:)
+  !
+  INTEGER, allocatable :: cind(:), cini(:)
+  INTEGER :: cixdms
 
   allocate( Olapmk(maxdim,maxdim,ncix), olp(maxdim2,maxdim2) )
   Olapm=0
@@ -1125,46 +1123,6 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
      ENDDO
   ENDDO
   
-!!!! BRISI
-  !open(995, FILE='Olapmk2', status='unknown')
-  !open(996, FILE='Olapm2', status='unknown')
-  !!???? print Olapmk
-  !WRITE(995,*) iks
-  !DO iorb1=1,norbitals
-  !   icix = cix_orb(iorb1)
-  !   if ( icix.EQ.0 ) CYCLE
-  !   nind1 = nindo(iorb1)
-  !   DO iorb2=1,norbitals
-  !      if ( icix.NE.cix_orb(iorb2) ) CYCLE
-  !      nind2 = nindo(iorb2)
-  !      do ind1=1,nind1
-  !         do ind2=1,nind2
-  !            WRITE(995,'(2F16.12)',advance='no') Olapmk( iSx(ind1,iorb1), iSx(ind2,iorb2), icix )
-  !         enddo
-  !         WRITE(995,*)
-  !      enddo
-  !   ENDDO
-  !ENDDO
-!!!! BRISI
-  !DO iorb1=1,norbitals
-  !   icix = cix_orb(iorb1)
-  !   if ( icix.EQ.0 ) CYCLE
-  !   nind1 = nindo(iorb1)
-  !   DO iorb2=1,norbitals
-  !      if ( icix.NE.cix_orb(iorb2) ) CYCLE
-  !      nind2 = nindo(iorb2)
-  !      do ind1=1,nind1
-  !         do ind2=1,nind2
-  !            WRITE(996,'(2F16.12)',advance='no') Olapm( iSx(ind1,iorb1), iSx(ind2,iorb2), icix )
-  !         enddo
-  !         WRITE(996,*)
-  !      enddo
-  !   ENDDO
-  !ENDDO
-  !close(995)
-  !close(996)
-!!!! BRISI
-  
   CALL Reduce_MPI0(Olapm, maxdim, ncix, max_nbands)
   
   deallocate( olapmk, olp )
@@ -1199,26 +1157,69 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
      SOlapm(:,:,:) = 0.d0
      DO icix=1,ncix
         cixdm = cixdim(icix)
-        allocate( olocf(cixdm,cixdm), ws(cixdm), tmp1(cixdm,cixdm) )
-        olocf(:,:) = Olapm(:cixdm,:cixdm,icix)
+
+        allocate( cind(cixdm) )
+        cixdms=0 ! real dimension, excluding states which must be projected out, because they are treated as non-correlated                                                                                    
+        cind=0   ! In most cases, cind(i)=i, however, when some states are projected out, cind points to smaller block                                                                                         
+        DO ip=1,cixdm
+           if (Sigind(ip,ip,icix) .ne. 0) then
+              cixdms = cixdms + 1
+              cind(ip) = cixdms
+           endif
+        ENDDO
+        allocate( cini(cixdms))
+        do ip=1,cixdm
+           if (cind(ip).gt.0) cini(cind(ip))=ip
+        enddo
+        deallocate( cind )
         
-        CALL ZHEEVD('V','U', cixdm, olocf, cixdm, ws, work, lwork, rwork, lrwork, iwork, liwork, info )
+        !allocate( olocf(cixdm,cixdm), ws(cixdm), tmp1(cixdm,cixdm) )
+        !olocf(:,:) = Olapm(:cixdm,:cixdm,icix)
+        !CALL ZHEEVD('V','U', cixdm, olocf, cixdm, ws, work, lwork, rwork, lrwork, iwork, liwork, info )
+        !if (info .ne. 0) then
+        !   print *, 'Diagonalization of renormalization factor failed. Info-zheevd=', info
+        !endif
+        !do ip=1,cixdm
+        !   tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
+        !enddo
+        !call zgemm('N','C', cixdm, cixdm, cixdm, (1.d0,0.d0), tmp1, cixdm, olocf, cixdm, (0.d0,0.d0), SOlapm(:,:,icix), maxdim)
+
+        allocate( olocf(cixdms,cixdms), ws(cixdms), tmp1(cixdms,cixdms), solap(cixdms,cixdms) )
+        do ip=1,cixdms
+           do iq=1,cixdms
+              olocf(ip,iq) = Olapm(cini(ip),cini(iq),icix)
+           enddo
+        enddo
+        CALL ZHEEVD('V','U', cixdms, olocf, cixdms, ws, work, lwork, rwork, lrwork, iwork, liwork, info )
         if (info .ne. 0) then
            print *, 'Diagonalization of renormalization factor failed. Info-zheevd=', info
         endif
-        do ip=1,cixdm
+        do ip=1,cixdms
            tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
         enddo
-        call zgemm('N','C', cixdm, cixdm, cixdm, (1.d0,0.d0), tmp1, cixdm, olocf, cixdm, (0.d0,0.d0), SOlapm(:,:,icix), maxdim)
+        call zgemm('N','C', cixdms, cixdms, cixdms, (1.d0,0.d0), tmp1, cixdms, olocf, cixdms, (0.d0,0.d0), solap, cixdms)
+
+
+        do ip=1,cixdm
+           SOlapm(ip,ip,icix)=1.0d0
+        enddo
+        do ip=1,cixdms
+           do iq=1,cixdms
+              SOlapm(cini(ip),cini(iq),icix) = solap(ip,iq)
+           enddo
+        enddo
+        
         if (myrank.eq.master) then
            !WRITE(*,*) 'Z to renormalize=', ws(:cixdm)
            WRITE(*,'(A)',advance='no') 'Z to renormalize='
-           do ip=1,cixdm
-              WRITE(*,'(F16.10)',advance='no') 1./dble(SOlapm(ip,ip,icix))
+           do ip=1,cixdms
+              WRITE(*,'(F16.10)',advance='no') 1./dble(SOlapm(cini(ip),cini(ip),icix))
            enddo
            WRITE(*,*)
         endif
-        deallocate( olocf, ws, tmp1 )
+
+        deallocate( cini )
+        deallocate( olocf, ws, tmp1, solap )
      ENDDO
      deallocate( work, rwork, iwork )
   else
@@ -2386,13 +2387,13 @@ SUBROUTINE GetLocalDensityMatrix(DM, DMFTU, Aweight, vnorm1, iorbital, iSx, nban
   USE dmfts, ONLY: natom, nl, cix, ll, iso, maxdim, ncix!, lmaxp
   USE param, ONLY: 
   IMPLICIT NONE
-  REAL*8, intent(out)    :: DM(maxdim,maxdim,ncix)
+  COMPLEX*16, intent(out):: DM(maxdim,maxdim,ncix)
   COMPLEX*16, intent(in) :: DMFTU(nbands,maxdim2,norbitals)
   COMPLEX*16, intent(in) :: Aweight(nbands,nbands)
   INTEGER, intent(in)    :: lmaxp, iorbital(natom,lmaxp+1), iSx(maxdim2, norbitals), nbands, maxdim2, norbitals
   REAL*8, intent(in)     :: vnorm1
   !                                                                                                                                                                                                                                                                                           
-  INTEGER :: icase, jcase, l1case, l2case, icix, l1, l2, nind1, nind2, iorb1, iorb2, ind1, ind2
+  INTEGER :: icase, jcase, l1case, l2case, icix, l1, l2, nind1, nind2, iorb1, iorb2, ind1, ind2!, i
   !INTEGER, allocatable :: cind(:), cini(:)
   COMPLEX*16, allocatable :: tmp(:,:), tdens(:,:)
   DM=0
@@ -2414,7 +2415,7 @@ SUBROUTINE GetLocalDensityMatrix(DM, DMFTU, Aweight, vnorm1, iorbital, iSx, nban
               call zgemm('N','N', nind1, nind2, nbands, (1.d0,0.d0), tmp,maxdim2, DMFTU(:,:,iorb2),nbands, (0.d0,0.d0), tdens,maxdim2)
               do ind1=1,nind1
                  do ind2=1,nind2
-                    DM( iSx(ind1,iorb1), iSx(ind2,iorb2), icix ) = real(tdens(ind1,ind2))*vnorm1
+                    DM( iSx(ind1,iorb1), iSx(ind2,iorb2), icix ) = tdens(ind1,ind2)*vnorm1
                  enddo
               enddo
            enddo
@@ -2422,16 +2423,21 @@ SUBROUTINE GetLocalDensityMatrix(DM, DMFTU, Aweight, vnorm1, iorbital, iSx, nban
      enddo
   ENDDO
   deallocate( tmp, tdens )
+
 END SUBROUTINE GetLocalDensityMatrix
 
-SUBROUTINE PrintLocalDensityMatrix(DM, fh_DM, s_oo, cixdim)
+
+
+
+SUBROUTINE PrintLocalDensityMatrix(DM, fh_DM, s_oo, cixdim, PrintEntire)
   USE dmfts, ONLY: maxdim, ncix, Sigind, maxsize!, cix
-  USE param, ONLY: 
+  !USE dmfts, ONLY: lmaxp, natom
   IMPLICIT NONE
-  REAL*8, intent(in)    :: DM(maxdim,maxdim,ncix)
-  INTEGER, intent(in)    :: fh_DM, cixdim(ncix)
-  COMPLEX*16, intent(in) :: s_oo(maxsize,ncix)
-  !                                                                                                                                                                                                                                                                                           
+  COMPLEX*16, intent(inout):: DM(maxdim,maxdim,ncix)
+  INTEGER, intent(in)     :: fh_DM, cixdim(ncix)
+  COMPLEX*16, intent(in)  :: s_oo(maxsize,ncix)
+  LOGICAL, intent(in)     :: PrintEntire
+  !
   REAL*8,PARAMETER :: Ry2eV= 13.60569253d0 
   !                                                                                                                                                                                                                                                                                           
   INTEGER :: icix, cixdm, cixdms, ip, iq, it
@@ -2439,8 +2445,8 @@ SUBROUTINE PrintLocalDensityMatrix(DM, fh_DM, s_oo, cixdim)
   REAL*8, allocatable :: soo(:,:), ncorr(:,:), tsg(:,:)
   REAL*8 :: nf, sg, sgtot
 
-  !print *, 'cixdim=', cixdim                                                                                                                                                                                                                                                                 
-  !print *, 's_oo=', s_oo                                                                                                                                                                                                                                                                     
+  !print *, 'cixdim=', cixdim
+  !print *, 's_oo=', s_oo
   sgtot=0
   WRITE(fh_DM,*)
   do icix=1,ncix
@@ -2469,7 +2475,7 @@ SUBROUTINE PrintLocalDensityMatrix(DM, fh_DM, s_oo, cixdim)
      nf=0     ! total nd                                                                                                                                                                                                                                                                      
      DO ip=1,cixdms
         DO iq=1,cixdms
-           ncorr(ip,iq) = DM(cini(ip),cini(iq),icix)
+           ncorr(ip,iq) = dble(DM(cini(ip),cini(iq),icix))
            it = Sigind(cini(ip),cini(iq),icix)
            if (it.gt.0) soo(ip,iq) = real(s_oo(it,icix))
         ENDDO
@@ -2495,6 +2501,18 @@ SUBROUTINE PrintLocalDensityMatrix(DM, fh_DM, s_oo, cixdim)
   enddo
   WRITE(fh_DM,*)
 
+  if (PrintEntire) then
+     do icix=1,ncix
+        WRITE(fh_DM,'(A,1x,I3,3x,A)') ':DM ', icix, 'Density matrix'
+        DO ip=1,cixdm
+           DO iq=1,cixdm
+              WRITE(fh_DM,'(2f14.8,3x)',advance='no') DM(ip,iq,icix)
+           ENDDO
+           WRITE(fh_DM,*)
+        ENDDO
+     enddo
+  endif
+
 END SUBROUTINE PrintLocalDensityMatrix
 
 SUBROUTINE GetAEweight(wEpsw, Aweight, AEweight, zw2, nbands, nbands_dft, nemin, DM_nemin, DM_nemaxx)
@@ -2506,8 +2524,8 @@ SUBROUTINE GetAEweight(wEpsw, Aweight, AEweight, zw2, nbands, nbands_dft, nemin,
   INTEGER, intent(in)    :: nbands, nbands_dft, nemin, DM_nemin, DM_nemaxx
   ! locals
   COMPLEX*16 :: tmp(nbands,nbands), tmp2(nbands,nbands)!, tmp3(nbands,nbands)
-  REAL*8  :: sqt(nbands), diff
-  INTEGER :: i, j, nbandsx
+  !REAL*8  :: sqt(nbands)!, diff
+  INTEGER :: i, nbandsx
   !
   ! Here we calculate Eps, which is defined by the density matrix :
   !                rho=\sum_iw A^R 1/(iw + mu - eps_w) A^L ,

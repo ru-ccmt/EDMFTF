@@ -23,14 +23,15 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   USE sym2,   ONLY: tau, iz, iord
   USE xa2, ONLY: lda_weight, lda_nbmax
   USE fftw3_omp, ONLY: fft_init, fft_fini, fft_run, fft, fft_init_step1, fft_init_step2, fft_fini_step2
+  USE fact, only: fct
   IMPLICIT NONE
   CHARACTER*5, intent(in)  :: coord
   REAL*8, intent(in)       :: sumw
   INTEGER, intent(in)      :: NSPIN1
   REAL*8, intent(out)      :: TCLM,TCLM_w,TFOUR,TFOUR_w
   ! Common blocks
-  REAL*8     :: FCT
-  COMMON /FACT/   FCT(100)
+  !REAL*8     :: FCT
+  !COMMON /FACT/   FCT(100)
   ! Functions
   Interface
      integer FUNCTION CountSelfenergy(fh_sig, ncorr)
@@ -52,14 +53,14 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   ! Locals
   real*8, PARAMETER       :: Ry2eV = 13.60569253d0
   !
-  CHARACTER*10  :: KNAME
+  !CHARACTER*10  :: KNAME
   CHARACTER*100 :: CDUMMY, filename
   CHARACTER*200 :: FNAME
   LOGICAL    :: Rho_Renormalize, Tcompute
   LOGICAL    :: debug, more_kpoints
-  INTEGER    :: I, J, N, ISCF, LFIRST, jatom, ilm1, ilm3, n0, ne, jlm, lmmax, imax, nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, label, i1
-  INTEGER    :: nnlo, isize, num, ilm2, ilm, li, mi, it
-  REAL*8     :: emist, fac, ETOT2, FTOT2, FTOT0, SQRT2, SQFP, Y, TDE1, TDE2, S,T,Z
+  INTEGER    :: I, J, N, ISCF, LFIRST, jatom, ilm1, ilm3, n0, jlm, lmmax, imax, nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, label, i1
+  INTEGER    :: nnlo, isize, num, ilm2, ilm, li, mi, it, ip, iq, ndim
+  REAL*8     :: emist, fac, ETOT2, FTOT2, FTOT0, SQRT2, SQFP, Y, TDE1, TDE2!, S,T,Z
   REAL*8     :: time_bl, time_bl_w, time_reduc, time_reduc_w, time_write, time_writeclm, time_writescf, time4_w, time3, time4, time_force, time_force_w
   REAL*8     :: time_write_w, time_writeclm_w, time_ilm, time_ilm_w, time_radprod, time_radprod_w, time_m, time_m_w, time_rad, time_rad_w, time3_w
   REAL*8     :: time_rd_w, time_rd_c, time_atpar_w, time_atpar_c, time_writescf_w, time_r_w, time_r_c, time_lo, time_lo_w
@@ -74,27 +75,23 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   complex*16 :: wkp
   COMPLEX*16, ALLOCATABLE :: cfX(:,:,:,:), DMFTU(:,:,:,:), STrans(:,:,:,:), Aweight(:,:), Olapm0(:,:,:), SOlapm(:,:,:), AEweight(:,:)
   COMPLEX*16, ALLOCATABLE :: sumfft(:,:,:), tloc(:,:,:), rho1(:), rhok(:), Rspin(:,:,:)!, vrho1(:), vrhok(:)
-  COMPLEX*16, ALLOCATABLE :: ekin1(:), ekink(:)
+  COMPLEX*16, ALLOCATABLE :: ekin1(:), ekink(:), Edimp0(:,:,:)
   REAL*8,     ALLOCATABLE :: zw2(:), zwe(:), LowE(:,:,:), omega(:), Edimp(:)
   INTEGER,    ALLOCATABLE :: nindo(:), cix_orb(:), cixdim(:), iSx(:,:), noccur(:,:), iorbital(:,:)
-  COMPLEX*16, ALLOCATABLE :: sigma(:,:,:), s_oo(:,:), gloc(:), Gdloc(:,:,:), lgTrans(:,:,:,:), wEpsw(:,:)
+  COMPLEX*16, ALLOCATABLE :: sigma(:,:,:), s_oo(:,:), gloc(:), Gdloc(:,:,:), lgTrans(:,:,:,:), wEpsw(:,:), Gdloc0(:,:,:,:)
   REAL*8,     ALLOCATABLE :: aKR(:), jlr(:), jlp(:), Vlm(:,:), Vr(:), rh1_tmp(:,:), rh2_tmp(:,:), rh3_tmp(:,:)
-  REAL*8,     ALLOCATABLE :: Nds(:,:), dNds(:,:)
+  REAL*8,     ALLOCATABLE :: Nds(:,:), dNds(:,:), Nds_new(:)
   INTEGER,    allocatable :: lg_deg(:) 
-  INTEGER    :: keigen(3,nmat)
+  !INTEGER    :: keigen(3,nmat)
   REAL*8     :: zw0(nume), Kn(3)
-  REAL*8     :: DM(maxdim,maxdim,ncix), dDM(maxdim,maxdim,ncix) ! Density matrix
+  COMPLEX*16 :: DM(maxdim,maxdim,ncix), dDM(maxdim,maxdim,ncix) ! Density matrix
   REAL*8     :: fsph(3,natm)
   REAL*8     :: fsph2(3,natm)
   REAL*8     :: fnsp(3,natm)
   REAL*8     :: fvdrho(3,nat), fdvrho(3,nat)
   REAL*8     :: forb(3,natm), fextra(3,nat), fsur(3,nat), fkdc(3), fsur2(9), fsur_norm
   LOGICAL    :: Qforce2
-!!! BRISI
-  !REAL*8  :: derv(NRAD)
-  !REAL*8, allocatable :: drh3_tmp(:,:)
-!!! BRISI
-  
+
   Qforce2=.True.
   
   RENORM_SIMPLE = .False.
@@ -172,9 +169,10 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
 
   if (iso.EQ.2) CALL GetSpinRotation(Rspin,rotij,crotloc,norbitals,natom,natm,iso,lmaxp,iatom,nl,cix,ll,iorbital)
   
+  
   vnorm1=1.d0  
   IF((iso.EQ.2).AND.(nspin1.EQ.1)) vnorm1=0.5d0
-  
+
   Y=1.0D0                                                           
   DO I=1,49
      J=2*I-1
@@ -182,7 +180,6 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      Y=Y*I
   END DO
   
-
   LFIRST=1
   nnlo=0
   time_bl=zero; time_bl_w=zero; time_reduc=zero; time_reduc_w=zero
@@ -342,7 +339,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      time_dmf0=0; time_dmf0w=0
      if (info.ne.0) CALL cmp_overlap(Olapm0, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim2, emin, emax, iorbital, cix_orb, iSx, nindo, noccur, cixdim, cfX, Rspin, sumw, lmaxp, time_dmf0, time_dmf0w, RENORM_SIMPLE)
   endif
-
+  
   kmax(:)=0
   ! Chemical potential is recomputed on DMFT-self-energy
   if (recomputeEF.GT.0 .or. mode.EQ.'e') then
@@ -459,10 +456,11 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
 
   allocate( gloc(nomega) )
   
-  allocate( Gdloc(ntcix,nomega,nipc), Edimp(ntcix) )
+  allocate( Gdloc(ntcix,nomega,nipc) )
+  allocate( Gdloc0(maxdim,maxdim,ncix,nomega), Edimp0(maxdim,maxdim,ncix) )
   Gdloc=0
-  Edimp=0
-
+  Edimp0=0
+  Gdloc0=0
 !!! ---------- Preparation of arrays for paralel executaion --------------                                                     
   !pr_proc  = floor(nkpt/DBLE(nprocs)+0.999)  ! The maximum number of points calculated per processor                                          
   IF (Qprint) WRITE(6,'(A,I3,2x,A,I3)') 'pr_proc=', pr_proc, 'tot-k=', nkpt
@@ -571,9 +569,9 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         ! DMFT-projection is build
 
         CALL Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0, nnlo, nbands, cix_orb, nindo, DM_nemin, DM_nemax, maxdim2, lmaxp)
-
-        if (abs(projector).EQ.5) deallocate( phi_jl )
         
+        if (abs(projector).EQ.5) deallocate( phi_jl )
+
         if (Qrenormalize) CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, nipc, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
         
         allocate( STrans(maxsize,ncix,nbands,nbands) )
@@ -601,7 +599,8 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         allocate( Aweight(nbands,nbands) )
         allocate( AEweight(nedim,nedim) )
 
-        CALL cmp_dmft_weights2(Aweight, gloc, logG, dens, Gdloc, dNds, Edimp, AEweight, nedim, STrans, sigma, s_oo, wkp, omega, vnorm1, DM_EF, Temperature, wgamma, gamma, csize, nbands, DM_nemin, DM_nemax, maxsize, ncix, nomega, npomega, nume, matsubara, lgTrans, lg_deg, ntcix, nipc, ikp)
+        CALL cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, dNds, Edimp0, AEweight, nedim, STrans, sigma, s_oo, wkp, omega, vnorm1, DM_EF, Temperature, wgamma, gamma, csize, nbands, DM_nemin, DM_nemax, maxsize, ncix, nomega, npomega, nume, matsubara, lgTrans, lg_deg, ntcix, nipc, ikp, maxdim2, iorbital, iSx, norbitals)
+
         Nds = Nds + dNds
         
         call cputim(t2c)
@@ -676,13 +675,6 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         time_ed=time_ed+t3c-t2c
         time_edw=time_edw+t3w-t2w
         
-!!! BRISI
-        !do i=1,nbands_dft
-        !   WRITE(3999,'(I4,1x,I4,1x,F20.16,1x,F20.16)') ikp, i, E(i+nemin-1), weight(i+nemin-1)
-        !enddo
-!!! BRISI
-        
-        
         ! we need to have alm up to DM_nemax
         nemax     = max(DM_nemax,nemax)
         do num=nemin,DM_nemaxx
@@ -727,16 +719,21 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      
   ENDDO
 
-  deallocate( iorbital )
   deallocate( dNds )
-  deallocate( lg_deg )
   
   if (abs(projector).eq.5) call p_deallocate()
   if (Qforce) CALL Deallocate_nsh()
+
+  allocate( Edimp(ntcix) )
+  call SymmetrizeLocalQuantities(Gdloc0, Edimp0, Gdloc(:,:,1), Edimp, cfX, cix_orb, cixdim, iSx, iorbital, nindo, lg_deg, norbitals, maxdim2, nomega)
+  deallocate( Edimp0 )
   
   CALL Reduce_MPI(xwt, ETOT2, FTOT2, FTOT0, gloc, w_RHOLM, DM, Gdloc, fsph, fnsp, fsph2, Edimp, Nds, w_xwt1, w_xwteh, w_xwtel, w_xwt1h, w_xwt1l, sumfft, tloc, nomega, NRAD, LM_MAX, nat, natm, iff1, iff2, iff3, ift1, ift2, ift3, maxdim, ncix, ntcix, nipc, Qforce)
   
   if (myrank.eq.master) then
+     
+     call SymmetrizeDensityMatrix(DM, cfX, cix_orb, cixdim, iSx, iorbital, nindo, norbitals, maxdim2)
+
      print *, 'Sum of eigenvalues=', ETOT2*Ry2eV, 'eV'
      print *, 'TrLogG=', (FTOT2+DM_EF*elecn)*Ry2eV, 'eV'
      if (matsubara) then
@@ -778,12 +775,14 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         WRITE(1999,*)
      enddo
      close(1999)
-
+     
   endif
+
+  deallocate( lg_deg )
   deallocate( Nds )
   deallocate( Gdloc, Edimp )
   DEALLOCATE( gloc )
-
+  deallocate( Gdloc0 )
 
   if (myrank.eq.master) then
      if (Qforce) then
@@ -1048,10 +1047,11 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      if (recomputeEF.EQ.0) then
         dEtot = DM_EF*(elecn-xwt)  ! dE = mu*(N0-N)  ; If chemical potential is fixed, we need to correct Energy  
      endif
-     CALL PrintLocalDensityMatrix(DM, 6, s_oo, cixdim)
-     CALL PrintLocalDensityMatrix(DM, 21, s_oo, cixdim)
+     CALL PrintLocalDensityMatrix(DM, 6, s_oo, cixdim, .True.)
+     CALL PrintLocalDensityMatrix(DM, 21, s_oo, cixdim, .False.)
 
-     WRITE(*,'(A,f15.12,1x,A,f15.10)') 'Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
+     WRITE(6,*)
+     WRITE(6,'(A,f15.12,1x,A,f15.10)') 'Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
      !WRITE(21,'(A,f15.12,1x,A,f15.10)') '# Ratio to renormalize=', elecn/xwt, 'rho-rho_expected=', xwt-elecn
      WRITE(21,'(A)') '  rho-rho_expected in dmft2:'
      WRITE(21,'(A,f20.12,1x,A,f15.10)') ':DRHO  ', xwt-elecn
@@ -1073,6 +1073,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      !if (Qforce) CALL PrintForces(forcea,fsph,fsph2,fnsp,fvdrho,forb) ! former FOMAI3
   endif
 
+  deallocate( iorbital )
   CALL fini_charp
   CALL fini_chard
   CALL fini_charf
@@ -1268,8 +1269,8 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
 787 FORMAT('    VALENCE CHARGE DENSITY   IN  MT SPHERES',5X,I3,' ITERATION')
 800 FORMAT(/,10X,68(1H-),/,11X,'W A V E F U N C T I O N S','   AND   C H A R G E S   IN   S P H E R E S',/,10X,68(1H-))                                         
 881 FORMAT(/,':CHA  :',' TOTAL CHARGE INSIDE UNIT CELL =',F15.6) 
-882 FORMAT(//,3X,'SUM OF EIGENVALUES:'/24X,F15.6/)                    
-883 FORMAT(//,3X,'Tr(log(G))        :'/24X,F15.6/)                    
+882 FORMAT(//,3X,'SUM OF EIGENVALUES:',9X,F15.6)                    
+883 FORMAT(3X,'Tr(log(G))-Tr(log(Gloc)):',3X,F15.6/)                    
 1003 FORMAT(251(I3,I2))                                                 
 1005 FORMAT(/,7X,'LMMAX',I3,/,7x,'LM= ',17(i3,I2),(/,7x,18(i3,i2)))          
 1990 FORMAT(3X,'ATOMNUMBER   ',I3,5X,10A4)                             
@@ -1362,3 +1363,28 @@ SUBROUTINE cmp_interstitial(sumfft, tloc, Aweight, AEweight, zwe, nedim, iff1, i
   DEALLOCATE( Asc )
   if (Qforce) DEALLOCATE( Asq )
 END SUBROUTINE cmp_interstitial
+
+
+SUBROUTINE Debug_Print_Projector(DMFTU,nindo,norbitals,nbands,maxdim2,nipc)
+  IMPLICIT NONE
+  complex*16, intent(in)  :: DMFTU(nbands,maxdim2,norbitals,nipc)
+  INTEGER, intent(in)     :: nindo(norbitals), norbitals, nbands, maxdim2, nipc
+  ! locals
+  INTEGER :: iorb, ind, iband
+  open(988,FILE='U_2.dat',form='formatted',status='unknown',access='append')
+  do iorb=1,norbitals
+     do ind=1,nindo(iorb)
+        WRITE(988,*) 'iorb=', iorb, 'ind=', ind
+        do iband=1,nbands
+           WRITE(988,'(2F20.14,1x)',advance='no') DMFTU(iband,ind,iorb,1)
+        enddo
+        WRITE(988,*)
+     enddo
+  enddo
+  close(988)
+END SUBROUTINE Debug_Print_Projector
+
+     
+
+
+        

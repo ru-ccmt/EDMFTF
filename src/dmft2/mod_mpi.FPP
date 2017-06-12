@@ -329,7 +329,8 @@ CONTAINS
     REAL*8, intent(inout)     :: w_xwt1(0:21,1:nat), w_xwteh(0:3,1:nat), w_xwtel(0:3,1:nat), w_xwt1h(0:3,1:nat), w_xwt1l(0:3,1:nat)
     COMPLEX*16, intent(inout) :: sumfft(iff1,iff2,iff3), tloc(ift1,ift2,ift3)
     INTEGER, intent(in)       :: nomega, NRAD, LM_MAX, nat, natm, iff1, iff2, iff3, ift1, ift2, ift3, maxdim, ncix, ntcix, nip
-    REAL*8, intent(inout)     :: DM(maxdim,maxdim,ncix), Edimp(ntcix), Nds(nip,ntcix)
+    COMPLEX*16, intent(inout) :: DM(maxdim,maxdim,ncix)
+    REAL*8, intent(inout)     :: Edimp(ntcix), Nds(nip,ntcix)
     COMPLEX*16, intent(inout) :: Gdloc(ntcix,nomega,nip)
     REAL*8, intent(inout)     :: fsph(3,natm), fnsp(3,natm), fsph2(3,natm)
     LOGICAL, intent(in)       :: Qforce
@@ -339,7 +340,8 @@ CONTAINS
     REAL*8, allocatable :: ww_RHOLM(:,:,:)!, ww_vRHOLM(:,:,:)
     REAL*8, allocatable :: ww_xwt1(:,:), ww_xwteh(:,:), ww_xwtel(:,:), ww_xwt1h(:,:), ww_xwt1l(:,:)
     COMPLEX*16, allocatable :: w_sumfft(:,:,:), w_tloc(:,:,:), w_Gdloc(:,:,:)
-    REAL*8, allocatable :: w_DM(:,:,:), w_Edimp(:), w_Nds(:,:)
+    COMPLEX*16, allocatable :: w_DM(:,:,:)
+    REAL*8, allocatable :: w_Edimp(:), w_Nds(:,:)
     REAL*8, allocatable :: w_force(:,:)
 
     CALL MPI_REDUCE(xwt, w_xwt, 1,               MPI_REAL8,          MPI_SUM, master, MPI_COMM_WORLD, ierr)
@@ -441,7 +443,7 @@ CONTAINS
     endif
 
     if (myrank.eq.master) ALLOCATE( w_DM(maxdim,maxdim,ncix) )
-    CALL MPI_REDUCE(DM, w_DM,  maxdim*maxdim*ncix, MPI_REAL8, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+    CALL MPI_REDUCE(DM, w_DM,  maxdim*maxdim*ncix, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
     if (ierr.ne.0) print *, 'ERROR in MPI_REDUCE 13', ierr
     if (myrank.eq.master) then
        DM(:,:,:) = w_DM(:,:,:)
@@ -689,7 +691,8 @@ CONTAINS
     REAL*8, intent(inout)     :: w_xwt1(0:21,1:nat), w_xwteh(0:3,1:nat), w_xwtel(0:3,1:nat), w_xwt1h(0:3,1:nat), w_xwt1l(0:3,1:nat)
     COMPLEX*16, intent(inout) :: sumfft(iff1,iff2,iff3), tloc(ift1,ift2,ift3)
     INTEGER, intent(in)       :: nomega, NRAD, LM_MAX, nat, natm, iff1, iff2, iff3, ift1, ift2, ift3, maxdim, ncix, ntcix, nip
-    REAL*8, intent(inout)     :: DM(maxdim,maxdim,ncix), Edimp(ntcix), Nds(nip,ntcix)
+    COMPLEX*16, intent(inout) :: DM(maxdim,maxdim,ncix)
+    REAL*8, intent(inout)     :: Edimp(ntcix), Nds(nip,ntcix)
     COMPLEX*16, intent(inout) :: Gdloc(ntcix,nomega,nip)
     REAL*8, intent(inout)     :: fsph(3,natm), fnsp(3,natm), fsph2(3,natm)
     LOGICAL, intent(in)       :: Qforce

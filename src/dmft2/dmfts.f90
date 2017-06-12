@@ -4,8 +4,8 @@ MODULE dmfts
   INTEGER :: iso
   LOGICAL :: matsubara, Qcomplex, Qrenormalize
   INTEGER :: projector, nom_default, natom
-  INTEGER, ALLOCATABLE :: nl(:), ll(:,:), qsplit(:,:), cix(:,:), iatom(:), shft(:,:), isort(:)
-  REAL*8,  ALLOCATABLE :: crotloc(:,:,:)
+  INTEGER, ALLOCATABLE :: nl(:), ll(:,:), qsplit(:,:), cix(:,:), iatom(:), isort(:)
+  REAL*8,  ALLOCATABLE :: crotloc(:,:,:), shft(:,:)
   CHARACTER*1 :: mode
   INTEGER :: ncix, maxdim, maxsize, ntcix
   INTEGER :: wndim  ! We should probably have different wndim for each cix!
@@ -183,7 +183,7 @@ CONTAINS
        
        if (shift.ne.0) then
           read(fhr,*) (shft(latom,j),j=1,3)
-          if (Qprint) write(fh_stdout,'(A,1x,I2,A,2x,I3,I3,I3)') '** atom', i, ' has nonzero shift: ', shft(latom,1), shft(latom,2), shft(latom,3)
+          if (Qprint) write(fh_stdout,'(A,1x,I2,A,2x,3F4.1)') '** atom', i, ' has nonzero shift: ', shft(latom,1), shft(latom,2), shft(latom,3)
        endif
     enddo
 

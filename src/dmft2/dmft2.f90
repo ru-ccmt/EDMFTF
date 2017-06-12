@@ -2,15 +2,16 @@
 ! 
 
 PROGRAM DMFT2
-  USE param
-  USE defs
-  USE reallocate
-  USE ams
-  USE structure, only : natm, mult, rotij, tauij, pos, rotloc, BR1, ReadStructure,  WriteInfoStructure, DeallocateStructure, rot_spin_quantization
-  USE xa2
-  USE com
-  USE char
+  USE param, only: nsym, filename_V_nsh, filename_V_sph, filename_V_vns, lxdos, nemax0, nemin0, nkpt, nmat, nume, numkpt, nwave
+  USE defs, only: Ry2eV
+  USE reallocate, only: 
+  USE ams, only: init_ams
+  USE structure, only : natm, mult, rotij, tauij, pos, rotloc, BR1, ReadStructure,  WriteInfoStructure, DeallocateStructure, rot_spin_quantization, lattic
+  USE xa2, only: init_xa2
+  USE com, only: ef, elecn, emax, emin, nat, rel
+  USE char, only: efmod, modus, modus1
   USE dmfts, only: Qcomplex, iso, natom, crotloc, DM_EF, DM_Emin, DM_Emax, shft, iatom, Read_indmf2, Read_indmfl, DeallocateDmf
+  USE sym2,  only: init_sym2, iord, iz, tau
   USE com_mpi
   IMPLICIT NONE
   REAL*8        :: GMAX
@@ -23,13 +24,14 @@ PROGRAM DMFT2
   CHARACTER*200 :: vec_up, vec_dn, ene_up, ene_dn
   LOGICAL       :: helpfiles!, Qident
   INTEGER       :: i, loro, latom
-  REAL*8        :: sw(3), sumw
+  REAL*8        :: sw(3), sumw, BR1inv(3,3)
   INTEGER       :: INDEX, INDEX1, MI, JR, JC, fh_dos, lngth, ios, ivector, inkp, ik_start
   REAL*8        :: POST(3), BKRLOC(3,3)
   REAL*8        :: TTOTAL_w, TFOUR_w, PFOUR_w, TCLM_w, PCLM_w, TFERMI_w, PFERMI_w
   REAL*8        :: cost, cosf, esepermin, eseper, eseper0, fi, sint, sinf, theta
   REAL*8        :: Tstart_w, ttime, tstart, tfour, tclm, tfermi, ttotal, PFERMI, PCLM, PFOUR
   INTEGER       :: IDUMMY, nspin1, icase, INFO, IRECL, IUNIT, jatom, kxmax, kymax, kzmax
+  INTEGER       :: identity3(3,3), diff, ig, j1, j2
   save ttotal,tfermi,tclm,tfour,tstart,errfn
   
   CALL start_MPI()
@@ -122,8 +124,38 @@ PROGRAM DMFT2
   
   call ReadStructure(20,nat,rel,lxdos)
   ! natm = sum(mult)  ! ndif==natm
-
+  !                                                                       
+  !.....READ IN SYMMETRY OPERATIONS AND NONPRIMITIVE TRANSLATIONS         
+  READ(20,'(i4)') IORD                                                  
+  CALL init_sym2(iord)
+  DO  ig=1,iord
+     READ(20,111) ( (iz(J1,J2,ig),J1=1,3),TAU(J2,ig), J2=1,3 )
+  enddo
+111 FORMAT(3(3I2,F11.8/))                                              
+  !
+  ! The symmetry operations iz have just been read. Now correct it if necessary:
+  identity3(:,:)=0
+  identity3(1,1)=1
+  identity3(2,2)=1
+  identity3(3,3)=1
+  do ig=1,iord
+     diff = sum(abs(iz(:,:,ig)-identity3(:,:)))
+     if (diff.eq.0) exit
+  enddo
+  !print *, 'Found identity at ig=', ig
+  if (ig.ne.1) then
+     if (ig.eq.iord+1) then
+        WRITE(6,*) 'ERROR : Could not find indenity among symmetry operations'
+     endif
+     CALL swapGroup(iz(:,:,ig),tau(:,ig),iz(:,:,1),tau(:,1))
+  endif
+  
+  if (Qprint) CALL WriteInfoStructure(6, nat)
+  
   ALLOCATE (rotij(3,3,natm),tauij(3,natm))
+  nsym=iord
+  !.....DEFINE ROTATION MATRICES IN NONSYMMORPHIC CASE                    
+  CALL ROTDEF(iz,tau,iord,nat,pos,natm,rotij,tauij,mult,lattic)
   
   !.....READING case.in2 file
   READ(5,1003)  MODUS, MODUS1, coord                                        
@@ -152,13 +184,10 @@ PROGRAM DMFT2
   if (myrank.EQ.master) write(21,720)gmax
   
   if (Qprint) WRITE(6,*) 'RECPR LIST: ',RCFILE
-
-  if (Qprint) then
-     CALL WriteInfoStructure(6, nat)
-     WRITE(6,870)  COORD
-  endif
+  if (Qprint) WRITE(6,870)  COORD
   
   CALL LATGEN(nat)
+  
   CALL CPUTIM(ttime)
   tstart = ttime
   call walltim(ttime)
@@ -267,6 +296,8 @@ PROGRAM DMFT2
   if (myrank.EQ.master) WRITE(21,1060) ELECN,0.0
   
   if (myrank.EQ.master) then
+     !call INVERSSYMDEF(BR1,BR1inv)
+     call inv_3x3(BR1,BR1inv)
      INDEX = 0
      DO JATOM=1, NAT
         INDEX1 = INDEX+1
@@ -278,20 +309,20 @@ PROGRAM DMFT2
            
            write(6,'(A,I2,A)',advance='no') 'Actual position of atom ', INDEX, ' is:'
            write(6,'(f10.6,2x,f10.6,2x,f10.6)') POST
-           write(6,'(A)') 'Transformation is:'
+           write(6,'(A)') 'The local coordinate system (withoth user rotation "locrot") is:'
            do i=1,3
-              write(6,'(3F7.3,3x,F7.3)') ROTIJ(i,:,index), TAUIJ(i,index)
+              write(6,'(3F8.2,3x,F7.3)') ROTIJ(i,:,index), TAUIJ(i,index)
            enddo
         ENDDO
      ENDDO
      
      write(6,*)
-     write(6,'(A)') 'Combined transformation (acting on k-point) for correlated atoms'
-     write(6,'(A)') 'including users rotation and internal local rotation'
+     write(6,'(A)',advance='no') 'The local coordinate systems on correlated atoms '
+     write(6,'(A)') 'including users rotation ("locrot") are'
      DO icase=1,natom
         latom = iatom(icase)
-        write(6, '(A,I3,1x,A,1x,I3)') 'catom', icase, 'atom', latom
-        BKRLOC = matmul(crotloc(:,:,icase),matmul(BR1,rotij(:,:,latom)))
+        write(6, '(A,I3,1x,A,1x,I3,1x,A)') 'catom', icase, '( atom', latom, ')'
+        BKRLOC = matmul(crotloc(:,:,icase),matmul(BR1, matmul(rotij(:,:,latom),BR1inv) ))
         DO JR=1,3
            WRITE(6, '(3F10.5)') (BKRLOC(JR,JC),JC=1,3) 
         ENDDO
@@ -406,3 +437,17 @@ PROGRAM DMFT2
 END PROGRAM DMFT2
 
 
+subroutine swapGroup(iz1,tau1,iz2,tau2)
+  IMPLICIT NONE
+  INTEGER, intent(inout) :: iz1(3,3), iz2(3,3)
+  REAL*8,  intent(inout) :: tau1(3), tau2(3)
+  ! locals
+  INTEGER :: izx(3,3)
+  REAL*8  :: taux(3)
+  izx(:,:) = iz1(:,:)
+  iz1(:,:) = iz2(:,:)
+  iz2(:,:) = izx(:,:)
+  taux(:) = tau1(:)
+  tau1(:) = tau2(:)
+  tau2(:) = taux(:)
+end subroutine swapGroup

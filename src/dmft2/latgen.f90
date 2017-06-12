@@ -10,9 +10,8 @@ SUBROUTINE LATGEN(NAT)
   !                 CIAL COORDINATE SYSTEM ( IN UNITS OF 2 PI / A )       
   !                 TO CARTESIAN SYSTEM                                   
   !                                                                       
-  USE param,     ONLY: nsym
-  use structure, ONLY: alpha, pia, lattic, BR1, BR2, aa, bb, cc, mult, natm, ortho, pos, rotij, tauij, vol
-  USE sym2,      ONLY: iz, tau, iord, init_sym2
+  use structure, ONLY: alpha, pia, lattic, BR1, BR2, aa, bb, cc, mult, natm, ortho, pos, vol!, rotij, tauij
+  USE sym2,      ONLY: !init_sym2, iord, iz, tau
   USE com_mpi,   ONLY: myrank, master
   !IMPLICIT REAL*8 (A-H,O-Z)
   IMPLICIT NONE
@@ -268,21 +267,27 @@ SUBROUTINE LATGEN(NAT)
      enddo
   endif
   
-  VOL=AA*BB*CC/RVFAC                                                
-  !                                                                       
-  !.....DEFINE ROTATION MATRICES IN NONSYMMORPHIC CASE                    
-  !      CALL ROTDEF (NAT)                                            
-  READ(20,'(i4)') IORD                                                  
-  nsym=iord
-  CALL init_sym2(nsym)
-  DO  J=1,IORD                                                     
-     READ(20,11) ( (iz(J1,J2,J),J1=1,3),TAU(J2,J), J2=1,3 )          
-  enddo
+  VOL=AA*BB*CC/RVFAC
 
-  CALL ROTDEF(iz,tau,iord,nat,pos,natm,rotij,tauij,mult,lattic)
-  !.....READ IN SYMMETRY OPERATIONS AND NONPRIMITIVE TRANSLATIONS         
-11 FORMAT(3(3I2,F11.8/))                                              
-  !
+
+  
+!  !                                                                       
+!  !.....DEFINE ROTATION MATRICES IN NONSYMMORPHIC CASE                    
+!  !      CALL ROTDEF (NAT)                                            
+!  READ(20,'(i4)') IORD                                                  
+!  nsym=iord
+!  CALL init_sym2(nsym)
+!  DO  J=1,IORD                                                     
+!     READ(20,11) ( (iz(J1,J2,J),J1=1,3),TAU(J2,J), J2=1,3 )          
+!  enddo
+!
+!  CALL ROTDEF(iz,tau,iord,nat,pos,natm,rotij,tauij,mult,lattic)
+!  !.....READ IN SYMMETRY OPERATIONS AND NONPRIMITIVE TRANSLATIONS         
+!11 FORMAT(3(3I2,F11.8/))                                              
+!  !
+
+
+  
   RETURN
   !
   !        Error messages

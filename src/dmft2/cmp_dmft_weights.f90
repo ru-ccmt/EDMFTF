@@ -1,24 +1,27 @@
 ! @Copyright 2007 Kristjan Haule
 ! 
 
-SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEweight, nedim, STrans, sigma, s_oo, wkp, omega, vnorm1, DM_EF, Temperature, wgamma, gamma, csize, nbands, DM_nemin, DM_nemax, maxsize, ncix, nomega, npomega, nume, matsubara, lgTrans, lg_deg, ntcix, nipc, ikp)
+SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, dNds, Edimp0, AEweight, nedim, STrans, sigma, s_oo, wkp, omega, vnorm1, DM_EF, Temperature, wgamma, gamma, csize, nbands, DM_nemin, DM_nemax, maxsize, ncix, nomega, npomega, nume, matsubara, lgTrans, lg_deg, ntcix, nipc, ikp, maxdim2, iorbital, iSx, norbitals)
   USE defs,  ONLY: pi, IMAG
   USE xa,    ONLY: E
   USE muzero,ONLY: nomq, iomq, jomq, womq, abom, n0_om
   USE param, ONLY: CHUNK
-  use defs, only: Ry2eV
+  use defs,  only: Ry2eV
+  USE dmfts, only: maxdim, lmaxp, natom
   IMPLICIT NONE
   COMPLEX*16, intent(out)  :: Aweight(nbands,nbands), AEweight(nedim,nedim)
   REAL*8, intent(inout)    :: dens
   REAL*8, intent(out)      :: logG, dNds(nipc,ntcix)
-  COMPLEX*16, intent(inout) :: Gdloc(ntcix,nomega,nipc), gloc(nomega)
-  REAL*8, intent(inout)     :: Edimp(ntcix)
+  COMPLEX*16, intent(inout) :: Gdloc(ntcix,nomega,nipc), gloc(nomega), Gdloc0(maxdim,maxdim,ncix,nomega)
+  COMPLEX*16, intent(inout) :: Edimp0(maxdim,maxdim,ncix)
   COMPLEX*16, intent(in) :: STrans(maxsize,ncix,nbands,nbands)
   COMPLEX*16, intent(in) :: sigma(maxsize,ncix,nomega), s_oo(maxsize,ncix), wkp, lgTrans(nbands,nbands,ntcix,nipc)
   REAL*8, intent(in)     :: omega(nomega), vnorm1, DM_EF, Temperature, wgamma, gamma
   INTEGER, intent(in)    :: csize(ncix), nbands, DM_nemin, DM_nemax, maxsize, ncix, nomega, npomega, nume, lg_deg(ntcix)
-  INTEGER, intent(in)    :: ntcix, nipc, nedim, ikp
+  INTEGER, intent(in)    :: iorbital(natom,lmaxp+1), iSx(maxdim2, norbitals)
+  INTEGER, intent(in)    :: ntcix, nipc, nedim, ikp, maxdim2, norbitals
   LOGICAL, intent(in)    :: matsubara
+  COMPLEX*16, intent(in) :: DMFTU(nbands,maxdim2,norbitals,nipc)
   ! functions
   Interface
      real*8 FUNCTION ferm(x)
@@ -63,11 +66,12 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
   COMPLEX*16, allocatable :: zw1(:), w1(:,:), zar_inf(:,:), zal_inf(:,:), w2(:,:), w3(:,:), Dni(:)
   COMPLEX*16, ALLOCATABLE :: Winf(:,:), Wferm(:,:), Bii(:)
   REAL*8     :: logGD, logG0
-  COMPLEX*16 :: cc, gtc, cek, omn, w0, e0, e1, wo, bg, sginf, sginf_!, cc0, cc1, cc2
-  REAL*8  :: fer, tlogGD, tlogG, tlogG0, tdens, ek_inf, beta, csm, wkpt, C0, sginf2, second_order_correction, fermi, diff
-  INTEGER :: i, iom, num, num0, j0, j1, iomt, it, nomq_max, icix, j, ip
+  COMPLEX*16 :: cc, gtc, cek, omn, w0, wo, bg, sginf, sginf_!, cc0, cc1, cc2
+  REAL*8  :: fer, tlogGD, tlogG, tlogG0, tdens, ek_inf, beta, csm, wkpt, C0, sginf2, second_order_correction, fermi!, diff
+  INTEGER :: i, iom, num, num0, it, nomq_max, icix, j, ip, start_nipc
   LOGICAL :: Qforce
-  CHARACTER*20:: cstr
+  
+  start_nipc=2
   
   Qforce=.false.
   if (nedim.eq.nbands) Qforce=.true.
@@ -136,7 +140,7 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
      
      sginf=0 ! This will be used for the second-order correction to Tr(Sigma*G) ~ sum_{iw} Bii(i)/(iw-C0) * 1/(iw-zek_inf(i)) = Bii(i)*(f(C0)-f(zek_inf(i)))/(C0-zek_inf(i))   
 
-     ! !$OMP  PARALLEL DO SHARED(gloc,Sigma_inf,Gdloc,ntcix,wkpt)&
+     ! !$OMP  PARALLEL DO SHARED(gloc,Sigma_inf,Gdloc,ntcix,wkpt,Gdloc0)&
      ! !$OMP& PRIVATE(Eij,Sigmaij,zek,tlogG0,tlogGD,tdens,gtc,num,num0,ek_inf,cek,omn,Gij,it,ip,bg,cc)&
      ! !$OMP& SCHEDULE(STATIC,CHUNK) REDUCTION(+:w0inf,Wsum,WEsum,dens,logG0,logGD,sginf)
      do iom=1,n0_om-1
@@ -155,9 +159,9 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
 
         omn = omega(iom)*IMAG
         ! Computing the lattice Green's function                                                                                                                                                                                              
-        Gij(:,:)=-Eij(:,:)
+        Gij(:,:)=-Eij(:,:) ! off diagonal components are just G^{-1} = -(E+Sigma)
         do i=1,nbands
-           Gij(i,i)=omn+DM_EF+Gij(i,i)
+           Gij(i,i)=omn+DM_EF+Gij(i,i) ! diagonal components corrected
         enddo
         CALL zinv(Gij, nbands)
         ! Density from the Green's function                                                                                                                                                                                                   
@@ -203,14 +207,13 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
         logG0 = logG0 + tlogG0* wkpt
         logGD = logGD + tlogGD* wkpt
 
-
         DO it=1,ntcix  ! sum_{ij} Gij(i,j) * STrans(j,i)                                                                                                                                                                                      
            if (lg_deg(it).eq.0) cycle
-           do ip=1,nipc
+           do ip=start_nipc,nipc
               Gdloc(it,iom,ip) = Gdloc(it,iom,ip) + ProductTrace2(Gij, lgTrans(:,:,it,ip), nbands)*(wkp*0.5)  ! 0.5 because wkp=2*wk/sumw
            enddo
         ENDDO
-
+        Call ProjectToLocal(Gdloc0(:,:,:,iom), Gij, DMFTU, 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
         deallocate( Sigmaij, Gij )
         deallocate( Eij, zek )
      enddo   ! iom loop
@@ -295,6 +298,10 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
         endif
         
         ! Evaluating G_local                                                                                                                                                                                                                  
+        do j=1,nbands
+           tmp2(:,j) = zar(:,j)*Dni(j)
+        enddo
+        CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),tmp2,nbands,zal,nbands,(0.d0,0.d0),Gij,nbands)
         DO it=1,ntcix
            if (lg_deg(it).eq.0) cycle
            !CALL zgemm('N','T',nbands,nbands,nbands,(1.d0,0.d0),zal,nbands,lgTrans(:,:,it),nbands,(0.d0,0.d0),tmp,nbands)
@@ -303,14 +310,14 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
            !   We first compute   tmp = lgTrans * {A^L}^T
            !          and next    tmp2_{ij} = A^R_{ij}*g_j
            !          finally     G_loc = \sum_{ij} tmp2_{ji} tmp_{ji} = A^R_{ji} g_i A^L_{il} * lgTrans^T_{lj} 
-           do j=1,nbands
-              tmp2(:,j) = zar(:,j)*Dni(j)
-           enddo
-           do ip=1,nipc
-              CALL zgemm('N','T',nbands,nbands,nbands,(1.d0,0.d0),lgTrans(:,:,it,ip),nbands,zal,nbands,(0.d0,0.d0),tmp,nbands)
-              Gdloc(it,iom,ip) = Gdloc(it,iom,ip) +  ProductTrace2(tmp2,tmp,nbands)* 0.5*wkp
+           do ip=start_nipc,nipc
+              !CALL zgemm('N','T',nbands,nbands,nbands,(1.d0,0.d0),lgTrans(:,:,it,ip),nbands,zal,nbands,(0.d0,0.d0),tmp,nbands)
+              !Gdloc(it,iom,ip) = Gdloc(it,iom,ip) +  ProductTrace2(tmp2,tmp,nbands)* 0.5*wkp
+              !
+              Gdloc(it,iom,ip) = Gdloc(it,iom,ip) + ProductTrace2(Gij, lgTrans(:,:,it,ip), nbands)*(wkp*0.5)  ! 0.5 because wkp=2*wk/sumw
            enddo
         ENDDO
+        Call ProjectToLocal(Gdloc0(:,:,:,iom), Gij, DMFTU, 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
         tlogGD = 2/beta*tlogGD
         tlogG0 = 2/beta*tlogG0
         tdens  = 2/beta*tdens
@@ -349,7 +356,6 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
      tmp(:,:) = (Wsum(:,:) - Winf(:,:))*(2/beta) + Wferm(:,:)
      Aweight(:,:) = (0.5*wkp)*(tmp(:,:) + transpose(conjg(tmp(:,:))))
 
-
      if (Qforce) then
         !$OMP PARALLEL DO SHARED(tmp,tmp2) SCHEDULE(STATIC)
         do num0=1,nbands
@@ -386,16 +392,23 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, dNds, Edimp, AEw
      !WRITE(*,'(A,F12.6,1x,A,F12.6,1x,A,F12.6,1x,A,F12.6)') 'logGD-logG0=', logGD-logG0, 'tlogG=', tlogG, 'logG=', logG
      !WRITE(*, '(A,F12.6,1x,A,F12.6,1x)') 'csm=', csm 
      
-     ! Computing impurity levels                                                                                                                                                                                                              
-     DO it=1,ntcix  ! sum_{ij} Gij(i,j) * STrans(j,i)                                                                                                                                                                                         
-        if (lg_deg(it).eq.0) cycle
-        csm=0
-        DO i=1,nbands
-           csm = csm + E(i+DM_nemin-1)*lgTrans(i,i,it,1)
-        ENDDO
-        Edimp(it) = Edimp(it) + (dble(csm)-DM_EF)*(wkp*0.5)  ! 0.5 because wkp=2*wk/sumw                                                                                                                                                      
+     ! Computing impurity levels in the old way
+     !DO it=1,ntcix  ! sum_{ij} Gij(i,j) * STrans(j,i)                                                                                                                                                                                         
+     !   if (lg_deg(it).eq.0) cycle
+     !   csm=0
+     !   DO i=1,nbands
+     !      csm = csm + E(i+DM_nemin-1)*lgTrans(i,i,it,1)
+     !   ENDDO
+     !   Edimp(it) = Edimp(it) + (dble(csm)-DM_EF)*(wkp*0.5)  ! 0.5 because wkp=2*wk/sumw                                                                                                                                                      
+     !ENDDO
+     allocate( Gij(nbands,nbands) )
+     Gij(:,:)=0.d0
+     DO i=1,nbands
+        Gij(i,i) = E(i+DM_nemin-1)-DM_EF
      ENDDO
-
+     call ProjectToLocal(Edimp0, Gij, DMFTU, 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
+     deallocate( Gij )
+     
      deallocate( Bii )
      DEALLOCATE( Winf, Wferm )
      DEALLOCATE( zek_inf )
@@ -906,3 +919,47 @@ SUBROUTINE ProductTrace3(C, A,B,ndim)
      C(i) = res
   enddo
 END SUBROUTINE ProductTrace3
+
+
+
+  
+SUBROUTINE ProjectToLocal(Gloc, Gij, DMFTU, wk, iorbital, iSx, nbands, maxdim2, norbitals)
+  USE dmfts, ONLY: natom, nl, cix, ll, iso, maxdim, ncix, lmaxp
+  IMPLICIT NONE
+  COMPLEX*16, intent(inout):: Gloc(maxdim,maxdim,ncix)
+  COMPLEX*16, intent(in)   :: Gij(nbands,nbands)
+  COMPLEX*16, intent(in)   :: DMFTU(nbands,maxdim2,norbitals)
+  INTEGER, intent(in)      :: iorbital(natom,lmaxp+1), iSx(maxdim2, norbitals), nbands, maxdim2, norbitals
+  REAL*8, intent(in)       :: wk
+  !                                                                                                                                                                                                                                                                                           
+  INTEGER :: icase, jcase, l1case, l2case, icix, l1, l2, nind1, nind2, iorb1, iorb2, ind1, ind2, i1, i2
+  COMPLEX*16, allocatable :: tmp(:,:), gd(:,:)
+  allocate( tmp(maxdim2,nbands), gd(maxdim2,maxdim2) )
+  DO icase=1,natom
+     do l1case=1,nl(icase)
+        icix = cix(icase,l1case)
+        if ( icix.EQ.0 ) CYCLE
+        l1 = ll(icase,l1case)
+        nind1 = (2*l1+1)*iso
+        iorb1 = iorbital(icase,l1case)
+        DO jcase=1,natom
+           do l2case=1,nl(jcase)
+              if ( cix(jcase,l2case).NE.icix ) CYCLE
+              l2 = ll(jcase,l2case)
+              nind2 = (2*l2+1)*iso
+              iorb2 = iorbital(jcase,l2case)
+              call zgemm('C','N', nind1, nbands, nbands, (1.d0,0.d0), DMFTU(:,:,iorb1), nbands, Gij(:,:), nbands, (0.d0,0.d0), tmp(:,:),maxdim2)
+              call zgemm('N','N', nind1, nind2, nbands, (1.d0,0.d0), tmp, maxdim2, DMFTU(:,:,iorb2),nbands, (0.d0,0.d0), gd, maxdim2)
+              do ind1=1,nind1
+                 do ind2=1,nind2
+                    i1 = iSx(ind1,iorb1)
+                    i2 = iSx(ind2,iorb2)
+                    Gloc(i1,i2,icix) = Gloc(i1,i2,icix) + gd(ind1,ind2)*wk
+                 enddo
+              enddo
+           enddo
+        ENDDO
+     enddo
+  ENDDO
+  deallocate( tmp, gd )
+END SUBROUTINE ProjectToLocal

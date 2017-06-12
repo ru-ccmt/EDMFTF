@@ -8,8 +8,9 @@ REAL*8 FUNCTION T3J (J1,J2,J3,M1,M2,M3)
   !     FUNCTION PH IS NEEDED TO COMPUTE PHASES                           
   !     NOTRI AND M-TEST IN MAIN PROGRAM                                  
   !                                                                       
+  use fact, only : FCT
   IMPLICIT REAL*8 (A-H,O-Z)
-  COMMON/FACT/FCT(100)                                              
+  !COMMON/FACT/FCT(100)                                              
   T3J=0.                                                            
   K0=J1+J2-J3                                                       
   K1=J1-M1                                                          
@@ -29,8 +30,9 @@ REAL*8 FUNCTION T3J (J1,J2,J3,M1,M2,M3)
 END FUNCTION T3J
 
 REAL*8 FUNCTION T3J0(J1,J2,J3)                                    
+  use fact, only: FCT
   IMPLICIT REAL*8 (A-H,O-Z)
-  COMMON/FACT/FCT(100)                                              
+  !COMMON/FACT/FCT(100)                                              
   J=J1+J2+J3                                                        
   F1=SQRT(FCT(J-2*J1+1)*FCT(J-2*J2+1)*FCT(J-2*J3+1)/FCT(J+3))       
   F2=FCT(J/2+1)/FCT(J/2-J1+1)/FCT(J/2-J2+1)/FCT(J/2-J3+1)           

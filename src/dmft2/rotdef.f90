@@ -75,8 +75,8 @@ SUBROUTINE ROTDEF (iz,tau,iord,nat,pos,ndif,rotij,tauij,mult,lattic)
         !88      format(a,3f16.13,2i3)
      ENDDO
   ENDDO
-!---------------------------------------------------------------------  
-!
+  !---------------------------------------------------------------------  
+  !
   INDEX=0                                                           
   NCOUNT=0                                                          
   DO JATOM=1,NAT                                                 
