@@ -44,7 +44,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      end FUNCTION detx
   end interface
   !------- allocatable local varaibles
-  real*8, PARAMETER       :: Ry2eV = 13.60569193
+  real*8, PARAMETER       :: Ry2eV = 13.60569193d0
   complex*16, allocatable :: DMFTrans(:,:,:,:,:), STrans(:,:,:,:), GTrans(:,:,:), DMFTU(:,:,:)
   complex*16, allocatable :: xqtl2(:,:,:,:), gk(:), gij(:,:), gloc(:,:), gtot(:), gmk(:,:,:), gmloc(:,:,:,:), Ekp(:,:,:,:)
   complex*16, allocatable :: g_inf(:,:,:,:), g_ferm(:,:,:)!, DM(:,:,:)
@@ -70,7 +70,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   integer     :: iorbital(natom,lmax2+1), csizes(ncix)
   real*8      :: BK(3), BKROT(3), BKROT2(3), BKRLOC(3)
   !------ other local variables
-  logical     :: Tcompute
+  logical     :: Tcompute, read_overlap, Qsymmetrize
   character*10:: KNAME
   complex*16  :: PHSHEL, CFAC, xomega
   real*8      :: PI, TWOPI, EMIST, S, T, Z, exxx, ARG123, ARG2, ARGT, ARGT2, FAC, logGloc(ncix), Kn(3), rx, mweight_ikp
@@ -82,9 +82,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   integer     :: iorb, L, nind, it, ikp, iks, iikp, ivector, N, NE, NEMIN, NEMAX, nbands, isym, igi, M, ibb, LATOM
   integer     :: fh_sig, fh_dos, fh_gc, fh_dt, fh_eig, fh_Eimp
   integer     :: iucase, pr_proc, pr_procr, max_bands, natm, maxucase
-  integer     :: fh_p, ind, lfirst, nkp, il, nr0, ir, Nri, isize
+  integer     :: fh_p, ind, lfirst, nkp, il, nr0, ir, Nri, isize, info
   character*100:: filename
-  logical     :: pform
+  logical     :: pform, nonzero_shft
   CHARACTER*200 :: FNAME
   !
   REAL*8      :: Det, phi1, the1, psi1
@@ -98,6 +98,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   
   RENORM_SIMPLE=.False.
   cmp_DM = matsubara
+  read_overlap = nsymop.ne.iord .and. mode.NE.'g'  ! We do not intent to go over all symmetry operations (like plotting), hence need overlap from before
+  Qsymmetrize  = nsymop.ne.iord .and. mode.EQ.'g'   ! We also do not go over all symmetry operations, but we will symmetrize
   
   !!!! Here you should set ComputeLogGloc to true if you want to compute it for free energy!!! 
   ComputeLogGloc = .False.
@@ -111,9 +113,6 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   fh_eig = 380
   fh_Eimp = 380
   !------ Some parameters which should be read from the input! Not yet implemented! -----!
-  gammac = gammac/Ry2eV !--- broadening for correlated orbitals to Ry --!
-  gamma  = gamma/Ry2eV  !--- broadening for all orbitals to Ry ---------!
-  
   !----------  Some old stuff ---------------------
   PI=ACOS(-1.0D0)
   TWOPI=2.D0*PI
@@ -320,7 +319,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
 
   !if (iso.eq.2) then
   allocate( crotloc_x_rotij(3,3,max_nl,natom) )
-  call INVERSSYMDEF(BR1,BR1inv)
+  !call INVERSSYMDEF(BR1,BR1inv)
+  call inv_3x3(BR1,BR1inv)
   DO icase=1,natom  !--------------- over all atoms requested in the input ------------------------!
      latom = iatom(icase)   ! The succesive number of atom (all atoms counted)
      tmp3 = matmul(BR1,rotij(:,:,latom))
@@ -334,7 +334,15 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   call cputim(time0)
   if (Qrenormalize) then
      allocate(Olapm0(maxdim,maxdim,ncix), SOlapm(maxdim,maxdim,ncix) )
-     CALL cmp_overlap(projector,Olapm0, SOlapm, Qcomplex, nsymop, csort, iorbital, cix_orb, nindo, cixdim, iSx, noccur, cfX, crotloc_x_rotij, maxucase, maxdim2, norbitals, pr_proc, RENORM_SIMPLE)
+     if (read_overlap) then
+        call read_overlap_from_file(info, SOlapm, cixdim, maxdim, ncix)
+        if (info.ne.0) then
+           WRITE(6,*) 'ERROR : file SOlapm.dat could not be found. Run regular dmft1 first to produce this file.'
+           STOP
+        endif
+     else
+        CALL cmp_overlap(projector,Olapm0, SOlapm, Qcomplex, nsymop, csort, iorbital, cix_orb, nindo, cixdim, iSx, noccur, cfX, crotloc_x_rotij, maxucase, maxdim2, norbitals, pr_proc, RENORM_SIMPLE, Qsymmetrize)
+     endif
   endif
   call cputim(time1)
   overlap_time = time1-time0
@@ -359,8 +367,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      allocate(gtot(nomega))
      gtot=0
      if (cmp_DM) then
-        allocate( g_inf(maxdim2,maxdim2,ncix,nomega) )
-        allocate( g_ferm(maxdim2,maxdim2,ncix) )
+        allocate( g_inf(maxdim,maxdim,ncix,nomega) )
+        allocate( g_ferm(maxdim,maxdim,ncix) )
         g_inf(:,:,:,:)=0.d0
         g_ferm(:,:,:)=0.d0
      endif
@@ -623,11 +631,12 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               endif
               isize = N-(nlo+nlon+nlov)
               if (abs(projector).eq.5) al_interstitial(:,:,:,:)=0.d0
-              
+
+              nonzero_shft = sum(abs(shft(:3,latom))) .GT. 1e-10
               FAC=4.0D0*PI*RMT(jatom)**2/SQRT(VOL)
               do lcase=1,nl(icase) !----------- loop over L(jatom) requested in the ionput ---------------!
                  l=ll(icase,lcase) !------ current L --!
-
+                 
                  if (iso.eq.2) then
                     !!  local_axis_defined_by_locrot  <- local_axis_of_equivalent_atom <- group_operation_symmetry <- from_spin_quantization_to_global_cartesian
                     !!* Trans3 = crotloc(:,:,icase) * rotij_cartesian * iz_cartesian(:,:,isym) * rot_spin_quantization
@@ -635,7 +644,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     Trans3 = matmul(crotloc_x_rotij(:,:,lcase,icase),tmp3)
                     Det = detx(Trans3)
                     Trans3 = transpose(Trans3*Det)
-                    CALL Angles(phi1,the1,psi1, Trans3 )
+                    CALL Angles_zxz(phi1,the1,psi1, Trans3 )
                     CALL Spin_Rotation(Rispin,phi1,the1,psi1)
                  endif
                  crotloc_x_BR1(:,:) = matmul( crotloc(:,:,lcase,icase),BR1 )
@@ -667,7 +676,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                        ! ARGT2 = (R_a.(k+K)).tau_n * 2pi
                        ARGT2= dot_product(BKROT, tauij(:3,latom))*TWOPI
                        ! ARG2 = (R_a.(k+K)) *  shft * 2pi
-                       ARG2 = dot_product(BKROT,shft(:3,latom))*TWOPI ! Before user rotation, but already on 
+                       ARG2 = 0.d0
+                       if (nonzero_shft) ARG2 = dot_product(BKROT,shft(:3,latom))*TWOPI ! Before user rotation, but already on 
                        ! PHSEHL = e^{I*2pi*( (R_a.(k+K))*tau_n + (K+k)*tau(isym) + (R_n.R_a.(k+K)*R(first)))}
                        PHSHEL=EXP(IMAG*(ARG123+ARG2+ARGT+ARGT2))
                        i3=i-ii+1
@@ -731,7 +741,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                        zgem2_time = zgem2_time + time3-time2
                     ENDDO !----------- over both spins ---------!
                  ENDDO    !----------- over iblock -------------!
-                 
+
                  !-------------- Adds localized orbitals to alm. -------------------!
                  if (nlo.ne.0) then
                     call lomain (nemin,nemax,lfirst,latom,n,jatom,isym,L,iso,crotloc_x_BR1)
@@ -779,6 +789,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
 
            call cputim(time0)
            if (Qrenormalize) CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
+
+           !call Debug_Print_Projector(DMFTU,nindo,norbitals,nbands,maxdim2)
+           
            CALL CompressSigmaTransformation2(STrans, DMFTU, Sigind, iSx, cix, iorbital, ll, nl, natom, iso, ncix, maxdim, maxdim2, lmax2, norbitals, nbands, maxsize) ! WWW
            call cputim(time1)
            comprs_time = comprs_time + time1-time0
@@ -855,7 +868,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     xomega = omega(iom)
                  ENDIF
                  DO i=1,nbands
-                    gij(i,i) = xomega+EF-E(i+nemin-1)  !-----  g^-1 of the LDA part in band representation ----!
+                    gij(i,i) = xomega+EF-E(i+nemin-1) + IMAG*gamma  !-----  g^-1 of the LDA part in band representation ----!
                  ENDDO
                  call cputim(time0)
                  ! Adding self-energy
@@ -865,9 +878,6 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  call cputim(time1)
                  comprs_time = comprs_time + time1-time0
                  time0=time1
-                 DO i=1,nbands               !-------- adding minimum broadening for all bands -------------------!
-                    gij(i,i) = gij(i,i) + (0.d0, 1.d0)*gamma
-                 ENDDO
                  if (ncix.gt.0) then
                     CALL zinv(gij,nbands)    !-------- inversion of matrix to get g -------------------------------!
                  else
@@ -920,7 +930,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               if (Cohfacts) DEALLOCATE( evl, evr )
            enddo  !--  iom loop
            !$OMP END PARALLEL DO
-           
+
            if (mode.EQ.'g' .and. cmp_DM) then
               
               call cputim(time0)
@@ -985,7 +995,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   if (mode.eq.'g') then
      CALL Reduce_MPI(gloc, gtot, gmloc, Olapm, Eimpm, norbitals, nomega, maxdim, ncix)
      if (cmp_DM) then
-        CALL Reduce_dm_MPI(g_inf, g_ferm, maxdim2, ncix, nomega)
+        CALL Reduce_dm_MPI(g_inf, g_ferm, maxdim, ncix, nomega)
      endif
      
   elseif (mode.eq.'e') then
@@ -1001,15 +1011,22 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   
   !------------- Printing the calculated local green's function for all requested orbitals in requested shape --------!
   IF (mode.EQ.'g' .and. myrank.eq.master) THEN
+     
+     if (Qsymmetrize) then
+        WRITE(6,*) 'Symmetrizing the Greens function since the group symmetrization is turned off.'
+        Call SymmetrizeLocalQuantities(gmloc, Eimpm, Olapm, s_oo, sigma, cfX, cix_orb, cixdim, iSx, iorbital, nindo, norbitals, noccur, maxdim2, nomega)
+        if (cmp_DM) Call SymmetrizeLocalQuantities2(g_inf, g_ferm, cfX, cix_orb, cixdim, iSx, iorbital, nindo, norbitals, maxdim2, nomega)
+     endif
+     
      if (cmp_DM) then
-        call Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, maxdim2, ncix, Sigind, nomega, cixdim, iso)
+        call Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, ncix, Sigind, nomega, cixdim, iso)
         deallocate( g_inf )
         deallocate( g_ferm )
      end if
      
      allocate( Deltac(maxsize, ncix, nomega), Glc(maxsize, ncix, nomega), Eimpc(maxsize, ncix), Olapc(maxsize,ncix) )
      
-     CALL GetDelta2(Deltac, Glc, Eimpc, Olapc, logGloc, matsubara, omega, sigma, s_oo, gamma, gmloc, Eimpm, Olapm, Sigind, csize, cixdim, noccur, ncix, maxsize, maxdim, nomega, projector, ComputeLogGloc)
+     CALL GetDelta2(Deltac, Glc, Eimpc, Olapc, logGloc, matsubara, omega, sigma, s_oo, gamma, gmloc, Eimpm, Olapm, Sigind, csize, cixdim, noccur, ncix, maxsize, maxdim, nomega, projector, ComputeLogGloc, Qsymmetrize)
 
      CALL PrintGloc(fh_dos, fh_gc, fh_dt, Glc, gloc, gtot, Deltac, omega, csize, csizes, nl, ll, legend, iatom, ncix, nomega, natom, norbitals, maxsize, Ry2eV)
      
@@ -1075,7 +1092,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   deallocate( noccur )
   deallocate( cixdim, iSx, nindo, cix_orb, cfX )
   deallocate( csort )
-  
+
   if (mode.EQ.'g') then
      if (cmp_partial_dos) DEALLOCATE( gloc )
      DEALLOCATE( gmloc, gtot )
@@ -1109,3 +1126,27 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   RETURN                    
 2032 FORMAT(50X,I2,//)                                                        
 END SUBROUTINE L2MAIN
+
+
+SUBROUTINE Debug_Print_Projector(DMFTU,nindo,norbitals,nbands,maxdim2)
+  IMPLICIT NONE
+  COMPLEX*16, intent(in) :: DMFTU(nbands,maxdim2,norbitals)
+  INTEGER, intent(in)    :: nindo(norbitals), norbitals, nbands, maxdim2
+  !locals
+  INTEGER :: iorb, ind, iband
+  open(988,FILE='U_1.dat',form='formatted',status='unknown',access='append')
+  do iorb=1,norbitals
+     do ind=1,nindo(iorb)
+        WRITE(988,*) 'iorb=', iorb, 'ind=', ind
+        do iband=1,nbands
+           WRITE(988,'(2F20.14,1x)',advance='no') DMFTU(iband,ind,iorb) 
+        enddo
+        WRITE(988,*)
+     enddo
+  enddo
+  close(988)
+END SUBROUTINE Debug_Print_Projector
+         
+
+              
+

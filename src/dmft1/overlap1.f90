@@ -1,7 +1,7 @@
 ! @Copyright 2007 Kristjan Haule
 ! 
 
-SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbital, cix_orb, nindo, cixdim, iSx, noccur, cfX, crotloc_x_rotij, maxucase, maxdim2, norbitals, pr_proc, SIMPLE)
+SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbital, cix_orb, nindo, cixdim, iSx, noccur, cfX, crotloc_x_rotij, maxucase, maxdim2, norbitals, pr_proc, SIMPLE, Qsymmetrize)
   USE com_mpi,  ONLY: myrank, master, vectors, nvector, vector_para, fvectors, AllReduce_MPI, Qprint
   USE com,      ONLY: MINWAV, MAXWAV, iso, emin, emax
   USE abc,      ONLY: KX, KY, KZ, BK3, E, A, ALM, ALML, aK
@@ -23,7 +23,7 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
   COMPLEX*16, intent(in)  :: cfX(maxdim2,maxdim2,norbitals,norbitals)
   INTEGER, intent(in)     :: maxucase, maxdim2, norbitals
   REAL*8,  intent(in)     :: crotloc_x_rotij(3,3,max_nl,natom)
-  LOGICAL, intent(in)     :: SIMPLE
+  LOGICAL, intent(in)     :: SIMPLE, Qsymmetrize
   ! interfaces
   interface
      REAL*8 Function Romb(y,N,dx)
@@ -46,9 +46,12 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
   COMPLEX*16, allocatable :: a_interstitial(:,:,:), h_interstitial(:,:,:)
   REAL*8,     allocatable  :: phi_jl(:,:)
   REAL*8,     allocatable :: aKR(:), jlr(:), jlp(:)
-  COMPLEX*16, allocatable :: olocf(:,:), work(:),tmp1(:,:)
+  COMPLEX*16, allocatable :: olocf(:,:), work(:),tmp1(:,:), solap(:,:)
   REAL*8,     allocatable :: ws(:), rwork(:)
   INTEGER,    allocatable :: iwork(:)
+  !
+  INTEGER, allocatable :: cind(:), cini(:)
+  INTEGER :: cixdms
   !
   INTEGER      :: ikp, iikp, iks, nkp, ivector, N, NE, NEMIN, NEMAX, nbands, NUM, isym, icase, lcase, lfirst
   INTEGER      :: latom, jatom, iucase, i, IND_YL, ibb, lda, ldb, ldc, l1
@@ -274,7 +277,7 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
                     Trans3 = matmul(crotloc_x_rotij(:,:,lcase,icase),tmp3)
                     Det = detx(Trans3)
                     Trans3 = transpose(Trans3*Det)
-                    CALL Angles(phi1,the1,psi1, Trans3 )
+                    CALL Angles_zxz(phi1,the1,psi1, Trans3 )
                     CALL Spin_Rotation(Rispin,phi1,the1,psi1)
                  endif
                  crotloc_x_BR1(:,:) = matmul( crotloc(:,:,lcase,icase),BR1 )
@@ -606,6 +609,8 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
   if (myrank.eq.master) then
      WRITE(*,*) 'Renormalizing Gloc to account for the interstitials'
   endif
+
+  if (Qsymmetrize) Call SymmetrizeOverlap(Olapm, cfX, cix_orb, cixdim, iSx, iorbital, nindo, norbitals, maxdim2)
   
   if (SIMPLE) then
      Olapc=0
@@ -639,20 +644,62 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
      lrwork = 10*maxdim + 2*maxdim*maxdim + 1
      liwork = 3+10*maxdim
      allocate( work(lwork), rwork(lrwork), iwork(liwork) )
-     
+
      SOlapm(:,:,:) = 0.d0
      DO icix=1,ncix
         cixdm = cixdim(icix)
-        allocate( olocf(cixdm,cixdm), ws(cixdm), tmp1(cixdm,cixdm) )
-        olocf(:,:) = Olapm(:cixdm,:cixdm,icix)
-        CALL ZHEEVD('V','U', cixdm, olocf, cixdm, ws, work, lwork, rwork, lrwork, iwork, liwork, info )
+        
+        allocate( cind(cixdm) )
+        cixdms=0 ! real dimension, excluding states which must be projected out, because they are treated as non-correlated                                                                                    
+        cind=0   ! In most cases, cind(i)=i, however, when some states are projected out, cind points to smaller block                                                                                         
+        DO ip=1,cixdm
+           if (Sigind(ip,ip,icix) .ne. 0) then
+              cixdms = cixdms + 1
+              cind(ip) = cixdms
+           endif
+        ENDDO
+        allocate( cini(cixdms))
+        do ip=1,cixdm
+           if (cind(ip).gt.0) cini(cind(ip))=ip
+        enddo
+        deallocate( cind )
+
+        !allocate( olocf(cixdm,cixdm), ws(cixdm), tmp1(cixdm,cixdm) )
+        !olocf(:,:) = Olapm(:cixdm,:cixdm,icix)
+        !CALL ZHEEVD('V','U', cixdm, olocf, cixdm, ws, work, lwork, rwork, lrwork, iwork, liwork, info )
+        !if (info .ne. 0) then
+        !   print *, 'Diagonalization of renormalization factor failed. Info-zheevd=', info
+        !endif
+        !do ip=1,cixdm
+        !   tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
+        !enddo
+        !call zgemm('N','C', cixdm, cixdm, cixdm, (1.d0,0.d0), tmp1, cixdm, olocf, cixdm, (0.d0,0.d0), SOlapm(:,:,icix), maxdim)
+
+        allocate( olocf(cixdms,cixdms), ws(cixdms), tmp1(cixdms,cixdms), solap(cixdms,cixdms) )
+        do ip=1,cixdms
+           do iq=1,cixdms
+              olocf(ip,iq) = Olapm(cini(ip),cini(iq),icix)
+           enddo
+        enddo
+        CALL ZHEEVD('V','U', cixdms, olocf, cixdms, ws, work, lwork, rwork, lrwork, iwork, liwork, info )
         if (info .ne. 0) then
            print *, 'Diagonalization of renormalization factor failed. Info-zheevd=', info
         endif
-        do ip=1,cixdm
+        do ip=1,cixdms
            tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
         enddo
-        call zgemm('N','C', cixdm, cixdm, cixdm, (1.d0,0.d0), tmp1, cixdm, olocf, cixdm, (0.d0,0.d0), SOlapm(:,:,icix), maxdim)
+        call zgemm('N','C', cixdms, cixdms, cixdms, (1.d0,0.d0), tmp1, cixdms, olocf, cixdms, (0.d0,0.d0), solap, cixdms)
+
+
+        do ip=1,cixdm
+           SOlapm(ip,ip,icix)=1.0d0
+        enddo
+        do ip=1,cixdms
+           do iq=1,cixdms
+              SOlapm(cini(ip),cini(iq),icix) = solap(ip,iq)
+           enddo
+        enddo
+        
         if (myrank.eq.master) then
            !WRITE(*,'(A)',advance='no') '  Z due to finite E-window='
            !do it=1,cixdm
@@ -660,12 +707,14 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
            !enddo
            !WRITE(*,*)
            WRITE(*,'(A)',advance='no') 'Z to renormalize='
-           do ip=1,cixdm
-              WRITE(*,'(F16.10)',advance='no') 1./dble(SOlapm(ip,ip,icix))
+           do ip=1,cixdms
+              WRITE(*,'(F16.10)',advance='no') 1./dble(SOlapm(cini(ip),cini(ip),icix))
            enddo
            WRITE(*,*)
         endif
-        deallocate( olocf, ws, tmp1 )
+        
+        deallocate( cini )
+        deallocate( olocf, ws, tmp1, solap )
      ENDDO
      
      deallocate( work, rwork, iwork )

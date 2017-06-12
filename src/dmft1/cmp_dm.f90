@@ -4,8 +4,9 @@
 ! mweight_ikp = (mweight(ikp)/tweight/nsymop)
   
 SUBROUTINE cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, nl, ll, iSx, cix, mweight_ikp, iso, iorbital, nbands, nume, nemin, maxdim, maxdim2, ncix, nomega, csize, maxsize, natom, lmax2, norbitals)
+  use param, ONLY: gamma
   IMPLICIT NONE
-  complex*16, intent(inout) :: g_inf(maxdim2,maxdim2,ncix,nomega), g_ferm(maxdim2,maxdim2,ncix)
+  complex*16, intent(inout) :: g_inf(maxdim,maxdim,ncix,nomega), g_ferm(maxdim,maxdim,ncix)
   real*8,     intent(in)    :: EF, E(nume), omega(nomega), mweight_ikp
   complex*16, intent(in)    :: s_oo(maxsize,ncix), STrans(maxsize,ncix,nbands,nbands), DMFTU(nbands,maxdim2,norbitals) 
   integer,    intent(in)    :: nl(natom), ll(natom,4), cix(natom,4), iso, iorbital(natom,lmax2+1), iSx(maxdim2, norbitals)
@@ -23,23 +24,27 @@ SUBROUTINE cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, n
   integer     :: iband, icase, jcase, l1case, icix, l1, nind1, iorb1, iom, l2case, l2, nind2, iorb2, i, ind1, ind2
   real*8      :: beta, pi
   complex*16  :: xomega
-  
+  REAL*8,PARAMETER       :: Ry2eV= 13.60569253d0
+
   pi=acos(-1.0D0)
   beta = pi/omega(1)
   if (beta.LT.0) then
      ! You are probably on real axis and should not select matsubara
      return
   endif
+
   ALLOCATE( e_inf(nbands), A_inf(nbands,nbands) )
   A_inf = 0.d0
   DO i=1,nbands
      A_inf(i,i) = E(i+nemin-1)
   ENDDO
+
   CALL AddSigma_optimized2(A_inf, s_oo, STrans, csize, 1, nbands, ncix, maxsize)
 
   CALL heigsys(A_inf, e_inf, nbands) ! hermitian eigenvalues and eigenvectors
   
-  allocate( cA_inf(maxdim2,nbands,ncix) )
+  allocate( cA_inf(maxdim2,nbands,norbitals) )
+  cA_inf(:,:,:) = 0.0d0
   DO icase=1,natom      
      do l1case=1,nl(icase) 
         icix = cix(icase,l1case)
@@ -51,7 +56,7 @@ SUBROUTINE cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, n
         ! 1/(iom+mu-ham) = A_inf * 1/(iom+mu-ek) * A_inf^C
         ! U^+ 1/(iom+mu-ham) U = U^+ A_inf * 1/(iom+mu-ek) A (U^+ A_inf)^C = cA_inf * 1/(iom+mu-ek) * cA_inf^C
         !
-        call zgemm('C','N', nind1, nbands, nbands, (1.d0,0.d0), DMFTU(:,:,iorb1), nbands, A_inf(:,:), nbands, (0.d0,0.d0), cA_inf(:,:,icix), maxdim2)
+        call zgemm('C','N', nind1, nbands, nbands, (1.d0,0.d0), DMFTU(:,:,iorb1), nbands, A_inf(:,:), nbands, (0.d0,0.d0), cA_inf(:,:,iorb1), maxdim2)
      enddo
   ENDDO
 
@@ -76,9 +81,9 @@ SUBROUTINE cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, n
                  iorb2 = iorbital(jcase,l2case)
                  ! gf_inf <- tmp2(ind1,ind2) += cA_inf(ind1,iband,icix) * 1/(iom+mu-e_inf(iband)) * conjg(cA_inf(ind2,iband,icix))
                  do iband=1,nbands
-                    tmp(:nind1,iband) = cA_inf(:nind1,iband,icix)*1/(xomega+EF-e_inf(iband))
+                    tmp(:nind1,iband) = cA_inf(:nind1,iband,iorb1)*1/(xomega+EF-e_inf(iband)+IMAG*gamma)
                  enddo
-                 call zgemm('N','C', nind1, nind2, nbands, (1.d0,0.d0), tmp, maxdim2, cA_inf(:,:,icix), maxdim2, (0.d0,0.d0), tmp2, maxdim2)
+                 call zgemm('N','C', nind1, nind2, nbands, (1.d0,0.d0), tmp, maxdim2, cA_inf(:,:,iorb2), maxdim2, (0.d0,0.d0), tmp2, maxdim2)
                  do ind1=1,nind1
                     do ind2=1,nind2
                        gmk(iSx(ind1,iorb1), iSx(ind2,iorb2), icix) = tmp2(ind1,ind2)
@@ -107,9 +112,9 @@ SUBROUTINE cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, n
               iorb2 = iorbital(jcase,l2case)
               ! gf_inf <- tmp2(ind1,ind2) += cA_inf(ind1,iband,icix) * ferm(e_inf(iband)-mu) * conjg(cA_inf(ind2,iband,icix))
               do iband=1,nbands
-                 tmp(:nind1,iband) = cA_inf(:nind1,iband,icix)*ferm((e_inf(iband)-EF)*beta)
+                 tmp(:nind1,iband) = cA_inf(:nind1,iband,iorb1)*ferm((e_inf(iband)-EF)*beta)
               enddo
-              call zgemm('N','C', nind1, nind2, nbands, (1.d0,0.d0), tmp, maxdim2, cA_inf(:,:,icix), maxdim2, (0.d0,0.d0), tmp2, maxdim2)
+              call zgemm('N','C', nind1, nind2, nbands, (1.d0,0.d0), tmp, maxdim2, cA_inf(:,:,iorb2), maxdim2, (0.d0,0.d0), tmp2, maxdim2)
               do ind1=1,nind1
                  do ind2=1,nind2
                     gmk(iSx(ind1,iorb1), iSx(ind2,iorb2), icix) = tmp2(ind1,ind2)
@@ -127,12 +132,12 @@ SUBROUTINE cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, n
   deallocate( cA_inf )
 END SUBROUTINE cmp_DensityMatrix
 
-SUBROUTINE Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, maxdim2, ncix, Sigind, nomega, cixdim, iso)
+SUBROUTINE Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, ncix, Sigind, nomega, cixdim, iso)
   USE splines, ONLY: zspline3
   IMPLICIT NONE
-  COMPLEX*16, intent(in) :: g_inf(maxdim2,maxdim2,ncix,nomega), g_ferm(maxdim2,maxdim2,ncix), gmloc(maxdim, maxdim, ncix, nomega)
+  COMPLEX*16, intent(in) :: g_inf(maxdim,maxdim,ncix,nomega), g_ferm(maxdim,maxdim,ncix), gmloc(maxdim, maxdim, ncix, nomega)
   REAL*8,     intent(in) :: omega(nomega)
-  INTEGER,    intent(in) :: maxdim, maxdim2, ncix, nomega, cixdim(ncix), iso, Sigind(maxdim,maxdim,ncix)
+  INTEGER,    intent(in) :: maxdim, ncix, nomega, cixdim(ncix), iso, Sigind(maxdim,maxdim,ncix)
   ! Functions
   Interface
      Function NumericSecondDeriv(func,omega,ii,nomega) result(df2)
@@ -151,6 +156,7 @@ SUBROUTINE Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, maxdim2, nci
   INTEGER :: iom, n0_om, nom_all, cixdm, icix, ip, iq, fh_DM, cixdms, it
   REAL*8  :: pi, beta, nf, wgh
   COMPLEX*16 :: df2, df3
+  real*8, PARAMETER       :: Ry2eV = 13.60569193
   !
   allocate( DM(maxdim,maxdim,ncix) )
   pi = 2*acos(0.d0)
@@ -177,7 +183,7 @@ SUBROUTINE Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, maxdim2, nci
         do iq=1,cixdm
            ! Interpolating gloc on all Matsubara points
            dg(:) = gmloc(ip,iq,icix,:)-g_inf(ip,iq,icix,:)
-           df2 = NumericSecondDeriv(dg,omega,n0_om+1,nomega)
+           df2 = NumericSecondDeriv(dg,omega,n0_om,nomega)
            df3 = NumericSecondDeriv(dg,omega,nomega-1,nomega)
            dg_all(:n0_om) = dg(:n0_om)
            dg_all(n0_om:) = zspline3( omega(n0_om:), dg(n0_om:), omega_all(n0_om:), df2, df3) ! The tail needs to be interpolated
@@ -189,7 +195,7 @@ SUBROUTINE Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, maxdim2, nci
   ENDDO
   deallocate( dg_all )
   deallocate( omega_all )
-  
+
   wgh = 2.d0/iso
   fh_DM=21
 
@@ -241,6 +247,15 @@ SUBROUTINE Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, maxdim2, nci
 
      deallocate( ncorr )
      deallocate( cind, cini )
+
+     DO ip=1,cixdm
+        do iq=1,cixdm
+           WRITE(fh_DM,'(f12.7,1x,f12.7,3x)',advance='no') dble(DM(ip,iq,icix))*wgh, aimag(DM(ip,iq,icix))*wgh
+        end do
+        WRITE(fh_DM,*)
+     END DO
+     WRITE(fh_DM,*)
+     
   ENDDO
   deallocate( DM )
 END SUBROUTINE Print_DensityMatrix

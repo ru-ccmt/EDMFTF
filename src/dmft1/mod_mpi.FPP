@@ -136,18 +136,18 @@ CONTAINS
     endif
   END SUBROUTINE Reduce_MPI
 
-  SUBROUTINE Reduce_dm_MPI(g_inf, g_ferm, maxdim2, ncix, nomega)
+  SUBROUTINE Reduce_dm_MPI(g_inf, g_ferm, maxdim, ncix, nomega)
     IMPLICIT NONE
-    complex*16, intent(inout) :: g_inf(maxdim2,maxdim2,ncix,nomega), g_ferm(maxdim2,maxdim2,ncix)
-    INTEGER, intent(in) :: maxdim2, ncix, nomega    
+    complex*16, intent(inout) :: g_inf(maxdim,maxdim,ncix,nomega), g_ferm(maxdim,maxdim,ncix)
+    INTEGER, intent(in) :: maxdim, ncix, nomega    
     ! locals
     complex*16, allocatable :: w_g_inf(:,:,:,:), w_g_ferm(:,:,:)
     
     if (myrank.eq.master) then                                                                                                                                
-       ALLOCATE( w_g_inf(maxdim2,maxdim2,ncix,nomega), w_g_ferm(maxdim2,maxdim2,ncix) )
+       ALLOCATE( w_g_inf(maxdim,maxdim,ncix,nomega), w_g_ferm(maxdim,maxdim,ncix) )
     endif
-    CALL MPI_REDUCE(g_inf ,  w_g_inf,  maxdim2*maxdim2*ncix*nomega, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
-    CALL MPI_REDUCE(g_ferm,  w_g_ferm, maxdim2*maxdim2*ncix,        MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+    CALL MPI_REDUCE(g_inf ,  w_g_inf,  maxdim*maxdim*ncix*nomega, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+    CALL MPI_REDUCE(g_ferm,  w_g_ferm, maxdim*maxdim*ncix,        MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
     if (ierr.ne.0) print *, 'ERROR in MPI_REDUCE 10', ierr
     if (myrank.eq.master) then
        g_inf(:,:,:,:) = w_g_inf(:,:,:,:)

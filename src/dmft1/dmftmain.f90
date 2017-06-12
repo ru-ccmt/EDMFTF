@@ -224,6 +224,9 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   enddo
   !print *, 'Found identity at ig=', ig
   if (ig.ne.1) then
+     if (ig.eq.iord+1) then
+        WRITE(6,*) 'ERROR : Could not find indenity among symmetry operations'
+     endif
      CALL swapGroup(iz(:,:,ig),tau(:,ig),iz(:,:,1),tau(:,1))
   endif
   
@@ -312,6 +315,9 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
       Qrenormalize = .TRUE.
    endif
    
+  gammac = gammac/Ry2eV !--- broadening for correlated orbitals to Ry --!
+  gamma  = gamma/Ry2eV  !--- broadening for all orbitals to Ry ---------!
+  
 
   if (Qprint) then
      write(6, 877) Emin,Emax  ! Energy window
@@ -479,7 +485,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   EF = EF/Ry2eV
 
   READ(5,*) ! comment: Next few lines contain instructions (transformation,index) for all correlated orbitals
-  READ(5,*) ncix, maxdim, maxsize ! number of independent cix blocks
+  READ(5,*) ncix, maxdim, maxsize ! ncix -- number of cix blocks, maxdim -- largest dimension of any cix block, maxsize -- maximum number of independent components to store (can be between 1 and maxdim**2)
   if (Qprint) WRITE(6,*) '********** Start Reading Cix file *************'
   ALLOCATE(CF(maxdim,maxdim,ncix))      ! transformation matrix
   ALLOCATE(Sigind(maxdim,maxdim,ncix))  ! correlated index
@@ -728,7 +734,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   if (nsymop.EQ.0) nsymop = iord
 
   !call init_xa(NRAD)
-  
+
   call l2main(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)  !!!! This calls the main subroutine
 
   !call fini_xa()

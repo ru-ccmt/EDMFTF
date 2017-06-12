@@ -10,7 +10,8 @@ SUBROUTINE symoper
   INTEGER  :: i, j, k, ior
   !.........inverssymdef is a subroutine in sph-UP.frc and
   !.........calculates the inverse of an 3*3 matrix.......
-  CALL INVERSSYMDEF(BR1,BR1in)
+  !CALL INVERSSYMDEF(BR1,BR1in)
+  CALL inv_3x3(BR1,BR1in)
   !.......define symmetry matrices for cartesian system
   !
   ior=iord

@@ -42,7 +42,8 @@ SUBROUTINE SYM(THETA,FI)
      write(6,5)((rot(i,j),j=1,3),i=1,3)
      write(6,*)
   endif
-  call INVERSSYMDEF(rot,rotinv)
+  !call INVERSSYMDEF(rot,rotinv)
+  call inv_3x3(rot,rotinv)
   iordnew=0
   do  i=1,IORD   ! 100
      Det = detx(iz_cartesian(:,:,i))

@@ -2,7 +2,7 @@
 ! 
 
 SUBROUTINE Create_Atom_Arrays(csort, maxucase, isort, iatom, nat, natm, natom)
-  USE com_mpi, ONLY: myrank, master, Qprint
+  USE com_mpi, ONLY: Qprint
   IMPLICIT NONE
   INTEGER, intent(out) :: csort(nat), maxucase
   INTEGER, intent(in)  :: isort(natm), iatom(natom), nat, natm, natom
@@ -35,7 +35,7 @@ SUBROUTINE Create_Atom_Arrays(csort, maxucase, isort, iatom, nat, natm, natom)
 END SUBROUTINE Create_Atom_Arrays
 
 SUBROUTINE Create_Orbital_Arrays(iorbital, norbitals, maxdim2, nl, ll, cix, natom, lmax2, iso)
-  USE com_mpi, ONLY: myrank, master, Qprint
+  USE com_mpi, ONLY: Qprint
   IMPLICIT NONE
   INTEGER, intent(out) :: iorbital(natom,lmax2+1), maxdim2, norbitals
   INTEGER, intent(in)  :: nl(natom), ll(natom,4), cix(natom,4), natom, lmax2, iso
@@ -80,7 +80,7 @@ END SUBROUTINE Create_Orbital_Arrays
   
 
 SUBROUTINE Create_Other_Arrays(cixdim, iSx, noccur, nindo, cix_orb, cfX, CF, nl, ll, cix, iorbital, csize, csizes, Sigind, iso, natom, maxdim, lmax2, ncix, maxsize, norbitals, maxdim2)
-  USE com_mpi, ONLY: myrank, master, Qprint
+  USE com_mpi, ONLY: Qprint
   IMPLICIT NONE
   INTEGER, intent(out)    :: cixdim(ncix), iSx(maxdim2, norbitals), noccur(maxsize,ncix), nindo(norbitals), cix_orb(norbitals), csizes(ncix)
   COMPLEX*16, intent(out) :: cfX(maxdim2,maxdim2,norbitals,norbitals)
@@ -587,7 +587,6 @@ SUBROUTINE GetDelta2(Deltac, Glc, Eimpc, Olapc, logGloc, matsubara, omega, sigma
      if (abs(omega(iom)).LT.abs(omega(iomega0))) iomega0=iom
   enddo
   
-  
   DO icix=1,ncix
 
      cixdm = cixdim(icix)
@@ -1023,3 +1022,52 @@ SUBROUTINE RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, 
      
   
 END SUBROUTINE RenormalizeTrans
+
+SUBROUTINE read_overlap_from_file(info, SOlapm, cixdim, maxdim, ncix)
+  USE com_mpi,ONLY: myrank, master
+  IMPLICIT NONE
+  INTEGER,    intent(out) :: info
+  COMPLEX*16, intent(out) :: SOlapm(maxdim,maxdim,ncix)
+  INTEGER,    intent(in)  :: cixdim(ncix), maxdim, ncix
+  ! locals
+  LOGICAL :: there
+  INTEGER :: cixdm, ind1, ind2, icix
+
+  INQUIRE( FILE='SOlapm.dat', EXIST=there)
+  if (.not.there) then
+     info=1
+     return
+  endif
+  
+  open(996, FILE='SOlapm.dat', status='old')
+  DO icix=1,ncix
+     cixdm = cixdim(icix)
+     READ(996,*,ERR=991) !icix
+     do ind1=1,cixdm
+        do ind2=1,cixdm
+           READ(996,'(2F20.16)',advance='no',ERR=991)  SOlapm(ind1,ind2,icix)
+        enddo
+        READ(996,*)
+     enddo
+  ENDDO
+  close(996)
+  info=0
+  
+  if (myrank.eq.master) then
+     WRITE(6,*) 'SOlapm succesfully read from file'
+     WRITE(6,*) 'Z will be used:'
+     DO icix=1,ncix
+        cixdm = cixdim(icix)
+        do ind1=1,cixdm
+           WRITE(6,'(F16.10)',advance='no')  1./dble(SOlapm(ind1,ind1,icix))
+        enddo
+        WRITE(6,*)
+     ENDDO
+     WRITE(6,*)
+  endif
+
+  return
+991 CONTINUE
+  info=2
+  close(996)
+END SUBROUTINE read_overlap_from_file

@@ -18,7 +18,7 @@ OBJSMOD = mod_mpi.o error_handle.o structure.o gtfnam2.o modules.o w_atpar.o ang
           romb.o harmon.o inverss.o spline.o p_project.o cmpdmftrans.o printgloc.o l2mainSubs.o l2main.o eigsys.o \
           dmftmain.o  rotate.o sphbes.o symop.o ylm.o mknam.o \
           sym.o lomain.o cmpxqtl.o testxqtldiff.o readselfenergy.o \
-	  zinv.o overlap1.o spin_rotate.o cmp_dm.o
+	  zinv.o overlap1.o spin_rotate.o cmp_dm.o symmetrize.o
 
 # Python f2py routines
 pylibs = trafo.so trafoso.so occupr.so occupi.so rdU.so
