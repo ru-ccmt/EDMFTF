@@ -1,6 +1,7 @@
 # Ignore build and log directories
 log/
 install/
+src/build/
 
 # Recursively ignore any object files
 **/*.o
@@ -15,6 +16,7 @@ install/
 # Ignore executable files
 src/dftKS/lapw1
 src/dftKS/lapw1c
+src/dftso/lapwso
 src/dmft1/dmft
 src/dmft2/combineud
 src/dmft2/dmft2
@@ -27,6 +29,7 @@ src/impurity/atom_ctqmc/atomh
 src/impurity/atomg/atom
 src/impurity/broad/broad
 src/impurity/ctqmc/ctqmc
+src/impurity/ctqmc/ctqmcf
 src/impurity/skrams/skrams
 src/magnetSusc/dmft_bubble/dmft_real_bubble
 src/magnetSusc/dmftgk/dmftgk
