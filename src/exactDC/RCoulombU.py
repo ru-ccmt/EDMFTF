@@ -29,6 +29,8 @@ def GetCoulombUJ(lmbda_eps,Rx,Ag,Bg,l,Nk,U0,J0):
 def GetLambdas(UJ_icase, projector_file='projectorw.dat', options_Nk=8):
     Nk=2**options_Nk+1
 
+    #print 'UJ_icase=', UJ_icase
+    
     (Rx_, Ag_, Bg_, ls_) = GetWaveF(projector_file)
     UlamJ={}
     for icase in UJ_icase.keys():
@@ -50,8 +52,9 @@ def GetLambdas(UJ_icase, projector_file='projectorw.dat', options_Nk=8):
                     (lmbda,epsilon) = sol.x
                 else:
                     print 'ERROR:', sol.message
+            #print 'lmbda=', lmbda, 'epsilon=', epsilon, 'for Uc=', Uc, 'and Jc=', Jc
         if len(UJ_icase[icase])<=3 :
-            print 'lambda=', lmbda, 'epsilon=', epsilon
+            #print 'lambda=', lmbda, 'epsilon=', epsilon
             Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,True)
             Fk = array(Fk)/epsilon
             UJs=SlaterF2J(Fk,l)
@@ -61,6 +64,7 @@ def GetLambdas(UJ_icase, projector_file='projectorw.dat', options_Nk=8):
         else:  # this is very uncommon case, where we renormalize lambda by input parameter
             nfraction = UJ_icase[icase][3]
             lmbda *= nfraction
+            print 'renormalizing lmbda by', UJ_icase[icase][3],' to', lmbda
             Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,True)
             epsilon = Fk[0]/Uc
             print 'lambda=', lmbda, 'epsilon=', epsilon
@@ -120,7 +124,7 @@ if __name__ == '__main__':
     # Next, parse the arguments
     (options, args) = parser.parse_args()
     
-    #UlamJ=GetLambdas({0:[options.U0,options.J0]}, projector_file=options.finput)
+    #UlamJ=GetLambdas({0:[options.U0,options.J0,options.DC_lmbda]}, projector_file=options.finput)
     #print 'UlamJ=', UlamJ
     #sys.exit(0)
     
