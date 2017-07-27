@@ -50,19 +50,34 @@ def GetLambdas(UJ_icase, projector_file='projectorw.dat', options_Nk=8):
                     (lmbda,epsilon) = sol.x
                 else:
                     print 'ERROR:', sol.message
-            if len(UJ_icase[icase])>3 :
-                nfraction = UJ_icase[icase][3]
-                lmbda *= nfraction
-                Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,False)
-                epsilon = Fk[0]/Uc
+        if len(UJ_icase[icase])<=3 :
+            print 'lambda=', lmbda, 'epsilon=', epsilon
+            Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,True)
+            Fk = array(Fk)/epsilon
+            UJs=SlaterF2J(Fk,l)
+            print 'Fk=', Fk.tolist()
+            print 'U,J=', UJs
+            UlamJ[icase]=(UJ_icase[icase][0],lmbda,epsilon,UJs[1:])
+        else:  # this is very uncommon case, where we renormalize lambda by input parameter
+            nfraction = UJ_icase[icase][3]
+            lmbda *= nfraction
+            Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,True)
+            epsilon = Fk[0]/Uc
+            print 'lambda=', lmbda, 'epsilon=', epsilon
+            Fk = array(Fk)/epsilon
+            print 'Fk=', Fk.tolist()
+            if UJ_icase[icase][1]>0: # J existed before, hence use it
+                Js = ones(l)*UJ_icase[icase][1] 
+            print 'J=', Js
+            UlamJ[icase]=(UJ_icase[icase][0],lmbda,epsilon,Js.tolist())
         
-        print 'lambda=', lmbda, 'epsilon=', epsilon
-        Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,True)
-        Fk = array(Fk)/epsilon
-        UJs=SlaterF2J(Fk,l)
-        print 'Fk=', Fk.tolist()
-        print 'U,J=', UJs
-        UlamJ[icase]=(UJ_icase[icase][0],lmbda,epsilon,UJs[1:])
+        #print 'lambda=', lmbda, 'epsilon=', epsilon
+        #Fk = CmpSlaterInt(lmbda,Rx,Ag,Bg,l,Nk,True)
+        #Fk = array(Fk)/epsilon
+        #UJs=SlaterF2J(Fk,l)
+        #print 'Fk=', Fk.tolist()
+        #print 'U,J=', UJs
+        #UlamJ[icase]=(UJ_icase[icase][0],lmbda,epsilon,UJs[1:])
     return UlamJ
 
 def GetDielectricFunctions(UJ_icase, projector_file='projectorw.dat', options_Nk=8):
