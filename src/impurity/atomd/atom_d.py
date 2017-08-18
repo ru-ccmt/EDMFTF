@@ -1673,7 +1673,7 @@ if __name__ == '__main__':
     max_M_size=500
     add_occupancy=True
     CoulombF = 'Full' #'Bulla_Jarrel' #'Full' # 'Bulla_Jarrel' # 'Full' 'Oles'
-    OCA_G=True
+    OCA_G=False
     PrintReal=True
     HB2 = True
     Eimp = [0.0]
@@ -2143,7 +2143,8 @@ if __name__ == '__main__':
             Tx = eye(len(Ham),len(Ham))
             Ene.append( Ex )
             Te.append( Tx )
-        
+
+
         if CoulombF[:4]=='Full' and op.Q3d:
             # Here we compute matrix of S^2 in eigenbase. Should be diagonal if no spin-orbit coupling
             S2e = matrix(conj(Tx.transpose())) * S2 * matrix(Tx)
@@ -2342,6 +2343,7 @@ if __name__ == '__main__':
             Ens.append(Ene[iw][q])
             occ.append(wstate[0])
             S2s.append(S2w[iw][q])
+
             
         Enes.append(Ens)
         Occ.append(occ)
@@ -2852,6 +2854,8 @@ if __name__ == '__main__':
                         if (s4!=s1): continue
                         if m4 not in bkeep: continue
                         Uc = 0.0
+                        if CoulombF[:5] == 'Ising' and not ((i1==i4 and i2==i3) or (i1==i3 and i2==i4)):
+                            continue
                         for k in range(0,l+1):
                             Uc += real(UC[k,m1,m2,m3,m4])*Fk[k,l]
                         if abs(Uc)>1e-6:

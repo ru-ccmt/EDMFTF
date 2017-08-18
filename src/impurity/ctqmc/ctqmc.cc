@@ -9,9 +9,9 @@
 //  Implemented Exchange_Two_Intervals for general case, i.e., new exchange move that reduces autocorrelation time
 //  Allows for some percentage local moves in full
 //  Prints two particle vertex in terms of (l1,l2,l3)
+//  The S-mode for general case was finally implemented within svd scheme.
 //
 // Current problems: - It seems Exchange move for non-segment case has some problems with detail-balance. It is switched-off by default. You should have PMove=1 for non-segment case.
-//                   - It seems S-mode where self-energy is computed directly is not working properly. The self-energy is slightly different than what we get from Dyson equation. It is switched off by default.
 /// WHAT SHOULD BE DONE
 //
 //  Implement generalized (off-diagonal) susceptibility
@@ -86,13 +86,14 @@ private:
 public:
   int Naver;                      // Number of measurements
   vector<function2D<dcomplex> > Gaver;     // Current approximation for the local Green's function
-  //  function2D<function1D<dcomplex> > Faver; // Two particle F function, which can be used to obtain Self-energy
-  vector<function2D<dcomplex> > Faver; // Two particle F function, which can be used to obtain Self-energy
+  function2D<dcomplex> Faver;     // Two particle F function, which can be used to obtain Self-energy
   
   vector<function2D<double> > Gsvd;        // Current approximation for the local Green's function in SVD mode
   vector<function2D<double> > Fsvd;        // Two particle F function, which can be used to obtain Self-energy
+  function2D<double> Fsvd1;
   vector<function2D<double> > Gsvd_s;
   vector<function2D<double> > Gsvd_e;
+  vector<function3D<double> > Gsvd_es;
 private:
   function1D<double> observables; // some zero time quantities needed for calculation of occupancies and susceptibilities
   function1D<double> aver_observables; // the same zero-time quantities but the average in simulation rather than the current state
@@ -130,19 +131,21 @@ public:
   function5D<dcomplex> VertexH, VertexF;
   function5D<double> VH;
   function2D<double> tMsMe;
-  
   int NGtv;                        // number of measurements of vertex
   int gsign;
   double asign, asign_fast;
   double ratio_minM, ratio_minD;
   vector<deque<double> > Variation;
-  function1D<double> Njc;
-  vector<function2D<double> > Njcs;
+  //function1D<double> Njc;
+  //vector<function2D<double> > Njcs;
+  vector<function1D<double> > Njcs1;
   deque<pair<int,int> > g_exchange;
+  static const bool Vertex_subtract = true;
 private:
   Timer t_trial1, t_trial2, t_trial3, t_accept;
   Timer t_nj, t_fgf, t_vh, t_f, t_g;
   Timer t_mv, t_add, t_rm;
+  //Timer t_vh1, t_vh2, t_vh3, t_vh4, t_vh5;
 public:
   CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nmax, const mesh1D& iom_large, const function2D<dcomplex>& Deltaw, SVDFunc& svd_,
 	const vector<pair<double,double> >& ah, int nom, int nomv, int nomb, int nOm, int Ntau, double minM, double minD, bool IamMaster);
@@ -168,6 +171,7 @@ public:
   function2D<double>& Susc() {return aver_susc;}
   void EvaluateVertex(long long i);
   void WriteVertex(const function2D<dcomplex>& Gd, bool print_vertex_xxx);
+  void WriteVertexSVD(const function2D<dcomplex>& Gd, const function2D<double>& Gd_, int my_rank, int mpi_size, int Master, bool print_vertex_xxx);
   void ReleaseSomeTempMemory();
 private:
   void Add_One_Kink(long long istep, int ifl);
@@ -362,12 +366,9 @@ CTQMC<Rand>::CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nma
       Gaver[ifl] = 0;
     }  
     if (common::QHB2){
-      Njc.resize(cluster.Nvfl);
-      Faver.resize(cluster.Nvfl);
-      for (int fl=0; fl<cluster.Nvfl; fl++){
-	Faver[fl].resize(cluster.Nvfl,iom.size());
-	Faver[fl] = 0.0;
-      }
+      //Njc.resize(cluster.Nvfl);
+      Faver.resize(cluster.Nvfl, iom.size());
+      Faver=0.0;
     }
   }else{
     Gsvd.resize(cluster.N_ifl);
@@ -376,12 +377,20 @@ CTQMC<Rand>::CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nma
       Gsvd[ifl] = 0;
     }
     if (common::QHB2){
-      Njcs.resize(cluster.N_ifl);
-      Fsvd.resize(cluster.Nvfl);
-      for (int fl=0; fl<cluster.Nvfl; fl++){
-	Fsvd[fl].resize(cluster.Nvfl,svd.lmax);
-	Fsvd[fl] = 0.0;
-      }
+      /*
+      if (common::Segment){
+	Njcs.resize(cluster.N_ifl);
+	Fsvd.resize(cluster.Nvfl);
+	for (int fl=0; fl<cluster.Nvfl; fl++){
+	  Fsvd[fl].resize(cluster.Nvfl,svd.lmax);
+	  Fsvd[fl] = 0.0;
+	}
+      }else{
+      */
+	Njcs1.resize(cluster.N_ifl);
+	Fsvd1.resize(cluster.Nvfl,svd.lmax);
+	Fsvd1=0;
+	/*}*/
     }
   }
   
@@ -422,11 +431,15 @@ CTQMC<Rand>::CTQMC(Rand& rand_, ClusterData& cluster_, BathProb& BathP_, int Nma
     if (common::Qsvd){
       tMsMe.resize(svd.lmax, svd.lmax);
       VH.resize(cluster.Nvfl,cluster.Nvfl,svd.lmax_bose,svd.lmax,svd.lmax);
+      VH=0.0;
       Gsvd_s.resize(cluster.Nvfl);
       Gsvd_e.resize(cluster.Nvfl);
+      Gsvd_es.resize(cluster.Nvfl);
     }else{
       VertexH.resize(cluster.Nvfl,cluster.Nvfl,2*nOm-1,2*nomv,2*nomv);
       VertexF.resize(cluster.Nvfl,cluster.Nvfl,2*nOm-1,2*nomv,2*nomv);
+      VertexH=dcomplex(0,0);
+      VertexF=dcomplex(0,0);
       Mv.resize(cluster.Nvfl);
       for (unsigned ifl=0; ifl<Mv.size(); ifl++) Mv[ifl].resize(2*nomv,2*nomv);//(-nomv,nomv,-nomv,nomv);
     }
@@ -516,10 +529,17 @@ void CTQMC<Rand>::ReleaseSomeTempMemory()
   for (size_t ifl=0; ifl<MD.size(); ifl++) MD[ifl].~function2D();
 
   if (common::Qsvd){
-    for (int ifl=0; ifl<cluster.N_ifl; ifl++) Gsvd[ifl].~function2D();
+    //for (int ifl=0; ifl<cluster.N_ifl; ifl++) Gsvd[ifl].~function2D();
     if (common::QHB2){
-      for (int ifl=0; ifl<cluster.Nvfl; ifl++) Fsvd[ifl].~function2D();
-      for (int ifl=0; ifl<cluster.N_ifl; ifl++) Njcs[ifl].~function2D();
+      /*
+      if (common::Segment){
+	for (int ifl=0; ifl<cluster.Nvfl; ifl++) Fsvd[ifl].~function2D();
+	for (int ifl=0; ifl<cluster.N_ifl; ifl++) Njcs[ifl].~function2D();
+      }else{
+      */
+	Fsvd1.~function2D();
+	for (int ifl=0; ifl<cluster.N_ifl; ifl++) Njcs1[ifl].~function1D();
+	/*}*/
     }
   }
   
@@ -530,6 +550,7 @@ void CTQMC<Rand>::ReleaseSomeTempMemory()
       for (int ifl=0; ifl<cluster.Nvfl; ifl++){
 	Gsvd_s[ifl].~function2D();
 	Gsvd_e[ifl].~function2D();
+	Gsvd_es[ifl].~function3D();
       }
     }else{
       //VertexH.resize(cluster.Nvfl,cluster.Nvfl,2*nOm-1,2*nomv,2*nomv);
@@ -2049,6 +2070,7 @@ void CTQMC<Rand>::CleanUpdate(long long istep)
 template <class Rand>
 void CTQMC<Rand>::StoreCurrentStateFast(function1D<double>& aver_observables, long long istep)
 {
+
   int trusign = gsign;
   AProb.AddPart(Prob, trusign);
   aver_observables.AddPart(observables, trusign);
@@ -2085,7 +2107,8 @@ template <class Rand>
 void CTQMC<Rand>::StoreCurrentState(long long istep)
 {
   int trusign = gsign;
-
+  static double  n_brisi[2]={0,0};
+  static double nn=0;
   //AProb.AddPart(Prob, trusign);
   //aver_observables.AddPart(observables, trusign);
   //if (common::SampleTransitionP) AP_transition.AddPart(P_transition, trusign);
@@ -2107,25 +2130,21 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 	  int ifl = p_ifl.ifl; // type of bath
 	  int iis = intervals[ifl].index_s_1[p_ifl.in]; // which contructor
 	  if (fabs(intervals[ifl].time_s(iis)-Operators.t(ip))>1e-10) (*yout)<<"Times are different in StoreCurrentState t_interval="<<intervals[ifl].time_s(iis)<<" t_operators="<<Operators.t(ip)<<endl;
+	  double Njcs1 = Get_N_at_Operator3(ip,Trace,matrix_element,state_evolution_left,state_evolution_right,Operators,npraStates,cluster, istep);
+	  double nj_sign = Njcs1*trusign;
 	  
-	  if (common::Segment)
-	    Segment_Get_N_at_Operator2(Njc, ip, Trace, matrix_element, state_evolution_left, Operators, npraStates, cluster, istep);
-	  else
-	    Get_N_at_Operator2(Njc,ip,Trace,matrix_element,state_evolution_left,state_evolution_right,Operators,npraStates,cluster, istep);
-
-	  dcomplex* __restrict__ _Ff = TMD[ifl].Ff[iis].MemPt();
-	  int fl_ai = cluster.v2fl_index[ifl][0]; // ?????needs to be generalized !!!
-	  for (int fl_jk=0; fl_jk<cluster.Nvfl; fl_jk++){
-	    double nj_sign = Njc[fl_jk]*trusign;
-	    dcomplex* __restrict__ _Faver = Faver[fl_ai][fl_jk].MemPt();
-	    for (int im=0; im<iom.size(); im++) _Faver[im] += _Ff[im]*nj_sign;
-	  }
+	  //for (int ind=0; ind<cluster.N_baths(ifl); ind++){
+	  //  dcomplex* __restrict__ _Ff = TMD[ifl].Ff[ind][iis].MemPt();
+	  //  int fl_ai = cluster.v2fl_index[ifl][ind]; 
+	  dcomplex* __restrict__ _Ff = TMD[ifl].Ff[iis].MemPt(); // needs to be generalized as above
+	  int fl_ai = cluster.v2fl_index[ifl][0];                // needs to be generalized as above
+	  for (int im=0; im<iom.size(); im++) Faver(fl_ai,im) += _Ff[im]*nj_sign;
+	  //}
 	}
       }
     }
 
     if (common::SampleSusc && cluster.DOsize>0){
-      //GeneralizedSusceptibility(Trace, matrix_element, state_evolution_left, state_evolution_right, Operators, npraStates, cluster, istep);
       suscg=0.0;
       GeneralizedSusceptibility(suscg, Trace, matrix_element, biom, intervals, state_evolution_left, state_evolution_right, Operators, npraStates, cluster, istep);
       asuscg.AddPart(suscg,trusign);
@@ -2134,19 +2153,16 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
     if (!common::QHB2 && !common::cmp_vertex){
       // We calculate only the Green's function
       for (size_t ifl=0; ifl<Gsvd.size(); ifl++) TMD[ifl].ComputeG_svd(Gsvd[ifl], trusign, svd, MD[ifl], intervals[ifl]);
-      //for (size_t ifl=0; ifl<Gsvd.size(); ifl++) TMD[ifl].ComputeG_svd_debug(Gsvd[ifl], Gtau[ifl], trusign, svd, MD[ifl], intervals[ifl]);
       NGta += trusign;
     }else{
       int N_ifl = cluster.N_ifl;
-      
       if (common::QHB2){// Need Nj before psi^+ operators
 	t_nj.start();
 	for (size_t ifl=0; ifl<N_ifl; ifl++){
 	  // resizing the containers
 	  int Nk = intervals[ifl].size()/2;// number of psi^\dagger kinks
-	  Njcs[ifl].resize(Nk,cluster.Nvfl);
+	  Njcs1[ifl].resize(Nk);
 	}
-      
 	for (int ip=0; ip<Operators.size(); ip++){// We go over all operators of all baths to calculate N at psi^dagger(tau)
 	  int op = Operators.typ(ip);
 	  if (op%2 == nIntervals::cd){
@@ -2154,11 +2170,7 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 	    int ifl = p_ifl.ifl; // type of bath
 	    int iis = intervals[ifl].index_s_1[p_ifl.in]; // which contructor
 	    if (fabs(intervals[ifl].time_s(iis)-Operators.t(ip))>1e-10) (*yout)<<"Times are different in StoreCurrentState t_interval="<<intervals[ifl].time_s(iis)<<" t_operators="<<Operators.t(ip)<<endl;
-	    if (common::Segment)
-	      Segment_Get_N_at_Operator2(Njcs[ifl][iis], ip, Trace, matrix_element, state_evolution_left, Operators, npraStates, cluster, istep);
-	    else
-	      Get_N_at_Operator2(Njcs[ifl][iis],ip,Trace,matrix_element,state_evolution_left,state_evolution_right,Operators,npraStates,cluster, istep);
-	    //.....Njcs[ifl](iis,fl2)
+	    Njcs1[ifl][iis] = Get_N_at_Operator3(ip,Trace,matrix_element,state_evolution_left,state_evolution_right,Operators,npraStates,cluster, istep);
 	  }
 	}
 	t_nj.stop();
@@ -2171,10 +2183,8 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 
       if (common::cmp_vertex){
 	int lmax_lmax = svd.lmax*svd.lmax;
-	
 	for (size_t ifl=0; ifl<cluster.N_ifl; ifl++){
 	  int Nk = intervals[ifl].size()/2;
-	  
 	  t_fgf.start();
 	  for (int ind=0; ind<cluster.v2fl_index[ifl].size(); ind++){
 	    int ind2 = cluster.v2fl_index[ifl][ind];
@@ -2182,47 +2192,48 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 	    Gsvd_s[ind2] = 0.0;
 	    Gsvd_e[ind2].resize(Nk,svd.lmax);
 	    Gsvd_e[ind2] = 0.0;
+	    Gsvd_es[ind2].resize(Nk,Nk,svd.lmax);
+	    Gsvd_es[ind2] = 0.0;
 	  }
-	  TMD[ifl].ComputeFGF_svd(Gsvd_s, Gsvd_e, trusign, svd, MD[ifl], intervals[ifl]);  // the expensive part. Note that both Gsvd_s and Gsvd_e contain fermionic sign
-	  t_fgf.stop();
 	  
+	  TMD[ifl].ComputeFGF_svd(Gsvd_s, Gsvd_e, Gsvd_es, Vertex_subtract, trusign, svd, MD[ifl], intervals[ifl]);  // the expensive part. Note that both Gsvd_s and Gsvd_e contain fermionic sign
+	  t_fgf.stop();
+
 	  t_g.start();
 	  // The actual Green's function is just a straighforward sum over all starting times
-	  for (int ind=0; ind<cluster.v2fl_index[ifl].size(); ind++){
-	    int ind2 = cluster.v2fl_index[ifl][ind];
+	  for (int ind=0; ind<cluster.N_baths(ifl); ind++){
+	    int fl_ai = cluster.v2fl_index[ifl][ind];
 	    // *** slover equivalent ****
-	    //for (int is=0; is<Nk; is++) Gsvd[ifl][ind] += Gsvd_s[ind2][is];
-	    double* __restrict__ _Gsvd_ = Gsvd[ifl][ind].MemPt();
-	    double* __restrict__ _Gsvd_s_ = Gsvd_s[ind2].MemPt();
+	    //for (int is=0; is<Nk; is++) Gsvd[ifl][ind][:] += Gsvd_s[fl_ai][is][:];
+	    //double*       __restrict__ _Gsvd_   = Gsvd[ifl][ind].MemPt();
 	    for (int is=0; is<Nk; is++){
-	      const int Nk_times_is = Gsvd_s[ind2].lda()*is;
-	      for (int l=0; l<svd.lmax; l++) _Gsvd_[l] += _Gsvd_s_[Nk_times_is+l];
+	      //const double* __restrict__ _Gsvd_s_ = Gsvd_s[fl_ai][is].MemPt();
+	      //for (int l=0; l<svd.lmax; l++) _Gsvd_[l] += _Gsvd_s_[l];
+	      Gsvd[ifl][ind] += Gsvd_s[fl_ai][is];
 	    }
 	  }
 	  t_g.stop();
-
 	  t_f.start();
 	  if (common::QHB2){
-	    for (int bindex=0; bindex<cluster.N_baths(ifl); bindex++){
-	      int fl_ai = cluster.v2fl_index[ifl][bindex]; 
-	      if (Nk<10){ // blas overhead is large in this case
-		for (int fl_jk=0; fl_jk<cluster.Nvfl; fl_jk++){
-		  for (int is=0; is<Nk; is++){
-		    for (int l=0; l<svd.lmax; l++){
-		      Fsvd[fl_ai](fl_jk,l) += Gsvd_s[fl_ai](is,l) * Njcs[ifl](is,fl_jk);
-		    }
-		  }
+	    for (int ind=0; ind<cluster.N_baths(ifl); ind++){
+	      int fl_ai = cluster.v2fl_index[ifl][ind];
+	      if (Nk<10){
+		for (int is=0; is<Nk; is++){
+		  double njcs = Njcs1[ifl][is];
+		  for (int l=0; l<svd.lmax; l++) Fsvd1(fl_ai,l) += Gsvd_s[fl_ai](is,l) * njcs;
 		}
-	      } else{
-		Fsvd[fl_ai].Product("T","N", Njcs[ifl], Gsvd_s[fl_ai], 1.0, 1.0);
+	      }else{
+		Fsvd1[fl_ai].xgemv("T", Gsvd_s[fl_ai], Njcs1[ifl]);
 	      }
 	    }
 	  }
 	  t_f.stop();
 	}
-
+	
 	t_vh.start();
-	function1D<double> bl(svd.lmax_bose);
+	int lmax_x_lmax = svd.lmax*svd.lmax;
+	function1D<double> G_e(svd.lmax), G_s(svd.lmax), bl(svd.lmax_bose);
+	function2D<double> GG(svd.lmax,svd.lmax);
 	for (int i0=0; i0<cluster.Nvfl; i0++){
 	  int ifl0 = cluster.vfli_index[i0].ifl;
 	  for (int i1=0; i1<cluster.Nvfl; i1++){
@@ -2238,18 +2249,50 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 		//     _M1e_ = Gsvd_e[i1][ie].MemPt(); // _M1e_[t_e,l] = \sum_{t_s} M[i1](t_e,t_s)*u[l](t_e-t_s) (-1)^{current_sign}
 		//     VH[i0,i1][lc,l1,l2] += _M0s_[t_s,l1] * _M1e_[t_e,l2] * uO[lc](t_s-t_e) (-1)^{current_sign}
 		// hence
-		// VH[i0,i1][lc,i1,i2] = \sum_{t_s1,t_e2} uO[lc](t_s1-t_e2) \sum_{t_e1,t_s2} M[i0](t_e1,t_s1)*u[l1](t_e1-t_s1) * M[i1](t_e2,t_s2)*u[l2](t_e2-t_s2)
+		// VH[i0,i1][lc,l1,l2] = \sum_{t_s1,t_e2} uO[lc](t_s1-t_e2) \sum_{t_e1,t_s2} M[i0](t_e1,t_s1)*u[l1](t_e1-t_s1) * M[i1](t_e2,t_s2)*u[l2](t_e2-t_s2)
 		//                     = \sum_{t_s1,t_e1,t_s2,t_e2} M[i0](t_e1,t_s1) * M[i1](t_e2,t_s2) * u[l1](t_e1-t_s1) * u[l2](t_e2-t_s2) * uO[lc](t_s1-t_e2)
 		//
-		//// *** This is really strange. This should be faster, but it is slower ****
-		//tMsMe=0.0;
-		//dger(tMsMe, 1.0, Gsvd_s[i0][is], Gsvd_e[i1][ie]);
-		//double* __restrict__ _tMsMe_ = tMsMe.MemPt();
-		for (int lc=0; lc<svd.lmax_bose; lc++){
-		  double blc = svd.fU_bose[lc](ip) * trusign; // We need the sign again, because both Gsvd_s and Gsvd_e contain sign, hence the product is always +1.
-		  dger( &VH(i0,i1,lc,0,0), blc, Gsvd_s[i0][is], Gsvd_e[i1][ie]);
-		  //double* __restrict__ _VH_ = &VH(i0,i1,lc,0,0);
-		  //for (int l=0; l<lmax_lmax; l++) _VH_[l] += blc * _tMsMe_[l];
+		if (Vertex_subtract && i0==i1){
+		  // This canceles the term when we intent to remove twice the same column and the same row. The Fock term should automatically remove this term,
+		  // can be optimized by restrict pointers....
+		  //t_vh1.start();
+		  const double* __restrict__ _Gsvd_s_ = &Gsvd_s[i0](is,0);
+		  const double* __restrict__ _Gsvd_e_ = &Gsvd_e[i0](ie,0);
+		  const double* __restrict__ _Gsvd_es_ = &Gsvd_es[i0](ie,is,0);
+		  double* __restrict__ _G_s_ = &G_s[0];
+		  double* __restrict__ _G_e_ = &G_e[0];
+		  for (int l=0; l<svd.lmax; l++){
+		    _G_s_[l] = _Gsvd_s_[l] - _Gsvd_es_[l]; 
+		    _G_e_[l] = _Gsvd_e_[l] - _Gsvd_es_[l];
+		  }
+		  //t_vh1.stop();
+		  //t_vh2.start();
+		  GG=0;
+		  dger(GG.MemPt(), trusign, G_s, G_e);  // We need the sign again, because both Gsvd_s and Gsvd_e contain sign, hence the product is always +1.
+		  //t_vh2.stop();
+		  //t_vh3.start();
+		  for (int lc=0; lc<svd.lmax_bose; lc++){
+		    double blc = svd.fU_bose[lc](ip); 
+		    //dger( &VH(i0,i1,lc,0,0),  blc, G_s,  G_e);
+		    double* __restrict__ vh = &VH(i0,i1,lc,0,0);
+		    const double* __restrict__ gg = GG.MemPt();
+		    for (int ll=0; ll<lmax_x_lmax; ll++) vh[ll] += gg[ll]*blc;
+		  }
+		  //t_vh3.stop();
+		}else{
+		  //t_vh4.start();
+		  GG=0;
+		  dger(GG.MemPt(), trusign, Gsvd_s[i0][is], Gsvd_e[i1][ie]); // We need the sign again, because both Gsvd_s and Gsvd_e contain sign, hence the product is always +1.
+		  //t_vh4.stop();
+		  //t_vh5.start();
+		  for (int lc=0; lc<svd.lmax_bose; lc++){
+		    double blc = svd.fU_bose[lc](ip); 
+		    //dger( &VH(i0,i1,lc,0,0),  blc, Gsvd_s[i0][is], Gsvd_e[i1][ie]);
+		    double* __restrict__ vh = &VH(i0,i1,lc,0,0);
+		    const double* __restrict__ gg = GG.MemPt();
+		    for (int ll=0; ll<lmax_x_lmax; ll++) vh[ll] += gg[ll]*blc;
+		  }
+		  //t_vh5.stop();
 		}
 	      }
 	    }
@@ -2260,9 +2303,9 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 	Gsvd_s.resize(ifl_dim2_max);
 	for (size_t ifl=0; ifl<N_ifl; ifl++){
 	  int Nk = intervals[ifl].size()/2;
-	  for (int bindex=0; bindex<cluster.N_baths(ifl); bindex++){
-	    Gsvd_s[bindex].resize(Nk,svd.lmax);
-	    Gsvd_s[bindex] = 0.0;
+	  for (int ind=0; ind<cluster.N_baths(ifl); ind++){
+	    Gsvd_s[ind].resize(Nk,svd.lmax);
+	    Gsvd_s[ind] = 0.0;
 	  }
 
 	  t_fgf.start();
@@ -2271,23 +2314,20 @@ void CTQMC<Rand>::StoreCurrentState(long long istep)
 	  
 	  t_g.start();
 	  // The actual Green's function is just a straighforward sum over all starting times
-	  for (int bindex=0; bindex<cluster.N_baths(ifl); bindex++)
-	    for (int is=0; is<Nk; is++) Gsvd[ifl][bindex] += Gsvd_s[bindex][is];
+	  for (int ind=0; ind<cluster.N_baths(ifl); ind++)
+	    for (int is=0; is<Nk; is++) Gsvd[ifl][ind] += Gsvd_s[ind][is];
 	  t_g.stop();
 	  
 	  t_f.start();
-	  for (int bindex=0; bindex<cluster.N_baths(ifl); bindex++){
-	    int fl_ai = cluster.v2fl_index[ifl][bindex];
-	    if (Nk<10){ // blas overhead is large in this case
-	      for (int fl_jk=0; fl_jk<cluster.Nvfl; fl_jk++){
-		for (int is=0; is<Nk; is++){
-		  for (int l=0; l<svd.lmax; l++){
-		    Fsvd[fl_ai](fl_jk,l) += Gsvd_s[bindex](is,l) * Njcs[ifl](is,fl_jk);
-		  }
-		}
+	  for (int ind=0; ind<cluster.N_baths(ifl); ind++){
+	    int fl_ai = cluster.v2fl_index[ifl][ind];
+	    if (Nk<10){
+	      for (int is=0; is<Nk; is++){
+		double njcs = Njcs1[ifl][is];
+		for (int l=0; l<svd.lmax; l++) Fsvd1(fl_ai,l) += Gsvd_s[ind](is,l) * njcs;
 	      }
 	    }else{
-	      Fsvd[fl_ai].Product("T","N", Njcs[ifl], Gsvd_s[bindex], 1.0, 1.0);
+	      Fsvd1[fl_ai].xgemv("T", Gsvd_s[ind], Njcs1[ifl]);
 	    }
 	  }
 	  t_f.stop();
@@ -2606,6 +2646,7 @@ double CTQMC<Rand>::sample(long long max_steps)
 	(*yout)<<" t_g="<<t_g.elapsed();
 	if (common::QHB2) (*yout)<<" t_f="<<t_f.elapsed()<<" t_nj="<<t_nj.elapsed()<<" t_fgf="<<t_fgf.elapsed();
 	if (common::SampleVertex>0) (*yout)<<" t_vh="<<t_vh.elapsed();
+	//if (common::SampleVertex>0) (*yout)<<" t_vh1="<<t_vh1.elapsed()<<" t_vh2="<<t_vh2.elapsed()<<" t_vh3="<<t_vh3.elapsed()<<" t_vh4="<<t_vh4.elapsed()<<" t_vh5="<<t_vh5.elapsed()<<endl;
 	(*yout)<<endl;
 #endif  
       }
@@ -2614,12 +2655,19 @@ double CTQMC<Rand>::sample(long long max_steps)
 
   if (common::Qsvd){
     for (size_t ifl=0; ifl<Gsvd.size(); ifl++) Gsvd[ifl] *= 1./asign;
-    if (common::QHB2)
-      for (size_t fl2=0; fl2<cluster.Nvfl; fl2++) Fsvd[fl2] *= 1./asign;
+    if (common::QHB2){
+      /*
+      if (common::Segment)
+	for (size_t fl2=0; fl2<cluster.Nvfl; fl2++) Fsvd[fl2] *= 1./asign;
+      else
+      */
+	for (size_t fl2=0; fl2<cluster.Nvfl; fl2++) Fsvd1[fl2] *= 1./asign;
+    }
   }else{
     for (size_t ifl=0; ifl<Gaver.size(); ifl++) Gaver[ifl] *= 1./asign;
     if (common::QHB2)
-      for (int fl2=0; fl2<cluster.Nvfl; fl2++) Faver[fl2] *= 1./asign;
+      //for (int fl2=0; fl2<cluster.Nvfl; fl2++) Faver[fl2] *= 1./asign;
+      Faver *= 1./asign;
     if (common::SampleSusc && cluster.DOsize>0) asuscg *= 1./asign;
   }
   
@@ -2955,6 +3003,222 @@ struct CustomLess{
   }
 };
 
+
+template <class Rand>
+void CTQMC<Rand>::WriteVertexSVD(const function2D<dcomplex>& Gd, const function2D<double>& Gd_, int my_rank, int mpi_size, int Master, bool print_vertex_xxx)
+{
+  //function2D<double> Gd_(cluster.N_unique_fl,svd.lmax);
+  // Summary of Matsubara frequencies:
+  //   we use the notation : nomv == N_w; nOm == N_W
+  //   The fermionic frequencies are : om = (2*(iw-N_w)+1)*pi/beta   with iw=[0,....,2*N_w-1]  hence om=[ -(2*N_w-1)*pi/beta,....,(2*N_w-1)*pi/beta]
+  //   The bosonic   frequencies are : Om = (2*(iW-N_W)+2)*pi/beta   with iW=[0,....,2*N_W-2]  hence Om=[ -2*(N_W-1)*pi/beta,....,2*(N_W-1)*pi/beta]
+  //
+  //   Example:
+  //     iom-iOme can be obtained by im+dOm, where dOm is computed below:
+  //     iom = (2*(im-N_w)+1)*pi/beta  and iOme = (2*(iOm-N_W)+2)*pi/beta
+  //     so that iom-iOme = pi/beta*( 2*(im+ [N_W-iOm-1] -N_w)+1  )
+
+  /*
+  function2D<double> Cll;
+  if (false){
+    svd.ComputeClCoefficients(Cll, my_rank, mpi_size, Master);
+  }
+  */
+  
+  int Nl = svd.lmax_bose*svd.lmax*svd.lmax;
+
+  ofstream outv("svd_vertex.dat"); outv.precision(12);
+  outv<<"# SVD parameters:  lmax  lmax_bose  beta  Ntau  Nw  L  x0"<<endl;
+  outv<<svd.lmax<<" "<<svd.lmax_bose<<" "<<common::beta<<" "<<tau.size()<<" "<< (svd.om.size()/2) <<" "<<svd.L<<" "<<svd.x0<<endl;
+  outv<<" Nvfl  N_unique_fl  Nl "<<endl;
+  outv<<cluster.Nvfl<<" "<<cluster.N_unique_fl<<" "<<Nl<<endl;
+
+  /*
+  outv<<"# fl  l    G_l :"<<endl;
+  for (int i=0; i<cluster.N_unique_fl; i++){
+    for (int l=0; l<svd.lmax; l++)
+      outv<<setw(3)<<i<<" "<<setw(3)<<l<<"   "<<Gd_(i,l)<<endl;
+  }
+  */
+
+  outv<<"# fl  l    G_l :"<<endl;
+  for (int l=0; l<svd.lmax; l++){
+    outv<<setw(3)<<l<<" ";
+    for (int i=0; i<cluster.Nvfl; i++){
+      int ifl = cluster.vfli_index[i].ifl;
+      int bfl = cluster.vfli_index[i].bind;
+      outv<<setw(20)<<Gsvd[ifl](bfl,l)<<" ";
+    }
+    outv<<endl;
+  }
+  
+  outv<<"# i0  i1  l2  l1  l0   VH :"<<endl;
+  for (int i0=0; i0<cluster.Nvfl; i0++){
+    for (int i1=0; i1<cluster.Nvfl; i1++){
+      for (int i=0; i<Nl; i++){
+	vector<int> li = svd.get_lll(i);
+	outv<<setw(3)<<i0<<" "<<setw(3)<<i1<<" "<<setw(3)<<li[2]<<" "<<setw(3)<<li[1]<<" "<<setw(3)<<li[0]<<"    "<<setw(15)<<VH(i0,i1,li[2],li[1],li[0])<<endl;
+      }
+    }
+  }
+  
+  if (!print_vertex_xxx) return;
+  return ;
+
+
+    function2D<dcomplex> ul_om;
+    function2D<dcomplex> ul_Om;
+    int N_W = max(nOm,2*nomv);
+    int N_w = nomv; 
+
+    N_w = nomv+nOm-1;  // increase it, so that we do not need to cut-off frequencies in Fock term
+    ul_om.resize(2*N_w,svd.lmax);
+    ul_Om.resize(2*N_W-1,svd.lmax_bose);
+    {
+      function2D<dcomplex> fUw(svd.lmax,N_w), bUw(svd.lmax_bose,N_W);
+      for (int l=0; l<svd.lmax; l++) svd.MatsubaraFrequency(fUw[l], svd.fU[l], N_w);
+      for (int l=0; l<svd.lmax_bose; l++) svd.MatsubaraFrequency(bUw[l], svd.fU_bose[l], N_W, "bose");
+
+      for (int im=0; im<2*N_w; im++)
+	for (int l=0; l<svd.lmax; l++)
+	  ul_om(im,l ) = (im >=N_w)  ? fUw(l,im-N_w) : fUw(l,N_w-im-1).conj();
+      
+      for (int iOm=0; iOm<2*N_W-1; iOm++)
+	for (int l=0; l<svd.lmax_bose; l++)
+	  ul_Om(iOm,l) = (iOm>=N_W-1) ? bUw(l,iOm-(N_W-1)) : bUw(l,N_W-1-iOm).conj();
+    }
+    
+  
+    function2D<dcomplex> BubbleH(2*nomv,2*nomv), BubbleF(2*nOm-1,2*nomv);
+    int nom = iom.size();
+
+  
+    function3D<double> VFX(svd.lmax_bose, svd.lmax, svd.lmax);
+
+    outv<<"# i0  i1  l2  l1  l0   VF: "<<endl;
+      
+    (*yout)<<"Printing vertex"<<endl;
+    for (int i0=0; i0<cluster.Nvfl; i0++){
+      TBath ind0 = cluster.vfli_index[i0];
+      int ind0t = cluster.bfl_index[ind0.ifl][ind0.bind];      
+      for (int i1=0; i1<cluster.Nvfl; i1++){
+	TBath ind1 = cluster.vfli_index[i1];
+	int ind1t = cluster.bfl_index[ind1.ifl][ind1.bind];
+	const funProxy<dcomplex>& _Gd0 = Gd[ind0t];
+	const funProxy<dcomplex>& _Gd1 = Gd[ind1t];
+
+	// BubbleH
+	for (int im1=0; im1<2*nomv; im1++){
+	  dcomplex gd0 = (im1>=nomv) ? _Gd0[im1-nomv] : _Gd0[nomv-im1-1].conj();
+	  for (int im2=0; im2<2*nomv; im2++){
+	    dcomplex gd1 = (im2>=nomv) ? _Gd1[im2-nomv] : _Gd1[nomv-im2-1].conj();
+	    BubbleH(im1,im2) = gd0*gd1; // BH[iw_1,iw_2] = G[i0][iw_1] * G[i1][iw_2]
+	  }
+	}
+      
+	// BubbleF
+	for (int iOm=0; iOm<2*nOm-1; iOm++){
+	  // iom-iOme can be obtained by im+dOm
+	  // iom = (2*(im-N_w)+1)*pi/beta  and iOme = (2*(iOm-N_W)+2)*pi/beta
+	  // so that iom-iOme = pi/beta*( 2*(im+ [N_W-iOm-1] -N_w)+1  )
+	  int dOm = nOm-1-iOm; 
+	  int sm1 = max(0, -dOm);
+	  int em1 = min(2*nomv, 2*nomv-dOm);
+	  for (int im1=sm1; im1<em1; im1++){
+	    dcomplex gd0 = (im1>=nomv) ? _Gd0[im1-nomv] : _Gd0[nomv-im1-1].conj();	    
+	    int im2 = im1+dOm; // this is iw-iOm
+	    if (im2<0 || im2>=2*nomv) continue;
+	    dcomplex gd1 = (im2>=nomv) ? _Gd1[im2-nomv] : _Gd1[nomv-im2-1].conj();
+	    BubbleF(iOm,im1) = gd0*gd1; // BF[iOm,iw_1] = G[i0][iw_1] * G[i1][iw_2-iOm]
+	  }
+	}
+
+	/*
+	if (false){
+	  for (int i=0; i<Nl; i++){
+	    vector<int> li = svd.get_lll(i);
+	    double _VF_ = 0.0;
+	    for (int j=0; j<Nl; j++){
+	      vector<int> lj = svd.get_lll(j);
+	      if ( (li[0] + li[1] + li[2] + lj[0] + lj[1] + lj[2])%2 ) continue; // this vanishes due to symmetry
+	      _VF_ += Cll(i,j) * VH(i0,i1,lj[2],lj[1],lj[0]);
+	    }
+	    VFX(li[2],li[1],li[0]) = _VF_;
+	    outv<<setw(3)<<i0<<" "<<setw(3)<<i1<<" "<<setw(3)<<li[2]<<" "<<setw(3)<<li[1]<<" "<<setw(3)<<li[0]<<"    "<<setw(15)<<VFX(li[2],li[1],li[0])<<endl;
+	  }
+	}
+	*/
+	  
+	function3D<dcomplex> Cl; 
+	Cl.resize(2*N_w,2*N_w,svd.lmax_bose);
+	Cl=0.0;
+	function2D<dcomplex> ul_VH(2*N_w,svd.lmax);
+	function2D<dcomplex> ul_VH_ul(2*N_w,2*N_w);
+	function2D<dcomplex> _VH_(VH.N3, VH.N4);
+	for (int lc=0; lc<svd.lmax_bose; lc++){
+	  // ul_VH(im1,l2) = sum_{l1} ul_om(im1,l1)*VH(i0,i1,lc,l1,l2);
+	  // ul_VH_ul(im1,im2) = sum_{l2} ul_VH(im1,l2)*ul_om(im2,l2)
+	  // Cl(im1,im2,lc) = ul_VH_ul(im1,im2) 
+	  for (int i3=0; i3<VH.N3; i3++)
+	    for (int i4=0; i4<VH.N4; i4++) 
+	      _VH_(i3,i4) = VH(i0,i1,lc,i3,i4);
+	  ul_VH.Product(   "N", "N", ul_om, _VH_ , 1.0, 0.0);
+	  ul_VH_ul.Product("N", "T", ul_VH, ul_om, 1.0, 0.0);
+	  for (int i=0; i<2*N_w; i++)
+	    for (int j=0; j<2*N_w; j++) 
+	      Cl(i,j,lc) = ul_VH_ul(i,j);
+	}
+
+	function3D<dcomplex> Dl; 
+	Dl.resize(2*N_w,2*N_w,svd.lmax_bose);
+	Dl=0.0;
+	for (int lc=0; lc<svd.lmax_bose; lc++){
+	  // ul_VH(im1,l2) = sum_{l1} ul_om(im1,l1)*VH(i0,i1,lc,l1,l2);
+	  // ul_VH_ul(im1,im2) = sum_{l2} ul_VH(im1,l2)*ul_om(im2,l2)
+	  // Dl(im1,im2,lc) = ul_VH_ul(im1,im2) 
+	  for (int i3=0; i3<VH.N3; i3++)
+	    for (int i4=0; i4<VH.N4; i4++) 
+	      _VH_(i3,i4) = VFX(lc,i3,i4);
+	  ul_VH.Product(   "N", "N", ul_om, _VH_ , 1.0, 0.0);
+	  ul_VH_ul.Product("N", "T", ul_VH, ul_om, 1.0, 0.0);
+	  for (int i=0; i<2*N_w; i++)
+	    for (int j=0; j<2*N_w; j++) 
+	      Dl(i,j,lc) = ul_VH_ul(i,j);
+	}
+      
+
+      
+	for (int iOm=0; iOm<2*nOm-1; iOm++){
+	  double rOmega = 2*(iOm-nOm+1)*M_PI/common::beta;       // actual center of mass frequency
+	  int dOm = nOm-1-iOm;
+	  for (int im1=0; im1<2*nomv; im1++){
+	    stringstream strc;
+	    strc<<"Cvertex."<<i0<<"."<<i1<<"."<<(iOm-nOm+1)<<"."<<(2*(im1-nomv)+1);
+	    ofstream vout(strc.str().c_str());
+	    for (int im2=0; im2<2*nomv; im2++){
+	      dcomplex bH = (iOm == nOm-1) ? BubbleH(im1,im2) : 0.0; // we have BH = delta(iOm)*BH[iw_1,iw_2]
+	      dcomplex bF = (im1 == im2) ? BubbleF(iOm,im1) : 0.0;   // we have BF = delta(iw_1-iw_2)*BF[iOm,iw_1]
+	      double om2 = (2*(im2-nomv)+1)*M_PI/common::beta;       // actual frequency
+
+	      dcomplex VH=0, VF=0;
+	      // computing the frequency dependent vertex
+	      int NOm_off = N_W-nOm;
+	      int nw_off = N_w-nomv;
+	      dcomplex* __restrict__ _Cl_    = &Cl(im1+nw_off,im2+nw_off,0);        // Cl(om1,om2,lc=0)
+	      dcomplex* __restrict__ _Dl_    = &Dl(im1+nw_off,im2+nw_off,0);        // Dl(om1,om2,lc=0)
+	      dcomplex* __restrict__ _ul_Om_ = &ul_Om(iOm+NOm_off,0);               // ul_Om(Om,lc=0)
+	      for (int lc=0; lc<svd.lmax_bose; lc++) VH += _Cl_[lc] * _ul_Om_[lc];                                         // Cl(om1,om2) * ul_Om(Om,lc)
+	      for (int lc=0; lc<svd.lmax_bose; lc++) VF += _Dl_[lc] * _ul_Om_[lc];                                         // Cl(om1,om2) * ul_Om(Om,lc)
+	    
+	      vout <<om2<<" "<<VH-bH<<" "<<bH<<" "<<VF-bF<<" "<<bF<<endl;
+	    }
+	  }
+	}
+      }
+    }
+}
+
+
 template <class Rand>
 void CTQMC<Rand>::WriteVertex(const function2D<dcomplex>& Gd, bool print_vertex_xxx)
 {
@@ -2973,7 +3237,6 @@ void CTQMC<Rand>::WriteVertex(const function2D<dcomplex>& Gd, bool print_vertex_
   int N_w = nomv; 
   if (common::Qsvd){
     N_w = nomv+nOm-1;  // increase it, so that we do not need to cut-off frequencies in Fock term
-    //ul_om.resize(2*nomv,svd.lmax);
     ul_om.resize(2*N_w,svd.lmax);
     ul_Om.resize(2*N_W-1,svd.lmax_bose);
     {
@@ -3182,7 +3445,6 @@ double ComputeEkin_svd(const function2D<double>& Gd, const vector<function2D<spl
 
 int main(int argc, char *argv[])
 {
-  
   setvbuf (stdout, NULL, _IONBF, BUFSIZ);
   int my_rank, mpi_size, Master;
   MPI_Init(argc, argv, my_rank, mpi_size, Master);
@@ -3443,8 +3705,9 @@ int main(int argc, char *argv[])
     PMove = 1.0; // It seems ExchangeTwoIntervals does not work in general.
     (*yout)<<"PMove corrected to "<<PMove<<endl;
   }
-  if (Segment==0 && mode[0]=='S'){
-    (*yout)<<"WARNING In non-segment case, you should check that S mode and G mode give the same result, otherwise please avoid S mode."<<endl;
+  if (Segment==0 && mode[0]=='S' && svd_lmax==0){
+    (*yout)<<"ERROR: In non-segment case, and with svd_lmax==0 the S mode is not implemented. Either choose svd_lmax>0 or change S mode to G mode."<<endl;
+    return 0;
   }
   if (mode==""){ // by default, mode="" and we set it either to "SM" or "GM". It seems "SM" does not work for general (non-segment) case.
     if (cluster.max_size==1) mode = "SM";
@@ -3523,19 +3786,22 @@ int main(int argc, char *argv[])
     else
       svd.cmp("fermi", common::beta, svd_lmax, svd_Ntau, svd_x0, svd_L, svd_Nw, *yout);
     svd.SetUpFastInterp();
+
     
-    bool Print_SVD_Functions=false;
+    bool Print_SVD_Functions = common::cmp_vertex && common::Qsvd;
     if (my_rank==Master && Print_SVD_Functions){
       // Print SVD functions
-      svd.Print("uls.dat",common::beta);
-      if (common::cmp_vertex) svd.Print("ulb.dat",common::beta,"bose");
+      svd.Print("ulf.dat","fermi");
+      svd.Print("ulb.dat","bose");
+      //if (common::cmp_vertex) svd.Print("ulb.dat","bose");
       // Now we check how well is the orthogonality obeyed after reorthogonalization
-      clog<<"Final overlap is smaller than "<<svd.CheckOverlap(common::beta)<<endl;
+      clog<<"Final overlap is smaller than "<<svd.CheckOverlap()<<endl;
     }
   }
 
-  if (common::QHB2) cluster.Compute_Nmatrices();
-  
+  if (common::QHB2){
+    cluster.Compute_Nmatrices2(common::U, false);
+  }
   
   int cNmax = Nmax_from_StatusFiles(my_rank);
   cNmax = max(Nmax,cNmax);
@@ -3546,7 +3812,7 @@ int main(int argc, char *argv[])
 
   // Getting previous status from status.xxx files
   ctqmc.RetrieveStatus(my_rank,-1);
-
+  
   // Main part of the code : sampling
   double nf = ctqmc.sample(M);
 
@@ -3579,8 +3845,20 @@ int main(int argc, char *argv[])
       }
     }
     //Fd.resize(cluster.N_unique_fl, ctqmc.ioms().size());
-    if (common::QHB2) Multiply_F_with_U(Fd, ctqmc.Faver, U, cluster); // computes  Fd_{a,b} = <psi_a psi_i^+ psi_j^+ psi_k> U_{i,j,k,b}
+    if (common::QHB2){
+      //Multiply_F_with_U(Fd, ctqmc.Faver, U, cluster); // computes  Fd_{a,b} = <psi_a psi_i^+ psi_j^+ psi_k> U_{i,j,k,b}
+      Fd.resize(cluster.N_unique_fl, ctqmc.ioms().size());
+      Fd=0.0;
+      for (int ifl=0; ifl<cluster.N_ifl; ifl++){
+	for (int ib=0; ib<cluster.N_baths(ifl); ib++){
+	  int fl = cluster.v2fl_index[ifl][ib];
+	  int i_unique = cluster.bfl_index[ifl][ib];
+	  Fd[i_unique] += ctqmc.Faver[fl];
+	}
+      }
+    }
   }else{
+    
     Gd_.resize(cluster.N_unique_fl,svd.lmax);    
     Gd_=0;
     for (int l=0; l<svd.lmax; l++){
@@ -3597,10 +3875,28 @@ int main(int argc, char *argv[])
       }
     }
     for (int fl=0; fl<cluster.N_unique_fl; fl++) Gd_deg[fl]=Gd_deg[fl]/svd.lmax;
-    
-    if (common::QHB2) Multiply_F_with_U(Ft, ctqmc.Fsvd, U, cluster);
+
+    if (common::QHB2){
+      /*
+      if (common::Segment){
+	Multiply_F_with_U(Ft, ctqmc.Fsvd, U, cluster);
+      }else{
+      */
+	Ft.resize(cluster.N_unique_fl,svd.lmax);
+	Ft=0.0;
+	for (int ifl=0; ifl<cluster.N_ifl; ifl++){
+	  for (int ib=0; ib<cluster.N_baths(ifl); ib++){
+	    int fl = cluster.v2fl_index[ifl][ib];
+	    int i_unique = cluster.bfl_index[ifl][ib];
+	    //for (int l=0; l<svd.lmax; l++) Ft[i_unique][l] += ctqmc.Fsvd1[fl][l];
+	    Ft[i_unique] += ctqmc.Fsvd1[fl];
+	  }
+	}
+	/*}*/
+    }
   }
   
+
   // G(tau) is also compressed to few components only
   // the number of time slices is reduces to first and last 3 in case ReduceComm is set to true
   // In this case, full Gtau will not be exchaned or printed, but only 6 times will be printed
@@ -3635,40 +3931,16 @@ int main(int argc, char *argv[])
     }
   }
 
-  /*
-  {
-    double dsum=0.0;
-    for (int i=0; i<ctqmc.AProb.size_N(); i++){
-      for (int m=0; m<ctqmc.AProb.size_Nd(); m++){
-	dsum += ctqmc.AProb[i][m];
-      }
-    }
-    dsum *= 1./ctqmc.asign_fast;
-    (*yout)<<"Before Reduce  sum(AProbability)="<<dsum<<endl;
-  }
-  */
   if (!common::Qsvd)
     Reduce(my_rank, Master, mpi_size, ctqmc.Histogram(), Gd, Fd, ctqmc.AverageProbability(), ctqmc.asign, ctqmc.asign_fast, ctqmc.Observables(),
 	   ctqmc.k_aver(), ctqmc.Susc(), ctqmc.asuscg, cluster.DOsize, Gtau, ctqmc.VertexH, ctqmc.VertexF, Gd_deg, ctqmc.AP_transition,
 	   common::cmp_vertex, common::QHB2, common::SampleSusc, common::SampleTransitionP);
   else
     ReduceS(my_rank, Master, mpi_size, ctqmc.Histogram(), Gd_, Ft, ctqmc.AverageProbability(), ctqmc.asign, ctqmc.asign_fast, ctqmc.Observables(),
-	    ctqmc.k_aver(), Gtau, ctqmc.VH, Gd_deg, ctqmc.AP_transition,
+	    ctqmc.k_aver(), Gtau, ctqmc.VH, Gd_deg, ctqmc.AP_transition, ctqmc.Gsvd,
 	    common::cmp_vertex, common::QHB2, common::SampleTransitionP, *yout);
 
   if (my_rank==Master){
-    /*
-    {
-      double dsum=0.0;
-      for (int i=0; i<ctqmc.AProb.size_N(); i++){
-	for (int m=0; m<ctqmc.AProb.size_Nd(); m++){
-	  dsum += ctqmc.AProb[i][m];
-	}
-      }
-      dsum *= 1./ctqmc.asign_fast;
-      (*yout)<<"After Reduce  sum(AProbability)="<<dsum<<endl;
-    }
-    */
     (*xout)<<"Number of successfully sampled Green's functions is ";
     for (int i=0; i<Gd_deg.size(); i++) (*xout)<<Gd_deg[i]<<" ";
     (*xout)<<endl;
@@ -3972,7 +4244,6 @@ int main(int argc, char *argv[])
 	  for (int l=0; l<cluster.DOsize; l++) out<<ctqmc.asuscg(l,im)<<" ";
 	  out<<endl;
 	}
-	
       }
     }
     if (common::SampleTransitionP){
@@ -3995,7 +4266,12 @@ int main(int argc, char *argv[])
     }
   }
 
-  if (common::cmp_vertex && my_rank==Master) ctqmc.WriteVertex(Gd, print_vertex_xxx);
+  if (common::cmp_vertex && my_rank==Master){  
+    if (common::Qsvd){
+      ctqmc.WriteVertexSVD(Gd, Gd_, my_rank, mpi_size, Master, print_vertex_xxx);
+    }
+    ctqmc.WriteVertex(Gd, print_vertex_xxx);
+  }
   
   if (my_rank==Master){
     ctqmc.RecomputeCix();

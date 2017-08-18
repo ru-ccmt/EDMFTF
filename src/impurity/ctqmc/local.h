@@ -57,9 +57,7 @@ void StartStateEvolution(function2D<NState>& state_evolution_left,
     }
 }
 
-
-
-
+/*
 void Get_N_at_Operator2(functionb<double>& Njc, int ops, const function1D<Number>& Trace, const Number& ms,
 			const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right,
 			const NOperators& Operators, const function1D<NState>& praStates, const ClusterData& cluster, long long istep)
@@ -101,6 +99,94 @@ void Get_N_at_Operator2(functionb<double>& Njc, int ops, const function1D<Number
       }
     }
   }
+}
+*/
+
+double Get_N_at_Operator3(int ops, const function1D<Number>& Trace, const Number& ms,
+			  const function2D<NState>& state_evolution_left, const function2D<NState>& state_evolution_right,
+			  const NOperators& Operators, const function1D<NState>& praStates, const ClusterData& cluster, long long istep)
+{// This routine returns the value of operator N measured at an existing creation operator, which has index ops.
+ // Operator N is inserted before t_s.
+ // If we have diagram with the following configuration <...... psi^+(t_s) ........>
+ // We evaluate the following quantity:   <...... psi^+(t_s)psi^+{a}(t_s)psi{b}(t_s) ........>/<...... psi^+(t_s) ........>
+ // for two baths {a} and {b}, which have a common index ii.
+  double Njc=0.0;
+  static NState lstate(common::max_size,common::max_size), rstate(common::max_size,common::max_size);
+  static function2D<double> M1(common::max_size,common::max_size), M2(common::max_size,common::max_size), M3(common::max_size,common::max_size);
+  
+  for (int ist=0; ist<praStates.size(); ist++){
+    if (state_evolution_left[ist].size()>Operators.size()/* && state_evolution_right[ist].size()>Operators.size()*/){
+      double Zi = (Trace[ist]/ms).dbl();
+      if (fabs(Zi) < 1e-10) continue;
+      if (ops != 0) lstate = state_evolution_left[ist][ops-1];
+      else lstate = praStates[ist];
+      int ilstate = lstate.istate;
+      int iop = Operators.typ(ops);
+      int ia = iop/2; // sice we know that iop stands for psi^+, we can get for whic bath
+      
+      // we need to time-evolve lstate and rstate, because state_evolution stores psi,psi^+ at the end, hence we should take previous state
+      // and time evolve. But we carry out this only if the operator Njm[\beta] = \sum_{i,j,k} psi^+_i psi^+_j psi_k U_{ijk\beta}
+      // is not proportional to F^+_{\beta} operator. In the latter case, the evaluation is as simple as in the segment picture.
+      switch (cluster.Njm_c(ilstate,ia)){
+      case 0: // nothing to add because N=0
+	break;
+      case 1: // M is just proportional to F^+, hence we multiply with a constant.
+	Njc += Zi * cluster.Njm_r(ilstate,ia);
+	break;
+      case 2: // N is not simple indentity or zero, hence we need to evaluate the product
+	// M3 = Njm[ia] * e^{-\Delta\tau_{l+1}H}|lstate>
+
+	if (ops < Operators.size()-1) rstate = state_evolution_right[ist][Operators.size()-2-ops];
+	else rstate = praStates[ist];
+	int irstate = rstate.istate;
+
+	int new_state = cluster.Fi(iop,ilstate);
+	if (new_state!=irstate){
+	  cout<<"ERROR: states are different"<<new_state<<" "<<irstate<<" "<<istep<<"... switch to G mode!"<<endl;
+	}
+	int N1  = lstate.M.size_N();
+	int Nd1 = lstate.M.size_Nd();
+	int N2  = rstate.M.size_N();
+	int Nd2 = rstate.M.size_Nd();
+	if (Nd1!=Nd2){cout<<"ERROR Nd1="<<Nd1<<" and Nd2="<<Nd2<<" but should be equal"<<endl;}
+
+	M1.resize(N1, Nd1);
+	M2.resize(N2, Nd2);
+	M3.resize(N2, Nd1);
+	const double* __restrict__ _exp1_ = &Operators.exp_(ops  )[cluster.Eind(ilstate,0)];
+	const double* __restrict__ _exp2_ = &Operators.exp_(ops+1)[cluster.Eind(irstate,0)];
+	// max_exp1 = *std::max_element(_exp1_,_exp1_+N1)
+	double max_exp1=-100000;
+	for (int i=0; i<N1; i++)
+	  if (_exp1_[i] > max_exp1) max_exp1 = _exp1_[i];        // because atomic energies are different within the state
+	// max_exp2 = *std::max_element(_exp2_,_exp2_+N2)
+	double max_exp2=-100000;
+	for (int i=0; i<N2; i++)
+	  if (_exp2_[i] > max_exp2) max_exp2 = _exp2_[i];        // because atomic energies are different within the state
+	for (int i=0; i<N1; i++){  // M1 <= e^{-\Delta\tau_{l} H}|lstate>
+	  double expo = exp( _exp1_[i]-max_exp1 );
+	  for (int j=0; j<Nd1; j++) M1(i,j) = expo * lstate.M(i,j);
+	}
+	for (int i=0; i<N2; i++){ // ( M2^+ = <rstate|e^{-\Delta\tau_{l+1} H} )^+
+	  double expo = exp( _exp2_[i]-max_exp2 );
+	  for (int j=0; j<Nd2; j++) M2(i,j) = rstate.M(i,j) * expo;
+	}
+	
+	if (cluster.Njm(ilstate,ia).size_N()!=N2){cout<<" ERROR Njm.size_N="<<cluster.Njm(ilstate,ia).size_N()<<" but N2="<<N2<<endl;}
+	if (cluster.Njm(ilstate,ia).size_Nd()!=N1){cout<<" ERROR Njm.size_Nd="<<cluster.Njm(ilstate,ia).size_Nd()<<" but N1="<<N1<<endl;}
+	  
+	Multiply(M3, cluster.Njm(ilstate,ia), M1);
+	// M2^+ * M3 = <rstate|e^{-\Delta\tau_{l+1} H} Njm[ia] e^{-\Delta\tau_{l}H}|lstate>
+	double dsum=0.0;
+	for (int i=0; i<N2; i++)
+	  for (int j=0; j<Nd2; j++) dsum += M2(i,j) * M3(i,j);
+	Number mm(dsum, max_exp1 + max_exp2 + lstate.exponent + rstate.exponent);
+	Njc += (mm/ms).dbl();
+	break;
+      }
+    }
+  }
+  return Njc;
 }
 
 inline bool Is_State_Proportional(const NState& nstate0, const NState& nstate, double& r)

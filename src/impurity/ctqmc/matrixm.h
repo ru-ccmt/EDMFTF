@@ -67,7 +67,7 @@ public:
   void ComputeGtau(const function2D<double>& MD, const nIntervals& interval, function2D<double>& Gtau);
   void ComputeG_svd(function2D<double>& gl, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
   void ComputeFG_svd(vector<function2D<double> >& gl, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
-  void ComputeFGF_svd(vector<function2D<double> >& gs, vector<function2D<double> >& ge, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
+  void ComputeFGF_svd(vector<function2D<double> >& gs, vector<function2D<double> >& ge, vector<function3D<double> >& ges, bool Vertex_subtract, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval);
   void Resize(int new_Nmax);
   void ReleaseSomeTempMemory();
   
@@ -1195,12 +1195,12 @@ void MatrixM::ComputeFG_svd(vector<function2D<double> >& gl, double tsign, const
   }
 }
 
-void MatrixM::ComputeFGF_svd(vector<function2D<double> >& gs, vector<function2D<double> >& ge, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval)
+void MatrixM::ComputeFGF_svd(vector<function2D<double> >& gs, vector<function2D<double> >& ge, vector<function3D<double> >& ges, bool Vertex_subtract, double tsign, const SVDFunc& svd, const function2D<double>& MD, const nIntervals& interval)
 { // This is very similar to the above two routines for the Green's function calculation, except that it
   // computes two arrays rather than one, in which one keeps also information about the starting kinks (t_s),
   // and the other keeps the information about the ending kinks (t_e).
   // The formula is
-  //    Gs[(be,bs)][t_s,tau] = -1/beta * \sum_{t_s} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
+  //    Gs[(be,bs)][t_s,tau] = -1/beta * \sum_{t_e} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
   //    Ge[(be,bs)][t_e,tau] = -1/beta * \sum_{t_s} M[(be,bs)](t_e,t_s) * delta^{-}(tau-(t_e-t_s))
   //      where delta^{-}(tau) = \delta(tau) when tau>0 and is -\delta(tau+beta) when tau<0.
   //    When expanding in terms of u_l(\tau) basis functions, we get
@@ -1234,6 +1234,9 @@ void MatrixM::ComputeFGF_svd(vector<function2D<double> >& gs, vector<function2D<
       svd.FastInterp_( M_ul, p, md);
       gs[ind2][is] += M_ul;
       ge[ind2][ie] += M_ul;
+      if (Vertex_subtract){
+	for (int l=0; l<svd.lmax; l++) ges[ind2](ie,is,l) = M_ul[l];
+      }
     }
   }
 }

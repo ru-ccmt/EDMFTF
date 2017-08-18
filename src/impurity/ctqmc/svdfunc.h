@@ -11,9 +11,13 @@
 #include "romberg.h"
 #include <time.h>
 
+#ifdef _MPI
+#include <mpi.h>
+#endif
+
 using namespace std;
 
-double fermi_kernel(double t, double w, double beta)
+inline double fermi_kernel(double t, double w, double beta)
 {
   double x = beta*w/2;
   double y = 2.*t/beta-1.;
@@ -21,7 +25,7 @@ double fermi_kernel(double t, double w, double beta)
   if (x<-100) return exp(x*(1.-y));
   return exp(-x*y)/(2*cosh(x));
 }
-double bose_kernel(double t, double w, double beta)
+inline double bose_kernel(double t, double w, double beta)
 {
   double x = beta*w/2;
   double y = 2.*t/beta-1.;
@@ -29,6 +33,31 @@ double bose_kernel(double t, double w, double beta)
   if (x<-200.) return -w*exp(x*(1.-y));
   return w*exp(-x*y)/(2*sinh(x));
 }
+inline void create_log_mesh(function1D<int>& ind_om, int nom_all, int nom, int ntail_)
+{
+  //Creates logarithmic mesh on Matsubara axis
+  //     Takes first istart points from mesh om and the rest of om mesh is replaced by ntail poinst redistribued logarithmically.
+  //     Input:
+  //         om      -- original long mesh
+  //         nom     -- number of points not in the tail
+  //         ntail   -- tail replaced by ntail points only
+  //     Output:
+  //         ind_om  -- index array which conatins index to kept Matsubara points
+  int istart = min(nom, nom_all);
+  int ntail = min(ntail_, nom_all-istart);
+  ind_om.resize(istart+ntail);
+  double alpha = log((nom_all-1.)/istart)/(ntail-1.);
+  for (int i=0; i< istart; i++) ind_om[i]=i;
+  int ii=istart;
+  for (int i=0; i < ntail; i++){
+    int t = int(istart*exp(alpha*i)+0.5);
+    if (t != ind_om[ii-1])
+      ind_om[ii++] = t;
+  }
+  ind_om.resize(ii);
+}
+
+
 
 class SVDFunc{
 public:
@@ -41,6 +70,7 @@ public:
   function2D<double> Vt, Vt_bose;        // real axis basis functions
   function1D<double> dxi;                 // parts of fU splines stored in more efficient way for fast interpolation
   function3D<double> ff2;                 // fU splines stored in different way for fast interpolation
+  double beta, L, x0;                     // parameters of the mesh should be remembered for reproducibility
   //
   SVDFunc() : lmax(0)  {  };
   //
@@ -60,6 +90,16 @@ public:
     return fU[l];
   }
 
+  inline vector<int> get_lll(int ii)
+  { // conversion from a single combined index to the three l indices.
+    //int ii = l0 + lmax*l1 + lmax*lmax*lb;
+    int lb_ = ii / (lmax*lmax);
+    int ir = ii % (lmax*lmax);
+    int l1_ = ir / lmax;
+    int l0_ = ir % lmax;
+    int tmp[] = { l0_, l1_, lb_ };
+    return vector<int>(tmp, tmp+3 );
+  }
   void _cmp_(double beta, int& lmax, vector<spline1D<double> >& fU, function1D<double>& S, function2D<double>& Vt, function2D<double>& K, ostream& clog){
     clock_t t0 = clock();
     int Nl = min(om.size(),tau.size());
@@ -85,7 +125,7 @@ public:
     clog<<"svd time="<<dt<<endl;
 
     for (int l=0; l<lmax; l++)
-      if (fabs(S[l])<1e-10){
+      if (fabs(S[l])<1e-13){
 	lmax=l;
 	clog<<"lmax reduced to "<<lmax<<endl;
 	break;
@@ -154,8 +194,11 @@ public:
     }
   }
   //
-  void cmp(const string& statistics, double beta, double lmax_, int Ntau, double x0, double L, double Nw, ostream& clog, int k_ovlp_=5){
+  void cmp(const string& statistics, double beta_, int lmax_, int Ntau, double x0_, double L_, double Nw, ostream& clog, int k_ovlp_=5){
     k_ovlp=k_ovlp_;
+    beta = beta_;
+    L = L_;
+    x0 = x0_;
     
     GiveTanMesh(om, x0, L, Nw);
     GiveDoubleExpMesh(tau, beta, Ntau);
@@ -194,32 +237,21 @@ public:
     }
   }
   
-  void Print(const string& filename, double beta, const string& statistics="fermi"){
+  void Print(const string& filename, const string& statistics="fermi"){
     ofstream pul(filename.c_str());
+    pul<<"# "<<lmax<<" "<<tau.size()<<" "<<L<<" "<<x0<<"  "<<(om.size()/2)<<endl;
     pul.precision(16);
-    pul<<0.0<<"  ";
-    if (statistics=="fermi")
-      for (int l=0; l<lmax; l++) pul<<fU[l](tau.Interp(0.0))<<"  ";
-    else
-      for (int l=0; l<lmax; l++) pul<<fU_bose[l](tau.Interp(0.0))<<"  ";
-    pul<<endl;
     for (int i=0; i<tau.size(); i++){
       pul<<tau[i]<<"  ";
       if (statistics=="fermi")
 	for (int l=0; l<lmax; l++) pul<<fU[l][i]<<"  ";
       else
-	for (int l=0; l<lmax; l++) pul<<fU_bose[l][i]<<"  ";
+	for (int l=0; l<lmax_bose; l++) pul<<fU_bose[l][i]<<"  ";
       pul<<endl;
     }
-    pul<<beta<<"  ";
-    if (statistics=="fermi")
-      for (int l=0; l<lmax; l++) pul<<fU[l](tau.Interp(beta))<<"  ";
-    else
-      for (int l=0; l<lmax; l++) pul<<fU_bose[l](tau.Interp(beta))<<"  ";
-    pul<<endl;
   }
 
-  double CheckOverlap(double beta){
+  double CheckOverlap(/*double beta*/){
     // Now we check how well is the orthogonality obeyed after reorthogonalization
     function2D<double> overlap(lmax,lmax);
     cmpOverlap(overlap, fU, tau, beta, k_ovlp);
@@ -236,7 +268,7 @@ public:
   void cmpOverlap(function2D<double>& overlap, const vector<spline1D<double> >& fu, const mesh1D& tau, double beta, int k=5){
     int lmax = fu.size();
 
-    int M = pow(2,k)+1;    // Number of points in Romberg integration routine
+    int M = static_cast<int>(pow(2.0,k))+1;    // Number of points in Romberg integration routine
     vector<double> utu(M); // storage for Romberg
     
     overlap.resize(lmax,lmax);
@@ -304,11 +336,11 @@ public:
   template <class container>
   void MatsubaraFrequency(container& giom, const spline1D<double>& gf, int nmax, const string& statistics="fermi"){
     giom.resize(nmax);
-    double beta=tau[tau.size()-1];
+    //double beta=tau[tau.size()-1];
     double one = (statistics=="fermi") ? 1.0 : 0.0;
     for (int in=0; in<nmax; in++){
       double iom = (2*in+one)*M_PI/beta;
-      giom[in] = gf.Fourier(iom, tau);
+      giom[in] = gf.Fourier_(iom, tau);
     }
   }
 
@@ -318,9 +350,9 @@ public:
     const vector<spline1D<double> >* pfU = (statistics=="fermi") ? &fU : &fU_bose;
     
     gl.resize(lmax);
-    int M = pow(2,k_ovlp)+1;    // Number of points in Romberg integration routine
+    int M = static_cast<int>(pow(2.0,k_ovlp))+1;    // Number of points in Romberg integration routine
     vector<double> utu(M); // storage for Romberg
-    double beta = tau[tau.size()-1];
+    //double beta = tau[tau.size()-1];
     for (int l=0; l<lmax; l++){
       gl[l]=0;
       for (int i=0; i<tau.size()-1; i++){
@@ -446,6 +478,206 @@ public:
     for (int l=0; l<lmax; l++) _res[l] = q * _ff2[2*l] + dq * _ff2[2*l+1]; 
     _ff2 += 2*lmax;
     for (int l=0; l<lmax; l++) _res[l] += p * _ff2[2*l] + dp * _ff2[2*l+1];
+  }
+
+#ifdef _MPI
+  void ComputeClCoefficients(function2D<double>& Cl, int my_rank, int mpi_size, int Master, int nw=0, int ntail=0, int cutoff_iom=0){
+#else  
+  void ComputeClCoefficients(function2D<double>& Cl, int nw=0, int ntail=0, int cutoff_iom=0){
+#endif    
+    bool BRISI = false;
+    
+    int Nt = tau.size();
+    //double L = om[om.size()-1];
+    //double beta = tau[tau.size()-1];
+    if (nw==0)    nw = L*beta/3;      // number of Matsubara points treated exactly
+    if (ntail==0) ntail=150;          // number of points used for the tail
+    if (cutoff_iom==0) cutoff_iom=100;// how far the tail will extend. We will go to Matsubara index nw*cutoff_iom
+    
+    function1D<int> ind_om;
+    create_log_mesh(ind_om, nw*cutoff_iom, nw, ntail); // log mesh with nw exact points in [0,...nw-1], and ntail points distributed between [nw,nw*cutoff_iom]
+    mesh1D iom(ind_om.size());
+    for (int in=0; in<ind_om.size(); in++)  iom[in] = ind_om[in];
+    iom.SetUp(0);
+
+    if (BRISI){
+      cout.precision(11);
+      cout<<"# Starting single loop for u(iw) "<<endl;
+    }
+    // This creates u_l(iom) from u_l(tau)
+    function2D<complex<double> > u_om(lmax,iom.size());
+    for (int lf=0; lf<lmax; lf++){
+      for (int in=0; in<iom.size(); in++){
+	double om = (2*iom[in]+1.)*M_PI/beta;
+	u_om(lf,in) = fU[lf].Fourier(om, tau);
+      }
+    }
+    if (BRISI) cout<<"# Starting double loop for w(iw) "<<endl;
+    // This creates w_l(iom) from u_l(tau).
+    // w_{lb,lf}(iom) = 1/beta \sum_{iOm} u^b_{lb}(iOm) * u^f_{lf}(iom+iOm)
+    // which is equivalent to
+    // w_{lb,lf}(iom) = Integrate[ u^b_{lb}(beta-t) * u^f_{lf}(t) e^{i*om*t}, {t,0,beta}]
+    int Nl2 = lmax_bose*lmax;
+#ifdef _MPI
+    int ipr_proc = (Nl2 % mpi_size==0) ? Nl2/mpi_size : Nl2/mpi_size+1;
+    int iistart = ipr_proc*my_rank;
+    int iiend   = ipr_proc*(my_rank+1);
+    if (iistart>Nl2) iistart=Nl2;
+    if (iiend  >Nl2) iiend=Nl2;
+    int _Nl2_ = max(Nl2, mpi_size*ipr_proc);
+    if (BRISI) cout<<"istart="<<iistart<<" iend="<<iiend<<" pr_proc="<<ipr_proc<<" pr_proc*mpi_size="<<ipr_proc*mpi_size<<" Nl2="<<Nl2<<endl;
+#else
+    int iistart = 0;
+    int iiend = Nl2;
+    int ipr_proc = Nl2;
+    int _Nl2_ = Nl2;
+#endif    
+    function2D<complex<double> > w_iom(_Nl2_, iom.size());
+    w_iom = 0.0;
+    for (int ii=iistart; ii<iiend; ii++){
+      // ii = lb * lmax + lf
+      int lb = ii / lmax;
+      int lf = ii % lmax;
+      spline1D<double> wt(Nt);
+      for (int it=0; it<tau.size(); it++)
+	wt[it] = fU_bose[lb][Nt-1-it]*fU[lf][it]; // wt[t] = u^b_{lb}(beta-t) * u^f_{lf}(t)
+      
+      int n = tau.size();
+      double x1 = 0.5*(tau[1]+tau[0]);
+      double df1 = (wt[1]-wt[0])/(tau[1]-tau[0]);
+      double x2 = 0.5*(tau[2]+tau[1]);
+      double df2 = (wt[2]-wt[1])/(tau[2]-tau[1]);
+      double df0 = df1 + (df2-df1)*(0.0-x1)/(x2-x1);
+      x1 = 0.5*(tau[n-1]+tau[n-2]);
+      df1 = (wt[n-1]-wt[n-2])/(tau[n-1]-tau[n-2]);
+      x2 = 0.5*(tau[n-2]+tau[n-3]);
+      df2 = (wt[n-2]-wt[n-3])/(tau[n-2]-tau[n-3]);
+      double dfn = df1 + (df2-df1)*(beta-x1)/(x2-x1);
+      wt.splineIt(tau, df0, dfn);
+      // w(iom) = Fourier[ wt[t] ]
+      for (int in=0; in<iom.size(); in++){
+	double om = (2*iom[in]+1.)*M_PI/beta;
+	//w_om(lb,lf,in) = wt.Fourier(om, tau);
+	w_iom(ii,in) = wt.Fourier(om, tau);
+      }
+    }
+#ifdef _MPI
+    if (mpi_size>1)
+      MPI_Allgather(MPI_IN_PLACE, ipr_proc*iom.size()*2, MPI_DOUBLE, w_iom.MemPt(), ipr_proc*iom.size()*2, MPI_DOUBLE, MPI_COMM_WORLD);
+#endif
+    if (BRISI) cout<<"# Starting last part"<<endl;
+    int Nl = (lmax*lmax*lmax_bose);
+    int offset=2;
+    spline1D<double> ftmp(ntail+offset);
+    mesh1D wom(ntail+offset);
+    int ifirst = iom.size()-ntail-offset;
+    for (int in=ifirst; in<iom.size(); in++) wom[in-ifirst] = iom[in];
+    wom.SetUp(0);
+
+    deque<pair<int,int> > icase;
+    for (int i=0; i<Nl; i++){
+      for (int j=i; j<Nl; j++){
+	vector<int> li = get_lll(i);
+	vector<int> lj = get_lll(j);
+	if ( (li[0] + li[1] + li[2] + lj[0] + lj[1] + lj[2])%2 ) continue; // this vanishes due to symmetry
+	icase.push_back( make_pair(i,j) );
+      }
+    }
+
+#ifdef _MPI
+    int pr_proc = (icase.size() % mpi_size==0) ? icase.size()/mpi_size : icase.size()/mpi_size+1;
+    int istart = pr_proc*my_rank;
+    int iend   = pr_proc*(my_rank+1);
+    if (istart>icase.size()) istart=icase.size();
+    if (iend  >icase.size()) iend=icase.size();
+    if (BRISI) cout<<"istart="<<istart<<" iend="<<iend<<" pr_proc="<<pr_proc<<" pr_proc*mpi_size="<<pr_proc*mpi_size<<" icase.size="<<icase.size()<<endl;
+#else
+    int istart = 0;
+    int iend = icase.size();
+    int pr_proc = icase.size();
+#endif    
+    function1D<double> Cl0(pr_proc);
+    Cl0=0;
+    // This loop is parallelized
+    for (int ii=istart; ii<iend; ii++){
+      int i = icase[ii].first;
+      int j = icase[ii].second;
+      vector<int> li = get_lll(i);
+      vector<int> lj = get_lll(j);
+      if ( (li[0] + li[1] + li[2] + lj[0] + lj[1] + lj[2])%2 ) continue; // this vanishes due to symmetry
+
+      // lj[2],lj[1],lj[0]  :  bose,fermi,fermi
+      //                       lb * lmax + lf
+      //complex<double> * w_1 = w_iom[ lj[2]*lmax + li[1] ].MemPt();
+      //complex<double> * w_2 = w_iom[ li[2]*lmax + lj[1] ].MemPt();
+      //complex<double> * u_1 = u_om[ li[0] ].MemPt();
+      //complex<double> * u_2 = u_om[ lj[0] ].MemPt();
+      complex<double> * w_1 = w_iom[ lj[2]*lmax + li[0] ].MemPt();
+      complex<double> * w_2 = w_iom[ li[2]*lmax + lj[0] ].MemPt();
+      complex<double> * u_1 = u_om[ li[1] ].MemPt();
+      complex<double> * u_2 = u_om[ lj[1] ].MemPt();
+
+      
+      double wsum = 0.0;
+      for (int in=0; in<iom.size()-ntail; in++)
+	wsum += (w_1[in] * conj(w_2[in]) * u_1[in] * conj(u_2[in])).real();
+      // fill int the 1D-interpolation for the tail
+      for (int in=ifirst; in<iom.size(); in++)
+	ftmp[in-ifirst] = (w_1[in] * conj(w_2[in]) * u_1[in] * conj(u_2[in])).real();
+      // intepolate the tail
+      int n=ftmp.size();
+      ftmp.splineIt(wom, (ftmp[1]-ftmp[0])/(wom[1]-wom[0]), (ftmp[n-1]-ftmp[n-2])/(wom[n-1]-wom[n-2]) );
+      // Now anlytically evaluate the sum over all points, but loop only over a few points in the tail.
+      // The sum of the spline in the interval [n1,n2] can be analytically evaluated:
+      //  1/2*(f[n2]+f[n1])*(n2-n1)  - 1/24*(n2-n1)*((n2-n1)^2-1) * (f2[n2]+f2[n1])
+      //  where f2[n1], f2[n2] is the second derivative at n1 and n2 points.
+      //  Note that the first and the last point come in with the weight 1/2, hence we need to correct for that.
+      wsum += 0.5*ftmp[iom.size()-ntail-ifirst] + 0.5*ftmp[iom.size()-1-ifirst];
+      for (int in=iom.size()-ntail; in<iom.size()-1; in++){
+	double dh = iom[in+1]-iom[in];
+	wsum += 0.5*(ftmp[in-ifirst]+ftmp[in+1-ifirst])*dh - dh/24.0*(dh*dh - 1.0)*(ftmp.f2[in+1-ifirst]+ftmp.f2[in-ifirst]);
+      }
+      /* //The above few lines are equivalent to
+	 int iom_last = iom[iom.size()-1]; tint ia=0;
+	 for (int iw=iom.size()-ntail; iw<iom_last; iw++){
+	 double ww = ftmp( wom.InterpLeft(iw, ia) );
+	 wsum += ww;
+	 }
+      */
+      /*
+      Cl(i,j) = 2*(wsum)/beta;
+      Cl(j,i) = Cl(i,j);
+      */
+      Cl0[ii-istart] = 2*(wsum)/beta;
+      //cout<<setw(4)<<i<<" "<<setw(4)<<j<<"     "<<setw(3)<<li[2]<<" "<<setw(3)<<li[1]<<" "<<setw(3)<<li[0]<<"; "<<setw(3)<<lj[2]<<" "<<setw(3)<<lj[1]<<" "<<setw(3)<<lj[0]<<"    "<<setw(10)<<left<<Cl(i,j)<<right<<endl;
+    }
+#ifdef _MPI
+    if (mpi_size>1){
+      if (BRISI){
+	cout<<"MPI_Gather"<<endl;
+	cout.flush();
+      }
+      function1D<double> cCl0;
+      cCl0.resize(pr_proc*mpi_size);
+      MPI_Gather(Cl0.MemPt(), pr_proc, MPI_DOUBLE, cCl0.MemPt(), pr_proc, MPI_DOUBLE, Master, MPI_COMM_WORLD);
+      if (my_rank==Master){
+	Cl0.resize(icase.size());
+	for (int i=0; i<icase.size(); i++) Cl0[i] = cCl0[i];
+      }
+    }
+    if (my_rank == Master){
+#endif
+      Cl.resize(Nl,Nl);
+      Cl=0.0;
+      for (int ii=0; ii<icase.size(); ii++){
+	int i = icase[ii].first;
+	int j = icase[ii].second;
+	Cl(i,j) = Cl0[ii];
+	Cl(j,i) = Cl0[ii];
+      }
+#ifdef _MPI    
+    }
+#endif  
   }
 };
 
@@ -586,7 +818,7 @@ int main(){
   spline1D<double> gf;
   svdf.CreateSplineFromCoeff(gf, gl);
   int nmax=5000;
-  function1D<dcomplex> giom;
+  function1D<complex<double> > giom;
   svdf.MatsubaraFrequency(giom, gf, nmax);
   
   ofstream fig("giom.dat");

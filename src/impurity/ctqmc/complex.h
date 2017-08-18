@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <iomanip>
+#include <complex>
 using namespace std;
 
 class dcomplex{
@@ -12,7 +13,7 @@ private:
   double re, im;
 public:
   dcomplex (double r = 0, double i = 0): re (r), im (i) { }
-  
+
   dcomplex& operator+= (const double r);
   dcomplex& operator-= (const double r);
   dcomplex& operator*= (const double r);
@@ -33,6 +34,8 @@ public:
   void Add(double r, double i){re+=r, im+=i;};
   void Multiply_zr(const dcomplex& z, const double& r){ re=z.re*r; im=z.im*r;};
   void Multiply_cr(const dcomplex& z, const double& r){ re=z.re*r; im=-z.im*r;};
+  // typecasting
+  operator complex<double>() {return complex<double>(re,im);}
 private:
   friend dcomplex operator + (const dcomplex& x, double y);
   friend dcomplex operator + (double x, const dcomplex& y);

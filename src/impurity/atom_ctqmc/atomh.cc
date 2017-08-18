@@ -205,8 +205,7 @@ gaunt_ck::gaunt_ck(int l_, const ClebschGordan& cg) : l(l_), ck((2*l+1)*(2*l+1)*
 
 void CoulombU0(function2D<function2D<double> >& Uf, int l, const vector<pair<int,double> >& ml_ms, const vector<pair<double,double> >& one_electron_base, const ClebschGordan& cg, const gaunt_ck& gck, const vector<double>& FkoJ)
 {
-  /// BE CAREFULL: Here we defined U is slightly different way
-  // We have U(m1,m3,m2,m4) psi_m1^+ * psi_m2^+ * psi_m3 * psi_m4
+  // We have U(m1,m2,m3,m4) psi_m1^+ * psi_m2^+ * psi_m3 * psi_m4
   vector<function2D<function2D<double> > > Uk(2);
   int baths = ml_ms.size();
 
@@ -236,15 +235,33 @@ void CoulombU0(function2D<function2D<double> >& Uf, int l, const vector<pair<int
 	  if (s1!=s4 || s2!=s3) continue;
 	  //if (i==0 && a==0 && j==0) cout<<" b="<<b<<" s1="<<s1<<" s2="<<s2<<" s3="<<s3<<" s4="<<s4<<endl;
 	    
-	  Uk[0](i,a)(j,b) = gck(m4,m1,0)*gck(m2,m3,0);
+	  //Uk[0](i,a)(j,b) = gck(m4,m1,0)*gck(m2,m3,0);
+	  Uk[0](i,j)(a,b) = gck(m4,m1,0)*gck(m2,m3,0);
 	  double sum=0;
 	  for (int k=1; k<=l; k++) sum += gck(m4,m1,2*k)*gck(m2,m3,2*k)*FkoJ[k];
-	  Uk[1](i,a)(j,b) = sum;
+	  //Uk[1](i,a)(j,b) = sum;
+	  Uk[1](i,j)(a,b) = sum;
 	}
       }
     }
   }
-
+  /*
+  cout<<"U0 before transform"<<endl;
+  for (int i=0; i<baths; i++){
+    for (int j=0; j<baths; j++){
+      for (int k=0; k<baths; k++){
+	for (int l=0; l<baths; l++){
+	  if (fabs(Uk[1](i,j)(k,l))>1e-6){
+	    cout<<setw(2)<<i<<" "<<setw(2)<<j<<" "<<setw(2)<<k<<" "<<setw(2)<<l<<" "<<setw(20)<<Uk[1](i,j)(k,l)<<endl;
+	  }
+	}
+      }
+    }
+  }
+  */
+  // U(m1,m3)(m2,m4)
+  // Ts ((j,mj),(ml,ms))
+  // Tst((ml,ms),(j,mj))
   function2D<double> Ts(baths,baths), Tst(baths,baths);
   for (int i=0; i<one_electron_base.size(); i++){
     for (int j=0; j<ml_ms.size(); j++){
@@ -252,28 +269,40 @@ void CoulombU0(function2D<function2D<double> >& Uf, int l, const vector<pair<int
       Tst(j,i) = Ts(i,j);
     }
   }
-
   
   function2D<double> R(baths,baths), tmp(baths,baths);
   function2D<function2D<double> > UR(baths,baths);
-  for (int i=0; i<baths; i++)
+  for (int i=0; i<baths; i++){
     for (int j=0; j<baths; j++){
       UR(i,j).resize(baths,baths);
       UR(i,j) = 0.0;
     }
+  }
   
   for (int ms1=0; ms1<baths; ms1++){
-    for (int ms3=0; ms3<baths; ms3++){
-      //R = Ts * Uk[1](ms1,ms3) * Ts^+;
-      tmp.MProduct(Ts,Uk[1](ms1,ms3));
+    for (int ms2=0; ms2<baths; ms2++){
+      //R = Ts * Uk[1](ms1,ms2) * Ts^+;
+      tmp.MProduct(Ts,Uk[1](ms1,ms2));
       R.MProduct(tmp,Tst);
-      for (int j2=0; j2<baths; j2++)
+      for (int j3=0; j3<baths; j3++)
 	for (int j4=0; j4<baths; j4++)
-	  UR(j2,j4)(ms1,ms3) += R(j2,j4);
+	  UR(j3,j4)(ms1,ms2) += R(j3,j4);
     }
   }
-
-  //function2D<function2D<double> > Uf(baths,baths);
+  /*
+  cout<<"U1 after first transform"<<endl;
+  for (int ms1=0; ms1<baths; ms1++){
+    for (int ms2=0; ms2<baths; ms2++){
+      for (int j3=0; j3<baths; j3++){
+	for (int j4=0; j4<baths; j4++){
+	  if (fabs(UR(j3,j4)(ms1,ms2))>1e-6){
+	    cout<<setw(2)<<ms1<<" "<<setw(2)<<ms2<<" "<<setw(2)<<j3<<" "<<setw(2)<<j4<<" "<<setw(20)<<UR(j3,j4)(ms1,ms2)<<endl;
+	  }
+	}
+      }
+    }
+  }
+  */
   Uf.resize(baths,baths);
   for (int i=0; i<baths; i++)
     for (int j=0; j<baths; j++){
@@ -282,44 +311,31 @@ void CoulombU0(function2D<function2D<double> >& Uf, int l, const vector<pair<int
     }
   
   function2D<double> Q(baths,baths);
-  for (int j2=0; j2<baths; j2++){
+  for (int j3=0; j3<baths; j3++){
     for (int j4=0; j4<baths; j4++){
-      //Q = Ts * UR(j2,j4) * Ts^+;
-      tmp.MProduct(Ts, UR(j2,j4));
+      //Q = Ts * UR(j3,j4) * Ts^+;
+      tmp.MProduct(Ts, UR(j3,j4));
       Q.MProduct(tmp,Tst);
       for (int j1=0; j1<baths; j1++)
-	for (int j3=0; j3<baths; j3++)
-	  Uf(j1,j2)(j3,j4) += Q(j1,j3);
+	for (int j2=0; j2<baths; j2++)
+	  Uf(j1,j2)(j3,j4) += Q(j1,j2);
     }
   }
-  //Ts(j1,ms1) * R(j2,j4)(ms1,ms3) * Ts(j3,ms3);
-
   /*
+  cout<<"U2 after second transform"<<endl;
   for (int j1=0; j1<baths; j1++){
     for (int j2=0; j2<baths; j2++){
-      //cout<<"(j1,j2)="<<j1<<" "<<j2<<endl;
       for (int j3=0; j3<baths; j3++){
-	//for (int j4=0; j4<baths; j4++){
-	double u = J_coulomb*(Uf(j1,j2)(j3,j1)-Uf(j1,j2)(j1,j3));
-	if (fabs(u)<1e-10) u=0;
-	//else{
-	//  double djz = one_electron_base[j1].second+one_electron_base[j2].second-one_electron_base[j3].second-one_electron_base[j4].second;
-	//  if (djz!=0) cout<<"ERROR: djz="<<djz<<endl;
-	//}
-	cout<<u<<" ";
-	//}
-	//cout<<endl;
+	for (int j4=0; j4<baths; j4++){
+	  if (fabs(Uf(j1,j2)(j3,j4))>1e-6){
+	    cout<<setw(2)<<j1<<" "<<setw(2)<<j2<<" "<<setw(2)<<j3<<" "<<setw(2)<<j4<<" "<<setw(20)<<Uf(j1,j2)(j3,j4)<<endl;
+	  }
+	}
       }
-      cout<<endl;
     }
-    cout<<endl;
   }
-  */ 
+  */
 }
-
-
-
-
 
 class operateLS{
   int l, baths, l2p1;
@@ -1732,8 +1748,9 @@ void RememberParams (int argc, char *argv[]){
 int main(int argc, char *argv[], char *env[])
 {
   //Sergej's program // Jur. Chem. Phys. 40, 3428, (1964)
-  double J_coulomb = 0.60;//0.680290;//0.604
-  double c_spinorb = 0.31;//0.367864976619714;//0.272116;//0.316
+  const double spinorb_default=-100;
+  double J_coulomb = 0.0;//0.680290;//0.604
+  double c_spinorb = spinorb_default;//0.367864976619714;//0.272116;//0.316
   int ns=0;
   int ne=2;
   int l=3;
@@ -1777,7 +1794,7 @@ int main(int argc, char *argv[], char *env[])
       std::clog<<"\n";
       std::clog<<"atom [Options]\n" ;
       std::clog<<"Options:   -J      Slater integrals F2=J*11.9219653179191 ("<<J_coulomb<<")\n";
-      std::clog<<"           -cx     Spin-orbit coupling ("<<c_spinorb<<")\n";
+      std::clog<<"           -cx     Spin-orbit coupling ("<<0.0<<")\n";
       std::clog<<"           -ns     Lowest occupancy of the atom ("<<ns<<")\n";
       std::clog<<"           -ne     Highest occupancy of the atom ("<<ne<<")\n";
       std::clog<<"           -l      Orbital angular momentum of the shel ("<<l<<")\n";
@@ -1790,6 +1807,7 @@ int main(int argc, char *argv[], char *env[])
       std::clog<<"           -Eimp   List of impurity levels ("<<Eimp<<")\n";
       std::clog<<"           -pm     Prints moment instead of Sz ("<<PrintMoment<<")\n";
       std::clog<<"           -ImpTot Take full Eimp and not just splitting of Eimp - do not subtract Eimp[0] ("<<ImpTot<<")\n";
+      std::clog<<"           -HB2    If we want to compute self-energy from Swinger-like equation and two particle response ("<<QHB2<<")\n";
       std::clog<<"*****************************************************\n";
       return 0;
     }
@@ -1874,8 +1892,22 @@ int main(int argc, char *argv[], char *env[])
   for (int i=0; i<dE.size(); i++){
     cout<<i<<" "<<dE[i]<<endl;
   }
-  
-	 
+
+  /*
+    This code allows to input c_spinorb, which might be different than the splitting of the impurity levels.
+    By default we take c_spinorb to be compatible with the splitting of the 5/2 and 7/2 impurity level
+   */
+  if (c_spinorb==spinorb_default){
+    double E_l_m_1_2=0;
+    for (int k=0; k<2*l; k++) E_l_m_1_2 += dE[Impqs[k]];
+    E_l_m_1_2 *= 1./(2*l);
+    double E_l_p_1_2=0;
+    for (int k=2*l; k<2*(2*l+1); k++) E_l_p_1_2 += dE[Impqs[k]];
+    E_l_p_1_2 *= 1./(2*(l+1.));
+    c_spinorb = (E_l_p_1_2-E_l_m_1_2)/(l+0.5);
+    cout<<"c_spinorb changed to "<<c_spinorb<<endl;
+  }
+
   // ********** This is the true start!!!
   int Nbase = 1<<dim;
   vector<int> base(Nbase);
@@ -1906,6 +1938,7 @@ int main(int argc, char *argv[], char *env[])
   for (int i=nstart; i<nstop; i++) Np[i] = ns+i;
 
   deque<vector<double> > Es, E_LSs; // atom energy and Spin-Orbit energy
+  
   ///////////////////// Creates One electron basis for the bath function /////////////////////////////////
   vector<pair<double,double> > one_electron_base(2*(2*l+1));
   vector<int> equiv(one_electron_base.size());
@@ -1925,7 +1958,6 @@ int main(int argc, char *argv[], char *env[])
 	kk++;
       }
     }
-    
     global_flip=0;
     kk=0;
     int ii=0;
@@ -1943,7 +1975,6 @@ int main(int argc, char *argv[], char *env[])
 	global_flip[kk]=ii;
 	kk++;
       }
-      //ii = ::max(global_flip.begin(),global_flip.end())+1;
       for(int i=0; i<kk; i++) ii = max(ii,global_flip[i]);
       ii++;
     }
@@ -1951,8 +1982,8 @@ int main(int argc, char *argv[], char *env[])
     for(int i=0; i<global_flip.size(); i++){
       cout<<i<<" "<<"global_flip="<<global_flip[i]<<endl;
     }
-
   }
+
   /*
   vector<function2D<double> > Uc(one_electron_base.size());
   if (QHB2){
@@ -2360,7 +2391,7 @@ int main(int argc, char *argv[], char *env[])
     
     if (QHB2){
       gout<<"HB2"<<endl;
-      gout<<"# UCoulomb : (m1,s1) (m2,s2) (m3,s2) (m4,s1)  Uc[m1,m2,m3,m4]"<<endl; //Uc = U[m1,m2,m3,m1]-U[m1,m2,m1,m3] ; loops [m1,m2,m3]"<<endl;
+      gout<<"# UCoulomb : (jm1) (jm2) (jm3) (jm4)  Uc[jm1,jm2,jm3,jm4]"<<endl;
       gout.precision(8);
       ClebschGordan cg;
       gaunt_ck gck(l, cg);
@@ -2371,7 +2402,7 @@ int main(int argc, char *argv[], char *env[])
 	for (int j2=0; j2<Uf.size_Nd(); j2++){
 	  for (int j3=0; j3<Uf.size_N(); j3++){
 	    for (int j4=0; j4<Uf.size_Nd(); j4++){
-	      double u = J_coulomb*Uf(j1,j3)(j2,j4);
+	      double u = J_coulomb*Uf(j1,j2)(j3,j4);
 	      if (fabs(u)>1e-6)
 		gout<<setw(3)<<j1<<" "<<setw(3)<<j2<<" "<<setw(3)<<j3<<" "<<setw(3)<<j4<<" "<<setw(15)<<u<<endl;
 	    }

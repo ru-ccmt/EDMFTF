@@ -89,9 +89,10 @@ public:
   //function1D<function2D<double> > Uc;   //yes
   deque<Uentry>  UC;
   //vector<deque<Njj> > Njjs;             // no
-  function2D<function2D<double> > Njm;      //
+  function2D<function2D<double> > Njm;    //
   function2D<char> Njm_c;  // stores information if Njm(istate,fl2) is zero or idenity
-  function1D<char> Njm_z;  // stores information if all Njm(istate,:) are zero or idenity
+  //function1D<char> Njm_z;  // stores information if all Njm(istate,:) are zero or idenity
+  function2D<double> Njm_r; // ratio
   //function2D<double> Njs;  // for segment
   //deque<pair<int,int> > fl_fl;
   //
@@ -117,6 +118,7 @@ public:
   double P_atom(int i, int m) const {return Patom_(i+1,m);}
   int BcastClusterData(int my_rank, int Master);
   void Compute_Nmatrices();
+  void Compute_Nmatrices2(double U, bool Print);
   void Set_Old_Data_for_HB1(ostream& clog);
   void Construct_Ucf(function4D<double>& Ucf, double U) const;
   //void Get_HB2_Uc(function2D<function2D<double> >& Uc, double U);
@@ -988,56 +990,9 @@ void DeltaFourier(int Ntau, double beta, mesh1D& tau, vector<spline1D<double> >&
 //   for (int ii=0; ii<N_ifl; ii++) fl_fl.push_back(make_pair(ii,ii));
 // }
 
+/*
 void ClusterData::Compute_Nmatrices()
 {
-  /*
-  if (common::Segment){
-    Njs.resize(size()+1,N_flavors);
-    Njs=0.0;
-    for (int ist=0; ist<size(); ist++){
-      int istate = praState(ist);
-      for (int fl=0; fl<N_flavors; fl++){
-	int op_dagg  = 2*fl;
-	int op_nodag = 2*fl+1;
-	int i_m_state = Fi(op_nodag)[istate];
-	if (i_m_state==0) continue;
-	double nn=FM(op_dagg)[i_m_state](0,0)*FM(op_nodag)[istate](0,0);
-	Njs(istate,fl) = nn;
-      }
-    }
-    for (int ifl=0; ifl<N_ifl; ifl++) fl_fl.push_back(make_pair(ifl,ifl));
-  }else{
-    Njjs.resize(size()+1);
-    Njj  nj;
-    nj.M.resize(max_size,max_size);
-    for (int ist=0; ist<size(); ist++){
-      int istate = praState(ist);
-      for (int ifl1=0; ifl1<N_ifl; ifl1++){
-	int fl1 = fl_from_ifl[ifl1][0];
-	int op_nodag = 2*fl1+1;
-	int i_m_state = Fi(op_nodag)[istate];
-	if (i_m_state==0) continue;
-	for (int ifl2=0; ifl2<N_ifl; ifl2++){
-	  int fl2 = fl_from_ifl[ifl2][0];
-	  int op_dagg = 2*fl2;
-	  int istate_new = Fi(op_dagg)[i_m_state];
-	  if (istate_new!=istate) continue;
-	  Multiply(nj.M,FM(op_dagg)[i_m_state],FM(op_nodag)[istate]);
-	  int ii=0;                     // searching for correct compact index for (ifl1,ifl2)
-	  for (; ii<fl_fl.size(); ii++) // We want to have fl_fl[ii] = (ifl1,ifl2)
-	    if (fl_fl[ii].first==ifl1 && fl_fl[ii].second==ifl2) break;
-	  if (ii==fl_fl.size()) fl_fl.push_back(make_pair(ifl1,ifl2));
-	  nj.istate = istate;       // state |state> with N electrons
-	  nj.i_m_state = i_m_state; // state |m_state> with N-1 electrons
-	  nj.ifl1 = ifl1;           // which baths are involved
-	  nj.ifl2 = ifl2;           // which two baths are involved
-	  nj.ii = ii;               // the compact index for (ifl1,ifl2)
-	  Njjs[istate].push_back(nj);
-	}
-      }
-    }
-  }
-  */
   Njm.resize(size()+1,Nvfl);
   Njm_c.resize(size()+1,Nvfl);
   Njm_z.resize(size()+1);
@@ -1079,50 +1034,43 @@ void ClusterData::Compute_Nmatrices()
     }
   }
   
-  /*
-  cout<<"fl_fl="<<endl;
-  for (int ii=0; ii<fl_fl.size(); ii++){
-    cout<<ii<<" "<<fl_fl[ii].first<<" "<<fl_fl[ii].second<<endl;
-  }
-  cout<<endl;
-  */
-  /*
-  for (int istate=1; istate<=size(); istate++){
-    cout<<"istate="<<istate<<endl;
-    for (int fl=0; fl<Njs[istate].size(); fl++){
-      cout<<"  fl="<<fl<<" : "<<Njs(istate,fl)<<endl;
-    }
-  }
-  */
-  /*
-  for (int istate=1; istate<=size(); istate++){
-    for (int i=0; i<Njjs[istate].size(); i++){      
-      cout<<istate<<" istate="<<setw(2)<<Njjs[istate][i].istate<<" (ifl1,ifl2)="<<setw(2)<<Njjs[istate][i].ifl1<<setw(2)<<Njjs[istate][i].ifl2<<" ii(fl1,fl2)="<<Njjs[istate][i].ii<<" i_m_state="<<setw(2)<<Njjs[istate][i].i_m_state<<" sizes="<<Njjs[istate][i].M.size_N()<<","<<Njjs[istate][i].M.size_Nd()<<endl;
-      for (int j1=0; j1<Njjs[istate][i].M.size_N(); j1++){
-      	for (int j2=0; j2<Njjs[istate][i].M.size_Nd(); j2++)
-      	  cout<<Njjs[istate][i].M(j1,j2)<<" ";
-      }
-      cout<<endl;      
-      int ii=Njjs[istate][i].ii;
-      //cout<<Njjs[istate][i].ifl1<<"="<<fl_fl[ii].first<<"   "<<Njjs[istate][i].ifl2<<"="<<fl_fl[ii].second<<endl;
-      if (Njjs[istate][i].ifl1!=fl_fl[ii].first || Njjs[istate][i].ifl2!=fl_fl[ii].second) cerr<<"ERROR: ifl1,ifl2="<<Njjs[istate][i].ifl1<<" "<<Njjs[istate][i].ifl2<<" while fl_fl gives ifl1,ifl2="<<fl_fl[ii].first<<" "<<fl_fl[ii].second<<endl;
-    }
-  }
-  */
-  /*
-  for (int istate=1; istate<=size(); istate++){
-    for (int fl2=0; fl2<Nvfl; fl2++){
-      function2D<double>& M = Njm(istate,fl2);
-      cout<<" istate="<<setw(2)<<istate<<" fl2="<<setw(2)<<fl2<<" Njm_c="<<int(Njm_c(istate,fl2))<<" Njm_z="<<int(Njm_z[istate])<<" size="<<M.size_N()<<","<<M.size_Nd()<<endl;
-      for (int j1=0; j1<M.size_N(); j1++){
-      	for (int j2=0; j2<M.size_Nd(); j2++)
-      	  cout<<M(j1,j2)<<" ";
-      }
-      cout<<endl;
-    }
-  }
-  */
+  //cout<<"fl_fl="<<endl;
+  //for (int ii=0; ii<fl_fl.size(); ii++){
+  //  cout<<ii<<" "<<fl_fl[ii].first<<" "<<fl_fl[ii].second<<endl;
+  //}
+  //cout<<endl;
+  //for (int istate=1; istate<=size(); istate++){
+  //  cout<<"istate="<<istate<<endl;
+  //  for (int fl=0; fl<Njs[istate].size(); fl++){
+  //    cout<<"  fl="<<fl<<" : "<<Njs(istate,fl)<<endl;
+  //  }
+  //}
+  //for (int istate=1; istate<=size(); istate++){
+  //  for (int i=0; i<Njjs[istate].size(); i++){      
+  //    cout<<istate<<" istate="<<setw(2)<<Njjs[istate][i].istate<<" (ifl1,ifl2)="<<setw(2)<<Njjs[istate][i].ifl1<<setw(2)<<Njjs[istate][i].ifl2<<" ii(fl1,fl2)="<<Njjs[istate][i].ii<<" i_m_state="<<setw(2)<<Njjs[istate][i].i_m_state<<" sizes="<<Njjs[istate][i].M.size_N()<<","<<Njjs[istate][i].M.size_Nd()<<endl;
+  //    for (int j1=0; j1<Njjs[istate][i].M.size_N(); j1++){
+  //    	for (int j2=0; j2<Njjs[istate][i].M.size_Nd(); j2++)
+  //    	  cout<<Njjs[istate][i].M(j1,j2)<<" ";
+  //    }
+  //    cout<<endl;      
+  //    int ii=Njjs[istate][i].ii;
+  //    //cout<<Njjs[istate][i].ifl1<<"="<<fl_fl[ii].first<<"   "<<Njjs[istate][i].ifl2<<"="<<fl_fl[ii].second<<endl;
+  //    if (Njjs[istate][i].ifl1!=fl_fl[ii].first || Njjs[istate][i].ifl2!=fl_fl[ii].second) cerr<<"ERROR: ifl1,ifl2="<<Njjs[istate][i].ifl1<<" "<<Njjs[istate][i].ifl2<<" while fl_fl gives ifl1,ifl2="<<fl_fl[ii].first<<" "<<fl_fl[ii].second<<endl;
+  //  }
+  //}
+  //for (int istate=1; istate<=size(); istate++){
+  //  for (int fl2=0; fl2<Nvfl; fl2++){
+  //    function2D<double>& M = Njm(istate,fl2);
+  //    cout<<" istate="<<setw(2)<<istate<<" fl2="<<setw(2)<<fl2<<" Njm_c="<<int(Njm_c(istate,fl2))<<" Njm_z="<<int(Njm_z[istate])<<" size="<<M.size_N()<<","<<M.size_Nd()<<endl;
+  //    for (int j1=0; j1<M.size_N(); j1++){
+  //    	for (int j2=0; j2<M.size_Nd(); j2++)
+  //    	  cout<<M(j1,j2)<<" ";
+  //    }
+  //    cout<<endl;
+  //  }
+  //}
 }
+*/
 
 void ClusterData::RecomputeCix(function2D<double>& AProb, double asign, double treshold, function1D<NState>& praStates)
 {
@@ -1469,6 +1417,142 @@ void Multiply_F_with_U(function2D<T>& Ft, const vector<function2D<T> >& F_sample
     }
   }
 }
+
+void ClusterData::Compute_Nmatrices2(double U, bool Print=false){
+  function4D<double> Uc(N_flavors,N_flavors,N_flavors,N_flavors);
+  Construct_Ucf(Uc, U);
+  
+  NState state0(common::max_size,common::max_size), state1(common::max_size,common::max_size), state2(common::max_size,common::max_size);
+  NState state3(common::max_size,common::max_size), st_fp(common::max_size,common::max_size);
+  
+  Njm.resize(size()+1,N_flavors);
+  Njm_r.resize(size()+1,N_flavors);
+  Njm_c.resize(size()+1,N_flavors);
+  //Njm_z.resize(size()+1);
+  Njm_c = 0;
+  //Njm_z = 0;
+  Njm_r = 0;
+  
+  // \psi^+_ii \psi^+_ij \psi_ik | state0>
+  for (int ist=0; ist<nsize; ist++){
+    state0.SetPraState(ist,*this);
+    for (int ia=0; ia<N_flavors; ia++){
+      int ifla = ifl_from_fl[ia];
+      int bea = bfl_from_fl[ia];
+      st_fp.apply(FM(2*ia), Fi(2*ia), state0); // psi^+_{ia}|state0>
+
+      Njm(ist+1,ia).resize(st_fp.M.size_N(),st_fp.M.size_Nd());
+      function2D<double>& _njm_ = Njm(ist+1,ia);
+      _njm_=0;
+      
+      for (int ik=0; ik<N_flavors; ik++){
+	int iflk = ifl_from_fl[ik];
+	int bek = bfl_from_fl[ik];
+	state1.apply(FM(2*ik+1), Fi(2*ik+1), state0);// \psi_{ik}|state0>
+	if (state1.istate==0) continue;
+	for (int ij=0; ij<N_flavors; ij++){
+	  int iflj = ifl_from_fl[ij];
+	  int bsj = bfl_from_fl[ij];
+	  state2.apply(FM(2*ij), Fi(2*ij), state1);// \psi^+_{ij}|state1>
+	  if (state2.istate==0) continue;
+	  for (int ii=0; ii<N_flavors; ii++){
+	    int ifli = ifl_from_fl[ii];
+	    int bsi = bfl_from_fl[ii];
+	    state3.apply(FM(2*ii), Fi(2*ii), state2); // psi^+_{ii}|state2>
+	    if (state3.istate==0) continue;
+	    double UU = 0.5*(Uc(ii,ij,ik,ia)-Uc(ij,ii,ik,ia));
+	    if (UU==0) continue;
+	    // U_{i,j,k,ia} psi_i^+ psi_j^+ psi_k psi_ia |m> is Coulomb repulsion
+	    // Here we use
+	    // Njm(state0,ia,:,:) = \sum_{i,j,k} U_{i,j,k,ia} psi_i^+ psi_j^+ psi_k |state0>
+	    if (state3.istate != st_fp.istate){
+	      cout<<"WARNING : mode S is likely not working with this cix-file. Check that G mode gives the same answer!"<<endl;
+	      cout<<"WARN : Probably UCoulomb in cix file is wrong : ";
+	      cout<<"ist="<<ist+1<<" ia="<<ia<<" k="<<ik<<" j="<<ij<<" i="<<ii<<" state3.istate="<<state3.istate<<" nstate.istate="<<st_fp.istate<<endl;
+	      continue;
+	    }
+	    state3.M *= UU;
+	    _njm_ += state3.M;
+	  }
+	}
+      }
+
+      ///// Checking what is the structure of the operator
+      ///// It could be:
+      //      - zero, in which case Njm_c(ist+1,ia)=0
+      //      - proportional to F^+, in which case Njm_c(ist+1,ia)=1 and Njm_r(ist+1,ia) contains proportionality constant
+      //      - arbitrary, in which ase Njm_c(ist+1,ia)=2
+      //      if at least one of ia orbitals is non-trivial, Njm_z[ist+1]=1. Otherwise Njm_z[ist+1]=0.
+      double dsum=0.0;
+      for (int i=0; i<_njm_.size_N(); i++)
+	for (int j=0; j<_njm_.size_Nd(); j++)
+	  dsum += fabs(_njm_(i,j));
+
+      //cout<<"First dsum="<<dsum<<endl;
+      
+      if (dsum>1e-10){
+	double ratio=0;
+	double max_fp=0;
+	// first finds the ratio between Njm and F^+ by taking the ratio at the largest F^+ component
+	for (int i=0; i<_njm_.size_N(); i++){
+	  for (int j=0; j<_njm_.size_Nd(); j++){
+	    if (fabs(st_fp.M(i,j)) > max_fp){
+	      max_fp = fabs(st_fp.M(i,j));
+	      ratio = _njm_(i,j)/st_fp.M(i,j);
+	      Njm_r(ist+1,ia) = ratio;
+	    }
+	  }
+	}
+	Njm_c(ist+1,ia)=1; // means Njm is proportional to F^+ (at least we think so at the moment)
+	for (int i=0; i<_njm_.size_N(); i++){
+	  for (int j=0; j<_njm_.size_Nd(); j++){
+	    if (fabs( _njm_(i,j) - st_fp.M(i,j) * ratio ) > 1e-5 ){
+	      Njm_c(ist+1,ia)=2; // means Njm is not proportional to F^+ (we just figured that out)
+	      goto loop_out2;
+	    }
+	  }
+	}
+
+	if (Njm_c(ist+1,ia)==1 && Njm_r(ist+1,ia)==0) {
+	  cout<<"It should not happen "<<endl;
+	}
+      loop_out2:
+	//if (Njm_c(ist+1,ia)==2) Njm_z[ist+1]=1; // at least one nontrivial N for this istate
+	continue;
+      }
+      
+      if (Print){
+	cout<<"ist="<<ist+1<<" ia="<<ia<<" : "<<st_fp.M.size_N()<<"x"<<st_fp.M.size_Nd();
+	cout<<" c="<<(int)Njm_c(ist+1,ia)<<" r="<<setw(8)<<Njm_r(ist+1,ia);
+	// Ratio between this operator and F^+ should be close to : n(ts+0)*U
+	// X[i,j] = _njm_[i,j]/st_fp.M[i,j]
+	cout<<" M/F=";
+	for (int i1=0; i1<st_fp.M.size_N(); i1++){
+	  for (int i2=0; i2<st_fp.M.size_Nd(); i2++){
+	    double X;
+	    if (fabs(st_fp.M(i1,i2)) > 1e-16){ 
+	      X = _njm_(i1,i2)/st_fp.M(i1,i2);
+	    }else{
+	      if (fabs(_njm_(i1,i2))>1e-4) cout<<"WARNING : It seems M/F is not possible to compute. You should likely change mode S to mode G"<<endl;
+	      X = 0.0;
+	    }
+	    cout<<setw(8)<< X <<", ";
+	  }
+	  cout<<"; ";
+	}
+	cout<<" F=";
+	for (int i1=0; i1<st_fp.M.size_N(); i1++){
+	  for (int i2=0; i2<st_fp.M.size_Nd(); i2++){
+	    cout<<setw(8)<<st_fp.M(i1,i2)<<", ";
+	  }
+	  cout<<"; ";
+	}
+	cout<<endl;
+      }
+    }
+  }
+}
+
 
 #ifdef AS
 template <>

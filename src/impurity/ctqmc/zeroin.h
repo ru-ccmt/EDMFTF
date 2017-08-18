@@ -96,13 +96,13 @@ inline double zeroin(				// An estimate to the root
 
       if( a==c )			// If we've got only two distinct
       {					// points linear interpolation
-	register const double t1 = fb/fa;	// can only be applied
+	/*register*/ const double t1 = fb/fa;	// can only be applied
 	p = cb*t1;
 	q = 1.0 - t1;
       }
       else				// Quadratic inverse interpolation
       {
-	register const double t1=fb/fc, t2=fb/fa;
+	/*register*/ const double t1=fb/fc, t2=fb/fa;
 	q = fa/fc;
 	p = t2 * ( cb*q*(q-t1) - (b-a)*(t1-1.0) );
 	q = (q-1.0) * (t1-1.0) * (t2-1.0);

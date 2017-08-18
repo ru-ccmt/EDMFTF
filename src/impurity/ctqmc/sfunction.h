@@ -52,8 +52,8 @@ protected:
   functionb(const functionb&){};
 public:
   // OPERATORS
-  T& operator[](int i) {Assert3(i<N0 && i>=0,"Out of range in functionb[] ", i, N0); return f[i];}
-  const T& operator[](int i) const {Assert3(i<N0 && i>=0, "Out of range in functionb[] ", i, N0); return f[i];}
+  T& operator[](int i) {if (i<0) i+=N; Assert3(i<N0 && i>=0,"Out of range in functionb[] ", i, N0); return f[i];}
+  const T& operator[](int i) const { if(i<0) i+=N; Assert3(i<N0 && i>=0, "Out of range in functionb[] ", i, N0); return f[i];}
   T operator()(const intpar& ip) const; // linear interpolation
   functionb& operator+=(const functionb& m);
   functionb& operator*=(const T& m);
@@ -69,6 +69,8 @@ public:
   T* begin() const {return f;}
   T* end() const {return f+N;}
   void AddPart(const functionb& m, double x);
+
+  void xgemv(const string& TN, const function2D<T>& A, const functionb<T>& x, double alpha=1.0, double beta=1.0);
 protected:
   template <class U> friend class spline1D;
   template<class U> friend class function2D;
@@ -127,7 +129,9 @@ public:
   // ADVANCED FUNCTIONS
   T integrate();
   template <class mesh1D>
-  dcomplex Fourier(double om, const mesh1D& xi) const;
+  complex<double> Fourier(double om, const mesh1D& xi) const;
+  template <class mesh1D>
+  dcomplex Fourier_(double om, const mesh1D& xi) const;
   template <class mesh1D>
   T Sum_iom(const mesh1D& iom) const;
 };
@@ -482,7 +486,30 @@ inline T spline1D<T>::integrate()
 
 template <class T>
 template <class mesh1D>
-inline dcomplex spline1D<T>::Fourier(double om, const mesh1D& xi) const
+inline complex<double> spline1D<T>::Fourier(double om, const mesh1D& xi) const
+{
+  complex<double> ii(0,1);
+  complex<double> sum=0;
+  complex<double> val;
+  for (int i=0; i<this->N-1; i++) {
+    double u = om*dxi[i], u2=u*u, u4=u2*u2;
+    if (fabs(u)<1e-4){// Taylor expansion for small u
+      val = 0.5*(1.+ii*(u/3.))*this->f[i]+0.5*(1.+ii*(2*u/3.))*this->f[i+1];
+      val -= dxi[i]*dxi[i]/24.*(f2[i]*(1.+ii*7.*u/15.)+f2[i+1]*(1.+ii*8.*u/15.));
+    }else{
+      complex<double> exp(cos(u),sin(u));
+      val  = (this->f[i]*(1.+ii*u-exp) + this->f[i+1]*((1.-ii*u)*exp-1.))/u2;
+      val += dxi[i]*dxi[i]/(6.*u4)*(f2[i]*(exp*(6+u2)+2.*(u2-3.*ii*u-3.))+f2[i+1]*(6+u2+2.*exp*(u2+3.*ii*u-3.)));
+    }
+    sum += dxi[i]*complex<double>(cos(om*xi[i]),sin(om*xi[i]))*val;
+    //sum += xi.Dh(i)*complex<double>(cos(om*xi[i]),sin(om*xi[i]))*val;
+  }
+  return sum;
+}
+
+template <class T>
+template <class mesh1D>
+inline dcomplex spline1D<T>::Fourier_(double om, const mesh1D& xi) const
 {
   dcomplex ii(0,1);
   dcomplex sum=0;
@@ -1024,6 +1051,11 @@ std::ostream& operator<<(std::ostream& stream, const function2D<T>& f)
   return stream;
 }
 
+template <class T>
+void functionb<T>::xgemv(const string& TN, const function2D<T>& A, const functionb<T>& x, double alpha, double beta)
+{
+  ::xgemv(TN, A.size_Nd(), A.size_N(), alpha, A.MemPt(), A.lda(), x.MemPt(), beta, MemPt());
+}
 
 
 template<class meshx, class functionx>
@@ -1386,7 +1418,8 @@ public:
   }
   ~function3D()
   {
-    delete[] f;
+    if (f!=NULL) delete[] f;
+    f=NULL;
   }
   T operator()(int i0, int i1, int i2) const
   {
@@ -1451,7 +1484,8 @@ public:
   }
   ~function4D()
   {
-    delete[] f;
+    if (f!=NULL) delete[] f;
+    f=NULL;
   }
   T operator()(int i0, int i1, int i2, int i3) const
   {
@@ -1504,7 +1538,8 @@ public:
   }
   ~function5D()
   {
-    delete[] f;
+    if (f!=NULL) delete[] f;
+    f=NULL;
   }
   T operator()(int i0, int i1, int i2, int i3, int i4) const
   {
@@ -1528,6 +1563,7 @@ public:
   function5D& operator*=(const T& c);
   int ind(int i0, int i1, int i2, int i3, int i4) const
   {return i4 + N4*(i3 + N3*(i2 + N2*(i1 + N1*i0)));}
+  function5D& operator=(const T& c);
 };
 
 template <class T>
@@ -1540,6 +1576,23 @@ function5D<T>& function5D<T>::operator*=(const T& c)
 	  T* __restrict__ f = &(operator()(i0,i1,i2,i3,0));
 	  for (int i4=0; i4<N4; i4++) f[i4]*=c;
 	}
+  return *this;
+};
+
+template <class T>
+function5D<T>& function5D<T>::operator=(const T& c)
+{
+  int size = N0*N1*N2*N3*N4;
+  for (int i=0; i<size; i++) f[i]=c;
+  /*
+  for (int i0=0; i0<N0; i0++)
+    for (int i1=0; i1<N1; i1++)
+      for (int i2=0; i2<N2; i2++)
+	for (int i3=0; i3<N3; i3++){
+	  T* __restrict__ f = &(operator()(i0,i1,i2,i3,0));
+	  for (int i4=0; i4<N4; i4++) f[i4]=c;
+	}
+  */
   return *this;
 };
 

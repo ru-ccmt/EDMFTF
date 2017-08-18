@@ -154,7 +154,8 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
 void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<double>& Gd, function2D<double>& Ft,
 	     function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver,
 	     function2D<double>& Gtau, function5D<double>& VH, function1D<int>& Gd_deg,
-	     function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP, ostream& clog)
+	     function2D<double>& AP_transition, vector<function2D<double> >& Gsvd,
+	     bool cmp_vertex, bool QHB2, bool SampleTransitionP, ostream& clog)
 {
   function1D<double> chistogram;
   function2D<double> cGd;
@@ -165,6 +166,7 @@ void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogra
   function2D<double> cGtau;
   function1D<int> cGd_deg;
   function2D<double> cAP_transition;
+  vector<function2D<double> > cGsvd(Gsvd.size());
   function1D<double> casign(2), asign_(2);
   if (my_rank==Master){
     cGd.resize(Gd.fullsize_N(),Gd.fullsize_Nd());
@@ -175,6 +177,9 @@ void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogra
     if (Gtau.size_Nd()) cGtau.resize(Gtau.fullsize_N(),Gtau.fullsize_Nd());
     cGd_deg.resize(Gd_deg.size());
     if (SampleTransitionP) cAP_transition.resize(AP_transition.fullsize_N(),AP_transition.fullsize_Nd());
+    for (int ifl=0; ifl<Gsvd.size(); ifl++) cGsvd[ifl].resize( Gsvd[ifl].fullsize_N(), Gsvd[ifl].fullsize_Nd() );
+  }else{
+    for (int ifl=0; ifl<Gsvd.size(); ifl++) cGsvd[ifl].resize( 1, 1 );
   }
   asign_[0]=asign; asign_[1]=asign_fast;
 
@@ -224,6 +229,8 @@ void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogra
     MPI_Reduce(AP_transition.MemPt(), cAP_transition.MemPt(), AP_transition.fullsize2(), MPI_DOUBLE, MPI_SUM, Master, MPI_COMM_WORLD);
   
   if (cmp_vertex){
+    if (my_rank==Master) cout<<"Reducing svd.VH"<<endl;
+
     function3D<double> cVertex(VH.N2, VH.N3, VH.N4);
     int psize = VH.N2*VH.N3*VH.N4;
     
@@ -234,16 +241,29 @@ void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogra
 	double* cf = &cVertex(0,0,0);
 	//MPI::COMM_WORLD.Reduce(f, cf, psize, MPI_DOUBLE, MPI_SUM, Master);
 	MPI_Reduce(f, cf, psize, MPI_DOUBLE, MPI_SUM, Master, MPI_COMM_WORLD);
-	
-	for (int i2=0; i2<VH.N2; i2++){
-	  for (int i3=0; i3<VH.N3; i3++)
-	    for (int i4=0; i4<VH.N4; i4++)
-	      VH(i0,i1,i2,i3,i4) = cVertex(i2,i3,i4)*(1./mpi_size);
+
+	if (my_rank==Master){
+	  for (int i2=0; i2<VH.N2; i2++){
+	    for (int i3=0; i3<VH.N3; i3++)
+	      for (int i4=0; i4<VH.N4; i4++)
+		VH(i0,i1,i2,i3,i4) = cVertex(i2,i3,i4)*(1./mpi_size);
+	  }
 	}
       }
     }
   }
 
+  for (int ifl=0; ifl<Gsvd.size(); ifl++){
+    MPI_Reduce(Gsvd[ifl].MemPt(), cGsvd[ifl].MemPt(), Gsvd[ifl].fullsize2(), MPI_DOUBLE, MPI_SUM, Master, MPI_COMM_WORLD);
+    
+    if (my_rank==Master){
+      for (int i1=0; i1<Gsvd[ifl].size_N(); i1++)
+	for (int i2=0; i2<Gsvd[ifl].size_Nd(); i2++)
+	  Gsvd[ifl](i1,i2) = cGsvd[ifl](i1,i2)*(1./mpi_size);
+    }
+  }
+
+    
   if (my_rank==Master){
     histogram.resize(global_Nmax);
     histogram = chistogram;
@@ -304,7 +324,7 @@ void Reduce(int my_rank, int Master, int mpi_size, function1D<double>& histogram
 void ReduceS(int my_rank, int Master, int mpi_size, function1D<double>& histogram, function2D<double>& Gd, function2D<double>& Ft,
 	     function2D<double>& AverageProbability, double& asign, double& asign_fast, function1D<double>& nlc, function1D<double>& kaver,
 	     function2D<double>& Gtau, function5D<double>& VH, function1D<int>& Gd_deg,
-	     function2D<double>& AP_transition, bool cmp_vertex, bool QHB2, bool SampleTransitionP, ostream& clog){};
+	     function2D<double>& AP_transition, vector<function2D<double> >& Gsvd, bool cmp_vertex, bool QHB2, bool SampleTransitionP, ostream& clog){};
 
 void MPI_Init(int argc, char* argv[], int& my_rank, int& mpi_size, int& Master)
 {

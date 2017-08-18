@@ -288,28 +288,24 @@ inline int xgees(bool vect, int N, double* A, int lda, dcomplex* w, double* wr, 
 //   zgemv_("N", &m, &n, &alpha, A, &lda, x, &inc, &beta, y, &inc);
 // }
 
-// template <enum TypeOfMatrix TN>
-// inline void xgemv(int m, int n, double alpha, const double* A, int lda,
-// 		  const double* x, const double beta, double* y)
-// {
-//   std::cerr << "Not implemented yet! " << std::endl;
-// }
-
-// template <>
-// inline void xgemv<_Normal>(int m, int n, double alpha, const double* A, int lda,
-// 			  const double* x, const double beta, double* y)
-// {
-//   int inc = 1;
-//   dgemv_("T", &m, &n, &alpha, A, &lda, x, &inc, &beta, y, &inc);
-// }
-
-// template <>
-// inline void xgemv<_Transpose>(int m, int n, double alpha, const double* A, int lda,
-// 			     const double* x, const double beta, double* y)
-// {
-//   int inc = 1;
-//   dgemv_("N", &m, &n, &alpha, A, &lda, x, &inc, &beta, y, &inc);
-// }
+inline void xgemv(const string& TN, int m, int n, double alpha, const double* A, int lda,
+		  const double* x, const double beta, double* y)
+{
+  int inc = 1;
+  string _TN_;
+  switch(TN[0]){
+  case 'N':// transpose becomes normal and vice-versa
+    _TN_ = "T";
+    break;
+  case 'T':
+    _TN_ = "N";
+    break;
+  default :
+    cout<<"ERROR : Can not recognize transpose in xgemv"<<endl;
+    exit(1);
+  }
+  dgemv_(_TN_.c_str(), &m, &n, &alpha, A, &lda, x, &inc, &beta, y, &inc);
+}
 
 inline double xnrm(int N, const dcomplex* x, int incx = 1)
 {
