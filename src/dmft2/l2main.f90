@@ -232,7 +232,8 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      fvdrho(:,:) = 0.d0
   endif
   allocate( lg_deg(ntcix) )
-  
+  lg_deg(:) = 1    ! Here was a bug in 2017. When averaging over different cores, some might have no k-points and lg_deg might be zero, causing NaN's after averaging.
+
   ! Reads case.in2 to determin LM array
   ! and maximum LM -> LM_MAX=max(LM(1,:))
   LM_MAX=0
