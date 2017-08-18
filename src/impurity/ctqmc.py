@@ -110,7 +110,7 @@ class IMP_CTQMC(object):
 
         # The following variables will be set by the following procedure:
         #   if the variable is defined in params, it takes its value from params otherwise it checks its definition in database
-        vars = ['l', 'para', 'qOCA', 'kOCA', 'mOCA', 'Ex', 'Ep', 'J', 'cx', 'Eoca', 'qatom', 'n', 'Ekeep', 'Ekeepc', 'Nmaxc', 'Ewindow', 'max_M_size', 'CoulombF', 'add_occupancy', 'HB2']
+        vars = ['l', 'para', 'qOCA', 'kOCA', 'mOCA', 'Ex', 'Ep', 'J', 'cx', 'Eoca', 'qatom', 'n', 'Ekeep', 'Ekeepc', 'Nmaxc', 'Ewindow', 'max_M_size', 'CoulombF', 'add_occupancy', 'mode']
         
         self.spr={}
         for var in vars:
@@ -155,10 +155,6 @@ class IMP_CTQMC(object):
         else:
             self.cx=0.0
     
-        if self.l==3:
-            #self.params['exe']='ctqmcf'
-            self.spr['exe']='ctqmcf'
-
 
     def _exe(self, params, DCs, extn, UpdateAtom, gbroad=0.0, kbroad=0.0, maxAc=200.):
         """ Executes the CTQMC impurity solver
@@ -214,7 +210,7 @@ class IMP_CTQMC(object):
             print 'Impq=', Impq
             
             # Variables which are updated from the current paramateres
-            for var in ['CoulombF','HB2']:
+            for var in ['CoulombF','mode']:
                 if params.has_key(var):
                     self.spr[var] = params[var][0]
                     
@@ -228,6 +224,10 @@ class IMP_CTQMC(object):
                     atom_arg += ' -Impq \"'+str(Impq)+'\" '
                     
                 for k,p in self.spr.items():
+                    if k=='mode':
+                        if p[0]=='S':
+                            atom_arg += '-HB2 1 '
+                        continue
                     if type(p)==types.ListType:
                         atom_arg += '-'+k+' "'+str(p)+'" '
                     else:
@@ -249,6 +249,10 @@ class IMP_CTQMC(object):
                     # Old good single impurity calculation
                     atom_arg = ''
                     for k,p in self.spr.items():
+                        if k=='mode':
+                            if p[0]=='S':
+                                atom_arg += '\"HB2=True\" '
+                            continue
                         atom_arg += '\"'+k+'='+str(p)+'\" '
                     atom_arg += ' \"Eimp='+str(Eimps)+'\" '
                     
@@ -272,6 +276,9 @@ class IMP_CTQMC(object):
         
         self.fh_info.flush()
         
+        if self.l==3:
+            params['exe']=['ctqmcf', '#']
+
         params['mu'] = [mu_QMC, '# QMC chemical potential']
         
         # executable
