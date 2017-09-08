@@ -108,14 +108,11 @@ public:
     function2D<double> U(Nl,tau.size());
     
     int lwork;
-    if (tau.size()>om.size()*11/6 || om.size()>tau.size()*11/6){
-      int n = min(tau.size(),om.size());
-      lwork = n*(4*n + 8);
-    }else{
+    {
       int n = min(tau.size(),om.size());
       int mx = max(tau.size(),om.size());
-      lwork =  3*n + max(mx, n*(3*n+5));
-    }					    
+      lwork =  4*n*n + 8*max(mx, n*(n+1));
+    }
     function1D<double> work(lwork);
     function1D<int> iwork(8*min(om.size(),tau.size()));
     int info=0;
