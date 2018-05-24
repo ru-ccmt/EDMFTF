@@ -2,8 +2,12 @@
 # @Copyright 2007 Kristjan Haule
 
 from scipy import *
-from scipy import weave
 import sys
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 def ReadKlist(fklist,nkp):
     #nk = [line[:3]=='END' for line in data].index(True)

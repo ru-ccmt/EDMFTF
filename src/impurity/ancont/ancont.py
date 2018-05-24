@@ -638,8 +638,8 @@ if __name__ == '__main__':
     abounds = [(1e-12,None)] * len(gpos)
     alphas = [alpha3,alpha4]
 
-    vary=array(range(1,len(gpos)+1), order='F')
-    fixed=array([len(gpos)+1], order='F')
+    vary=array(range(1,len(gpos)+1), order='F', dtype=int)
+    fixed=array([len(gpos)+1], order='F', dtype=int)
 
     log_functions(om, rfun)
     log_functions_im(iom, ifunr, ifuni)

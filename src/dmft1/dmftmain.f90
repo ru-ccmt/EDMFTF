@@ -359,7 +359,7 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
      loro = MOD(locrot, 3)
      shift = locrot/3
      
-     if (Qprint) WRITE(6,'(A,I2,A)'), '--------- atom ', i, ' -------------'
+     if (Qprint) WRITE(6,'(A,I2,A)') '--------- atom ', i, ' -------------'
 
      ! loro can be (0 -original coordinate system), (1 - new z-axis), (2 - new z-axis, x-axis)
      do j=1,nL(i)

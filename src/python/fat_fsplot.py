@@ -2,8 +2,12 @@
 # @Copyright 2007 Kristjan Haule
 from scipy import *
 from pylab import *
-from scipy import weave
 import os, sys
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 code="""
      using namespace std;

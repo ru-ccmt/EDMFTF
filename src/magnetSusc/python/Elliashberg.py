@@ -2,10 +2,15 @@
 # @Copyright 2007 Kristjan Haule
 
 from scipy import *
-from scipy import linalg, weave, integrate
+from scipy import linalg, integrate
 import sys
 import krams
 import time
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 def findex4(i1,i2,i3,i4,n1,n2,n3,n4):
     return ((i1*n2+i2)*n3+i3)*n4+i4

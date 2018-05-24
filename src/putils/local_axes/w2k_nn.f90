@@ -45,7 +45,7 @@ SUBROUTINE w2knn(case,dfac_,dlimit_,dstmax_)
   CHARACTER*10      KNAME
   CHARACTER*11      STATUS,FORM                                     
   CHARACTER*79      TITLE                                           
-  CHARACTER*80      FNAME,fname1                                           
+  CHARACTER*100     FNAME,fname1                                           
   !-----------------------------------------------------------------------
   real*8  A(3),PIA(3),VI   
   DIMENSION DIF(3),XX(3),PP(3),P(3),DISTS(NNN),NR(NNN),PNN(3,NNN)   

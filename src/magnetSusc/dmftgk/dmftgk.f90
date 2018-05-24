@@ -247,7 +247,7 @@ SUBROUTINE PrintGk(fenergy, fUdmft, fsigname, fgkout, fglocout, fgloc, fklist, f
 
         open(fh_gk+icix, file=TRIM(fgkout(icix)), status='unknown')
         !
-        WRITE(fh_gk+icix, '(A,I6,1x,I3,1x,I6,1x,I3,1x,I3,1x,A)'), '#', nkpt, nsymop, nom, cixdms, norbitals, ' # nkpt, nsymop, nom, cixdms norbitals'
+        WRITE(fh_gk+icix, '(A,I6,1x,I3,1x,I6,1x,I3,1x,I3,1x,A)') '#', nkpt, nsymop, nom, cixdms, norbitals, ' # nkpt, nsymop, nom, cixdms norbitals'
         WRITE(fh_gk+icix, '(A)',advance='no') '#'
         do iorb=1,norbitals
            WRITE(fh_gk+icix, '(3F9.5,2x)',advance='no') (POSC(i,iorb),i=1,3)
@@ -259,11 +259,11 @@ SUBROUTINE PrintGk(fenergy, fUdmft, fsigname, fgkout, fglocout, fgloc, fklist, f
      open(fh_ee+1, file=TRIM(fUL), status='unknown')
      open(fh_ee+2, file=TRIM(fUR), status='unknown')
      do j=1,2
-        WRITE(fh_ee+j, '(A,I7,1x,I3,1x,I6,1x,I3,3x)',advance='no'), '#', nkpt, nsymop, nom, norbitals
+        WRITE(fh_ee+j, '(A,I7,1x,I3,1x,I6,1x,I3,3x)',advance='no') '#', nkpt, nsymop, nom, norbitals
         DO iorb1=1,norbitals
-           WRITE(fh_ee+j, '(I3,1x)',advance='no'), nindo(iorb1)
+           WRITE(fh_ee+j, '(I3,1x)',advance='no') nindo(iorb1)
         ENDDO
-        WRITE(fh_ee+j, '(A)'), ' # nkpt, nsymop, nom, norbitals, size(iorb1),...'
+        WRITE(fh_ee+j, '(A)') ' # nkpt, nsymop, nom, norbitals, size(iorb1),...'
         
         WRITE(fh_ee+j, '(A)',advance='no') '#'
         do iorb=1,norbitals
@@ -382,9 +382,9 @@ SUBROUTINE PrintGk(fenergy, fUdmft, fsigname, fgkout, fglocout, fgloc, fklist, f
               WRITE(fh_ee+1,'(F19.14,2x,I5,1x)') omega(iom), nxmax-nxmin+1
               WRITE(fh_ee+2,'(F19.14,2x,I5,1x)') omega(iom), nxmax-nxmin+1
               do ibnd=nxmin,nxmax
-                 WRITE(fh_ee+0,'(2E24.16,1x)',advance='no'), zek(ibnd)!-EF
-                 WRITE(fh_ee+1,'(I4,1x)',advance='no'), ibnd+nemin-1
-                 WRITE(fh_ee+2,'(I4,1x)',advance='no'), ibnd+nemin-1
+                 WRITE(fh_ee+0,'(2E24.16,1x)',advance='no') zek(ibnd)!-EF
+                 WRITE(fh_ee+1,'(I4,1x)',advance='no') ibnd+nemin-1
+                 WRITE(fh_ee+2,'(I4,1x)',advance='no') ibnd+nemin-1
                  DO iorb1=1,norbitals
                     nind1 = nindo(iorb1)
                     do ind1=1,nind1

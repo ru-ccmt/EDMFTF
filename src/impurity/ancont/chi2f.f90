@@ -5,9 +5,11 @@ subroutine chi2(chi, nrm, chi4, gweigh, vary, gwfix, fixed, sqmc, ifunr, ifuni, 
   IMPLICIT NONE
   REAL*8, intent(out):: chi, nrm, chi4
   REAL*8, intent(in) :: gweigh(nvary)
-  REAL*8, intent(in) :: vary(nvary)
+  !REAL*8, intent(in) :: vary(nvary)
+  INTEGER, intent(in):: vary(nvary)
   REAL*8, intent(in) :: gwfix(nfix)
-  REAL*8, intent(in) :: fixed(nfix)
+  !REAL*8, intent(in) :: fixed(nfix)
+  INTEGER, intent(in) :: fixed(nfix)
   REAL*8, intent(in) :: sqmc(nom,4)
   REAL*8, intent(in) :: ifunr(nal,nom)
   REAL*8, intent(in) :: ifuni(nal,nom)
@@ -68,7 +70,7 @@ subroutine matsum(gr, gi, En, iom, x0, dh, wb, nom, nx)
   INTEGER, intent(in) :: nom, nx
   !f2py integer intent(hide), depend(iom)  :: nom=shape(iom,0)
   !f2py integer intent(hide), depend(x0)   :: nx=shape(x0,0)
-  REAL*8 :: simps
+  !REAL*8 :: simps
   REAL*8 :: omn, w1, sumr, sumi
   INTEGER :: n, k
   

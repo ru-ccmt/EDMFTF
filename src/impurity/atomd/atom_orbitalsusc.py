@@ -11,8 +11,12 @@ import copy
 import getopt
 import pickle
 import glob
-import scipy.weave as weave
 from numpy import linalg
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 
 ROOT = os.environ.get('WIEN_DMFT_ROOT')

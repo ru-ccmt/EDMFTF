@@ -78,9 +78,9 @@ SUBROUTINE read_and_initialize(NUMKPT,DEFFN,INFO,nmat_only)
   CALL generate_lattice(alpha, BR1, BR2, VOL, ORTHO, ALAT(1), ALAT(2), ALAT(3), LATTIC)
   if (Qprint) then
      WRITE(6,*) 'BR1='
-     WRITE(6,'(3F12.6)'), BR1
+     WRITE(6,'(3F12.6)') BR1
      WRITE(6,*) 'BR2='
-     WRITE(6,'(3F12.6)'), BR2
+     WRITE(6,'(3F12.6)') BR2
      !call direct_lattice(BRNN, nat, alpha, LATTIC)
      !WRITE(6,*) 'DIRECT LATTICE='
      !WRITE(6,'(3F12.6)'), BRNN

@@ -3,12 +3,16 @@
 
 from scipy import *
 from pylab import *
-from scipy import weave
 from scipy import interpolate
 import os, sys
 #from mayavi.mlab import *
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 def bilinear_interpolation(x, y, points):
     '''Interpolate (x,y) from values associated with four points.

@@ -4,6 +4,7 @@
 #define FUNCTION_
 #include <iostream>
 #include <algorithm>
+#include <cstring>
 #include "util.h"
 
 //////////////////////////// Hierarchy of classes: ///////////////////////////////////////

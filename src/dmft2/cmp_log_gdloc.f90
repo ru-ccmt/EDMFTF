@@ -261,7 +261,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
      TrGSigVdc = sum(GS_static(0,:)+GS_dynamic(0,:))
 
      WRITE(6,*) 'Nds for each orbital:'
-     WRITE(6,'(A)',advance='no'), '   c:'
+     WRITE(6,'(A)',advance='no') '   c:'
      do it2=1,ntcix
         WRITE(6,'(f13.8,1x)',advance='no') Nds(1,it2)
      enddo

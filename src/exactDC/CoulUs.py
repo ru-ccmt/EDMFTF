@@ -1,7 +1,11 @@
 # @Copyright 2007 Kristjan Haule
 from scipy import *
-from scipy import weave
 import gaunt
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 
 def CoulUsC2(l, T2C):

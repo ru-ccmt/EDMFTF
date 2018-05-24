@@ -36,7 +36,7 @@ SUBROUTINE occupi(charge, dcharge1, dcharge2, mu, Ek, Ek0, wk, omega, nbands, no
   DATA ci/(0.0D0,1.0D0)/
   pi = acos(-1.0)
 
-  Ntot = 0.5*(omega(nomega)/omega(1)-1) + 0.4999
+  Ntot = int( 0.5*(omega(nomega)/omega(1)-1) + 0.4999 )
   !T = omega(nomega)/(2*Ntot+1)/pi
 
   T = omega(1)/pi 

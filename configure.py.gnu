@@ -16,9 +16,9 @@ class Config:
   ompflag     = "-fopenmp"     # linker/compiler flag for openmp
 
   mpi_define  = "-D_MPI"       #
-  pcc         = "/opt/mpich2/gnu/bin/mpicc"        # C compiler 
-  pcxx        = "/opt/mpich2/gnu/bin/mpicxx"       # C++ compiler 
-  pfc         = "/opt/mpich2/gnu/bin/mpif90"       # Fortran compiler 
+  pcc         = "mpicc"        # C compiler 
+  pcxx        = "mpicxx"       # C++ compiler 
+  pfc         = "mpif90"       # Fortran compiler 
   
   blasname    = "GNU"          # BLAS   library
   blaslib     = "-lblas"         # BLAS   library

@@ -1,11 +1,18 @@
 DMFT installation instructions:
 
-  1. Edit `configure.py' to fit your environment (optional)
-  
-  2. Execute `setup.py'
+  1. From provided configuration files create your own "configure.py". You can start by
+     creating a link to one of the provided files, i.e.,
+     > ln -s configure.py.intel configure.py
+     and if necessary edit the file by specifying precise compiler names, and if needed 
+     for compilation, their paths.
 
-  3. Learn how to use by reading "http://hauleweb.rutgers.edu/tutorials/"
-  
+     If you are going to use intel fortran and intel C++ compiler,
+     you should use "configure.py.intel". If you have gnu compilers, you should choose
+     "configure.py.gnu". You could also mix the two if desired.
+     
+  2. Execute `setup.py' and you should be guided through installation process.
+
+  3. Learn how to use the code by reading "http://hauleweb.rutgers.edu/tutorials/"
 
       Please consider citing the basic DFT+DMFT algorithm:
   [1] Kristjan Haule, Chuck-Hou Yee, Kyoo Kim, Phys. Rev. B 81, 195107 (2010).

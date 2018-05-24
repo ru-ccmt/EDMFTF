@@ -3,8 +3,12 @@
 
 from scipy import *
 from pylab import *
-from scipy import weave
 import glob, os, sys
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 code="""
      #line 10 "wakplot.py"

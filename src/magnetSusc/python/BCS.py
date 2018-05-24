@@ -2,10 +2,14 @@
 # @Copyright 2007 Kristjan Haule
 
 from scipy import *
-from scipy import weave
 from scipy import linalg
 from pylab import *
 import sys
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 def ReadKlist(fklist, ReadBS=False):
     fk = open(fklist,'r')

@@ -158,7 +158,7 @@ SUBROUTINE Diagonalize(Elow, Eup, NE, HS, HSDIAG, Z, EIGVAL, HSROWS, LCOLZ, Qpri
      enddo
      write(89,*)
      do j=1,hsrows
-        write(89,'(I4)',advance='no'), j
+        write(89,'(I4)',advance='no') j
         do i=1,ne
 #ifdef _REAL           
            write(89,'(f23.15)',advance='no') Z(j,i)

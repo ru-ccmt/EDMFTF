@@ -1298,7 +1298,7 @@ SUBROUTINE read_overlap_from_file(info, Olapm, SOlapm, cixdim, maxdim, ncix)
   ENDDO
   close(996)
   info=0
-  
+  Olapm = SOlapm ! Olapm is currently not needed, since we use orthonormal basis. We thus set overlap to the orhonormal equivalent. Maybe we want in future to read Olapm separately....
   if (myrank.eq.master) then
      WRITE(6,*) 'SOlapm succesfully read from file'
      WRITE(6,*) 'Z will be used:'

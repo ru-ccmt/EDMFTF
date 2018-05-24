@@ -355,9 +355,9 @@ SUBROUTINE TRANSC(TC)
   COMPLEX*16 :: T1(-1:1,3),T2(-2:2,5),T3(-3:3,7)
   DO L=0,3
      DO M=-3,3
-	DO K=1,7
+        DO K=1,7
            TC(M,K,L)=(0.D0,0.D0)
-	ENDDO
+        ENDDO
      ENDDO
   ENDDO
   CALL TRANS1(T1,1)
@@ -374,13 +374,13 @@ SUBROUTINE TRANSC(TC)
   !  D-WAVE
   DO MY=-2,2
      DO IX=1,5
-	TC(MY,IX,2)=T2(MY,IX)
+        TC(MY,IX,2)=T2(MY,IX)
      ENDDO
   ENDDO
   !  F-WAVE
   DO MY=-3,3
      DO IX=1,7
-	TC(MY,IX,3)=T3(MY,IX)
+        TC(MY,IX,3)=T3(MY,IX)
      ENDDO
   ENDDO
 END SUBROUTINE TRANSC
@@ -442,22 +442,22 @@ SUBROUTINE TRANS1(A1,KEY)
   ! SET RECIPROCAL MATRIX
   DO M=-1,1
      DO I=1,3
-	T1R(I,M)=DCONJG(T1(M,I))
+        T1R(I,M)=DCONJG(T1(M,I))
      ENDDO
   ENDDO
   IF(KEY.EQ.1)THEN
      !  RETURN DIRECT MATRIX
      DO M=-1,1
-	DO I=1,3
+        DO I=1,3
            A1(M+2,I)=T1(M,I)
-	ENDDO
+        ENDDO
      ENDDO
   ELSEIF(KEY.EQ.2)THEN
      !  RETURN RECIPROCAL MATRIX
      DO M=-1,1
-	DO I=1,3
+        DO I=1,3
            A1(I,M+2)=T1R(I,M)
-	ENDDO
+        ENDDO
      ENDDO
   ENDIF
   RETURN
@@ -547,22 +547,22 @@ SUBROUTINE TRANS2(A2,KEY)
   ! SET RECIPROCAL MATRIX
   DO M=-2,2
      DO I=1,5
-	T2R(I,M)=DCONJG(T2(M,I))
+        T2R(I,M)=DCONJG(T2(M,I))
      ENDDO
   ENDDO
   IF(KEY.EQ.1)THEN
      !  RETURN DIRECT MATRIX
      DO M=-2,2
-	DO I=1,5
+        DO I=1,5
            A2(M+3,I)=T2(M,I)
-	ENDDO
+        ENDDO
      ENDDO
   ELSEIF(KEY.EQ.2)THEN
      !  RETURN RECIPROCAL MATRIX
      DO M=-2,2
-	DO I=1,5
+        DO I=1,5
            A2(I,M+3)=T2R(I,M)
-	ENDDO
+        ENDDO
      ENDDO
   ENDIF
   RETURN
@@ -691,22 +691,22 @@ SUBROUTINE TRANS3(A3,KEY)
   !
   DO M=-3,3
      DO I=1,7
-	T3(M,I)=DCONJG(T3R(I,M))
+        T3(M,I)=DCONJG(T3R(I,M))
      ENDDO
   ENDDO
   IF(KEY.EQ.1)THEN
      !  RETURN DIRECT MATRIX
      DO M=-3,3
-	DO I=1,7
+        DO I=1,7
            A3(M+4,I)=T3(M,I)
-	ENDDO
+        ENDDO
      ENDDO
   ELSEIF(KEY.EQ.2)THEN
      !  RETURN RECIPROCAL MATRIX
      DO M=-3,3
-	DO I=1,7
+        DO I=1,7
            A3(I,M+4)=T3R(I,M)
-	ENDDO
+        ENDDO
      ENDDO
   ENDIF
 END SUBROUTINE TRANS3

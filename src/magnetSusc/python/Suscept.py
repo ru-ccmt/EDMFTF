@@ -2,11 +2,16 @@
 # @Copyright 2007 Kristjan Haule
 
 from scipy import *
-from scipy import linalg, weave, integrate
+from scipy import linalg, integrate
 import sys
 import LinLogMesh
 import krams
 from pylab import *
+import scipy
+if int((scipy.__version__).split('.')[1]) > 14:
+    import weave
+else:
+    import scipy.weave as weave
 
 class FermGF:
     def __init__(self, Gf, nomv):
