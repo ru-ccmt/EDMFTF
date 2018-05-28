@@ -10,8 +10,8 @@ class Config:
   cxx         = "g++"          # C++ compiler
 
 
-  cflags      = "-O3"          # linker flags for C programs
-  fflags      = "-O3"          # linker flags for Fortran programs
+  cflags      = "-O2"          # linker flags for C programs
+  fflags      = "-O2"          # linker flags for Fortran programs
   ldflags      = ""             # linker flags debuggin programs
   ompflag     = "-fopenmp"     # linker/compiler flag for openmp
 
@@ -28,7 +28,7 @@ class Config:
 
 
   f2pylib     = "--f90flags='-openmp '"	       # F2PY   library	
-  f2pyflag    = "--opt='-O3'"	       # F2PY   library	
+  f2pyflag    = "--opt='-O2'"	       # F2PY   library	
 
   ranlib      = ""             # Ranlib
   arflags     = "rc"           # ar flags

@@ -6,7 +6,6 @@ from scipy import *
 import utils
 from w2k_atpar import readpotential, readlinearizatione, atpar, rint13
 import struct1
-from pylab import *
 import optparse
 import re
 
@@ -321,6 +320,7 @@ if __name__ == '__main__':
         Emu='Emu'
         
     projw = main(w2k.case, atms, Lsa, icpsa, Rm2, options.localize, Emu)
+    from pylab import *
 
     for Rx,Ag,Bg,A,B in projw:
         subplot(2,1,1)

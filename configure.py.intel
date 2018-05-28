@@ -6,8 +6,8 @@ class Config:
 
   compiler    = "INTEL"        # Compiler
   
-  cflags      = "-O3"          # compiling flags for C++ programs
-  fflags      = "-O3"          # compiling flags for Fortran programs
+  cflags      = "-O2"          # compiling flags for C++ programs
+  fflags      = "-O2"          # compiling flags for Fortran programs
   ldflags     = ""             # linking flags for Fortran programs
   ompflag     = "-fopenmp"     # linker/compiler flag for openmp
 
@@ -23,7 +23,7 @@ class Config:
   gsl         = "-lgslcblas -lgsl"  # GSL    library
 
   f2pylib     = "--f90flags='-fopenmp ' --opt='-fast'" # adding extra libraries for f2py
-  f2pyflag    = "--opt='-O3' " # adding extra options to f2py
+  f2pyflag    = "--opt='-O2' " # adding extra options to f2py
 
   arflags     = "rc"           # ar flags
 
