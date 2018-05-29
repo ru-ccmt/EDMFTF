@@ -4,9 +4,6 @@
 '''
 Classes to handle reading/writing of case.indmf* files.
 '''
-
-
-
 import operator, os, re
 from copy import deepcopy
 from scipy import *
@@ -36,7 +33,7 @@ qsplit_doc = '''    Qsplit  Description
     13  J_eff=1/2 basis for 5d ions, non-magnetic with symmetry
     14  J_eff=1/2 basis for 5d ions, no symmetry
 ------  ------------------------------------------------------------'''
-projector_doc="""  Projector  Drscription
+projector_doc="""  Projector  Description
 ------  ------------------------------------------------------------
      1  projection to the solution of Dirac equation (to the head)
      2  projection to the Dirac solution, its energy derivative, 
@@ -193,6 +190,7 @@ class IndmfBase:
                     self.cps[icp] = [(iatom, L, qsplit)]
 
     def write_head(self, lines):
+
         lines += [
             ("%f %f %d %d" % (self.hybr_emin, self.hybr_emax, self.Qrenorm, self.projector), "hybridization Emin and Emax, measured from FS, renormalize for interstitials, projection type"),
             ("%1d %g %g %d %f %f" % (self.matsubara, self.broadc, self.broadnc, self.om_npts, self.om_emin, self.om_emax),
@@ -268,7 +266,7 @@ class Indmf(IndmfBase):
     def write(self):
         lines = []
         self.write_head(lines)
-
+        
         # write ucp = {cp1, cp2, ...} arrays
         lines.append((str(len(self.ucps)), "number of nonequivalent correlated problems"))
         for iucp,icps in self.ucps.iteritems():
@@ -296,7 +294,7 @@ class Indmf(IndmfBase):
             orbstrings.append("%s%d %s" % (anames[iatom], iatom, L2str(L)))
         return orbstrings
 
-    def user_input(self):
+    def user_input(self, inpt=''):
         '''Conventions used in this function:
         n = nonequivalent        cp  = correlated problem
         c = correlated           orb = orbital
@@ -311,6 +309,10 @@ class Indmf(IndmfBase):
         '''
         self.initvars()  # clear old data (if any)
 
+
+        if inpt:
+            inpts = inpt.split()
+        
         w = wienfile.Struct(self.case)     # parse WIEN2k struct file
         anames = [None] + w.flat(w.aname)  # pad to index from 1; flat list of atom names
 
@@ -319,13 +321,18 @@ class Indmf(IndmfBase):
             print "%3d %s" % (i+1, name)
 
         while True:
-            userin = raw_input("Specify correlated atoms (ex: 1-4,7,8): ")
+            if inpt:
+                userin = inpts.pop(0)
+            else:
+                userin = raw_input("Specify correlated atoms (ex: 1-4,7,8): ")
+            
             catoms = expand_intlist(userin)
 
             print "You have chosen the following atoms to be correlated:"
             for iatom in catoms:
                 print "%3d %s" % (iatom, anames[iatom])
 
+            if inpt: break
             if self.user_continue():
                 break
 
@@ -341,9 +348,22 @@ class Indmf(IndmfBase):
         while True:
             print "For each atom, specify correlated orbital(s) (ex: d,f):"
             corbs = []
-            for iatom in catoms:
+            
+            if inpt:
+                user_dat = inpts.pop(0).split(',') # should be given as d,d,d for three atoms
+                
+                if len(user_dat) < len(catoms) :
+                    print 'ERROR in input : There are '+catoms+' correlated atoms and require the same number of orbital-types. Given input=', user_dat
+                for orb in user_dat:
+                    if orb not in ['s','p','d','f']:
+                        print 'ERROR in input : Correlated orbital type '+orb+' is not allowed. Must be one of s,p,d,f' 
+                
+            for ii,iatom in enumerate(catoms):
                 prompt = "%3d %s: " % (iatom, anames[iatom])
-                userin = raw_input(prompt)
+                if inpt:
+                    userin = user_dat[ii]
+                else:
+                    userin = raw_input(prompt)
                 for orb in userin.split(','):
                     entry = (iatom, L2num(orb.strip()))
                     corbs.append(entry)
@@ -352,32 +372,55 @@ class Indmf(IndmfBase):
             for icorb, (iatom, L) in enumerate(corbs):
                 print "%3d  %s-%d %s" % (icorb+1, anames[iatom], iatom, L2str(L))
 
-            if self.user_continue():
-                break
+            if inpt : break
+            if self.user_continue(): break
 
         print
+        
         while True:
             print "Specify qsplit for each correlated orbital (default = 0):"
             print qsplit_doc
+
+            if inpt:
+                user_dat = inpts.pop(0).split(',') # should be given as 2,2,2 for three atoms
+                if len(user_dat) < len(catoms) :
+                    print 'ERROR in input : There are '+catoms+' correlated atoms and require the same number of Qsplit entries. Given input=', user_dat
+                    
             qsplits = []
             for icorb, (iatom, L) in enumerate(corbs):
                 prompt = "%3d  %s-%d %s: " % (icorb+1, anames[iatom], iatom, L2str(L))
-                userin = raw_input(prompt).strip()
+                if inpt:
+                    userin = user_dat[icorb]
+                else:
+                    userin = raw_input(prompt).strip()
+                
                 qsplit = 0 if userin == '' else int(userin)
                 qsplits.append(qsplit)
 
             print "You have chosen the following qsplits:"
             for icorb, (iatom, L) in enumerate(corbs):
                 print "%3d  %s-%d %s: %d" % (icorb+1, anames[iatom], iatom, L2str(L), qsplits[icorb])
-            if self.user_continue():
-                break
+            
+            if inpt : break
+            if self.user_continue(): break
         
         print
         while True:
-            print "Specify projector type (default = 2):"
-            print projector_doc
-            userin = raw_input("> ").strip()
-            self.projector = 2 if userin == '' else int(userin)
+            print "Specify projector type (default = 5):"
+            print projector_doc,
+            
+            if inpt:
+                if len(inpts)>0:
+                    userin = inpts.pop(0)
+                else:
+                    userin = '5'
+                self.projector = 5 if userin == '' else int(userin)
+                print '> ', self.projector
+            else:
+                userin = raw_input("> ").strip()
+                self.projector = 5 if userin == '' else int(userin)
+                print self.projector
+            
             if self.projector > 4:
                 import glob
                 strfile = self.case+'.struct'
@@ -386,20 +429,38 @@ class Indmf(IndmfBase):
                 if len(enefiles)==0:
                     print 'WARNING: Energy files are not present in this directory. Please generate/copy case.energy files here when using projector 5.'
                     print
-            if self.user_continue():
-                break
+            
+            if inpt: break
+            if self.user_continue(): break
         
         print
-        userin = raw_input("Do you want to group any of these orbitals into cluster-DMFT problems? (y/n): ").strip().lower()
-        if userin == 'n':
-            for icorb,(iatom,L) in enumerate(corbs):
-                icp = icorb+1
-                self.cps[icp] = [(iatom, L, qsplits[icorb])]
+
+        if (len(corbs)>1): # cluster only if more than one atom correlated
+            if inpt:  # non-interactive mode
+                if len(inpts)>0: # non-default value
+                    userin = inpts.pop(0)
+                else:  # default is no cluster-dmft
+                    userin = 'n'
+                print "Do you want to group any of these orbitals into cluster-DMFT problems? (y/n): ", userin
+                
+            else:     # interactive mode
+                userin = raw_input("Do you want to group any of these orbitals into cluster-DMFT problems? (y/n): ").strip().lower()
         else:
-            print
+            userin = 'n'
+            
+        if userin == 'y':
             while True:
                 print "Enter the orbitals forming each cluster-DMFT problem, separated by spaces"
-                userin = raw_input("(ex: 1,2 3,4 5-8): ")
+                
+                if inpt:  # non-interactive mode
+                    if len(inpts)>0: # non-default value
+                        userin = inpts.pop(0)
+                    else: # default = 1 2 3 4 ...
+                        userin = ' '.join([str(icorb+1) for icorb,(iatom,L) in enumerate(corbs)])
+                    print userin
+                else:
+                    userin = raw_input("(ex: 1,2 3,4 5-8): ")
+                
                 expanded = [expand_intlist(group) for group in userin.split()]
                 expandedflat = reduce(operator.add, expanded)
 
@@ -423,25 +484,57 @@ class Indmf(IndmfBase):
                     orbstrings = self.orb_strings(cp, anames)
                     print "%2d  (%s)" % (icp, ', '.join(orbstrings))
 
-                if self.user_continue():
-                    break
+                if inpt: break
+                if self.user_continue(): break
+        else:
 
-        print
-        while True:
-            print "Enter the correlated problems forming each unique correlated"
-            userin = raw_input("problem, separated by spaces (ex: 1,3 2,4 5-8): ")
-            for i,group in enumerate(userin.split()):
-                self.ucps[i+1] = expand_intlist(group)
+            for icorb,(iatom,L) in enumerate(corbs):
+                icp = icorb+1
+                self.cps[icp] = [(iatom, L, qsplits[icorb])]
             print
-            print "Each set of equivalent correlated problems are listed below:"
-            for iucp,ucp in self.ucps.iteritems():
-                cpstrings = ['(%s)' % ', '.join(self.orb_strings(self.cps[icp], anames)) for icp in ucp]
-                print "%3d   %s are equivalent." % (iucp, ' '.join(cpstrings))
-            if self.user_continue():
-                break
-            self.ucps = {}  # reset
 
-        print
+        if (len(corbs)>1):
+            #print 'corbs=', corbs
+            while True:
+                print "Enter the correlated problems forming each unique correlated"
+                if inpt:  # non-interactive mode
+                    if len(inpts)>0: # non-default value
+                        userin = inpts.pop(0)
+                    else: # if names of two atoms are the same, default = 1,2 otherwise default = 1 2
+                        #   self.ucps = { 1: [1], 2: [2], 3: [3],... }
+                        userin=''
+                        atom_names = [anames[iatom] for icorb,(iatom,L) in enumerate(corbs)]
+                        #print 'atom_names=', atom_names
+                        # If two atoms have the same name, we choose them to be equivalent.
+                        # This might not be the case in general, but the the user should give input
+                        userin='1'
+                        for i in range(1,len(atom_names)):
+                            if atom_names[i] == atom_names[i-1]:
+                                userin += ','+str(i+1)
+                            else:
+                                userin += ' '+str(i+1)
+                    print userin
+                else:
+                    userin = raw_input("problem, separated by spaces (ex: 1,3 2,4 5-8): ")
+                
+                for i,group in enumerate(userin.split()):
+                    self.ucps[i+1] = expand_intlist(group)
+                print
+                print "Each set of equivalent correlated problems are listed below:"
+                for iucp,ucp in self.ucps.iteritems():
+                    cpstrings = ['(%s)' % ', '.join(self.orb_strings(self.cps[icp], anames)) for icp in ucp]
+                    print "%3d   %s are equivalent." % (iucp, ' '.join(cpstrings))
+
+                if inpt: break
+                if self.user_continue(): break
+                    
+                self.ucps = {}  # reset
+            
+            print
+        else:
+            self.ucps = {1: [1]}
+            
+        
         #userin = raw_input("Broken symmetry run? (y/n): ").strip().lower()
         #if userin == 'y':
         #    self.broken_sym = True
@@ -467,15 +560,44 @@ class Indmf(IndmfBase):
         #        # bad user input
         #        pass
 
-        print
         print "Range (in eV) of hybridization taken into account in impurity"
-        userin = raw_input("problems; default %.1f, %.1f: " % (self.hybr_emin, self.hybr_emax))
+
+        if inpt:  # non-interactive mode
+            print "problems; default %.1f, %.1f: " % (self.hybr_emin, self.hybr_emax)
+            if len(inpts)>0: # non-default value
+                userin = inpts.pop(0)
+            else: 
+                userin = str(self.hybr_emin) +','+str(self.hybr_emax)
+            print userin
+        else:
+            userin = raw_input("problems; default %.1f, %.1f: " % (self.hybr_emin, self.hybr_emax))
+            
         if userin.strip():
             self.hybr_emin, self.hybr_emax = [float(e) for e in userin.split(',')]
-
+        else:
+            print self.hybr_emin, self.hybr_emax
+        
         print
-        userin = raw_input("Perform calculation on real; or imaginary axis? (r/i): ").strip().lower()
-        self.matsubara = 1 if userin == 'i' else 0
+
+        if inpt:  # non-interactive mode
+            print "Perform calculation on real; or imaginary axis? (i/r): (default=i)"
+            if len(inpts)>0: # non-default value
+                userin = inpts.pop(0)
+            else:
+                userin = 'i'
+            print userin
+        else:
+            userin = raw_input("Perform calculation on real; or imaginary axis? (i/r): (default=i)").strip().lower()
+        
+        if userin=='r':
+            self.matsubara = 0
+            if not inpt: print 'r'
+        else:
+            self.matsubara = 1
+            if not inpt: print 'i'
+            
+        print
+        #self.matsubara = 1 if userin == 'i' else 0
 
 
 
@@ -548,13 +670,14 @@ class Indmfl(IndmfBase):
             self.cftrans[icp] = raw_cftrans[:,0::2] + raw_cftrans[:,1::2]*1j
 
     def write_head(self, lines):
+
         if abs(self.projector)<4:
             styp="%f "
             sdoc = "hybridization Emin and Emax, measured from FS, renormalize for interstitials, projection type"
         else:
             styp="%d "
             sdoc = "hybridization band index nemin and nemax, renormalize for interstitials, projection type"
-            
+
         if self.only_write_stored_data:
             emin,emax = self.hybr_emin,self.hybr_emax
         else:
@@ -565,23 +688,26 @@ class Indmfl(IndmfBase):
                 import findNbands
                 import glob
                 import sys
+
+                print 'Going over all case.energy files to find which bands are used to construct DMFT projector'
+                
                 strfile = self.case+'.struct'
                 enefiles = glob.glob(self.case+'.energyso')+glob.glob(self.case+'.energyso_'+'*')
                 if not enefiles:  # Not spin-orbit run
                     enefiles = glob.glob(self.case+'.energy') + glob.glob(self.case+'.energy_'+'*')
                 enefiles = filter(lambda fil: os.path.getsize(fil)>0, enefiles) # Remove empty files
                 
-                print 'all enefiles=', enefiles
-                
                 if len(enefiles)==0:
+                    print 'all enefiles=', enefiles
                     print "ERROR : The case.energy* files should be present in this directory when using projector 5. Exiting...."
                     sys.exit(1)
-                
+
                 (nemin,nemax) = findNbands.findNbands(self.hybr_emin+self.EF,self.hybr_emax+self.EF,enefiles,strfile)
                 emin,emax = nemin,nemax
                 
                 #if abs(self.projector)==5:
-                
+
+                print 'Computing DMFT real space projector, which is written in projectorw.dat'
                 import wavef
                 Rm2=[self.atoms[iatom][3] for iatom in self.atoms.keys()] 
             
@@ -602,6 +728,7 @@ class Indmfl(IndmfBase):
         #   text2 contains all the siginds, legends and crystal-field transformation matrices
         self.only_write_stored_data = only_write_stored_data
         lines = []
+        
         self.write_head(lines)
         self.write_atomlist(lines)
         text = self.format(lines)

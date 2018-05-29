@@ -13,7 +13,10 @@ import sys
 def print_prompt(text):
     print "----->", text
 
-
+inpt=''  # input from command line
+if len(sys.argv)>1:
+    inpt = sys.argv[1]
+    
 dmfenv = DmftEnvironment()
 w2kenv = W2kEnvironment()
 
@@ -29,12 +32,15 @@ if indmf.file_exists():
 
 # create new case.indmf (if desired)
 if create_indmf:
-    indmf.user_input()
+    indmf.user_input(inpt)
     indmf.write()
     fname = indmf.filename()
     fnametemp = fname + '_st'
 
-    finished_editing = False
+    if inpt:
+        finished_editing = True  # no editing when using command line
+    else:
+        finished_editing = False
     while not finished_editing:
         shutil.copy(fname, fnametemp)  # copy to temp file for user to edit
         print_prompt("Edit %s file." % (fnametemp,))
@@ -56,10 +62,14 @@ if create_indmf:
 
 # ask user if this is a SO run
 so_run = False
-prompt = "Is this a spin-orbit run? (y/n): "
-userin = raw_input(prompt).lower().strip()
-if userin.lower() == 'y':
+if os.path.isfile(w2kenv.case+".inso") and os.path.getsize(w2kenv.case+".inso")>0 :
+    print 'Found '+w2kenv.case+'.inso file, hence assuming so-coupling exists. Switching -so switch!'
     so_run = True
+
+#prompt = "Is this a spin-orbit run? (y/n): "
+#userin = raw_input(prompt).lower().strip()
+#if userin.lower() == 'y':
+#    so_run = True
 
 # run sigen to calculate siginds, cftrans and write output to case.indmfl file
 sigen = os.path.join( dmfenv.ROOT, 'sigen.py' )
@@ -74,7 +84,11 @@ if ireturn:
 findmfl = w2kenv.case + '.indmfl'
 findmfltemp = findmfl + '_st'
 
-finished_editing = False
+
+if inpt:
+    finished_editing = True  # no editing when using command line
+else:
+    finished_editing = False
 while not finished_editing:
     shutil.copy(findmfl, findmfltemp)
     print_prompt("Edit %s file." % (findmfltemp,))
@@ -93,8 +107,6 @@ while not finished_editing:
         userin = raw_input(prompt).lower().strip()
         if userin.lower() == 'n':
             finished_editing = True
-
-
 
 # Generate case.indmfi file -----------------------------------
 

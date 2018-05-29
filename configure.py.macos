@@ -5,7 +5,7 @@ class Config:
   prefix      = "../bin"    # Installation path
 
   compiler    = "GNU"          # Compiler
-  cxx         = "g++-5"        # C++ compiler
+  cxx         = "g++-7"        # C++ compiler
   
   cflags      = "-O3"          # compiling flags for C++ programs
   fflags      = "-O3"          # compiling flags for Fortran programs
@@ -20,8 +20,8 @@ class Config:
   blasname    = ""             # BLAS   library
   blaslib     = "-framework Accelerate" # BLAS   library
   lapacklib   = ""             # LAPACK library
-  fftwlib     = "-lfftw3_omp -lfftw3"     # FFTW   library
-  gsl         = "-lgsl"  # GSL    library
+  fftwlib     = "-L/usr/local/lib -lfftw3_omp -lfftw3"     # FFTW   library
+  gsl         = "-I/usr/local/include -L/usr/local/lib -lgsl"  # GSL    library
 
   f2pylib     = "--f90flags='-openmp '" # adding extra libraries for f2py
   f2pyflag    = "--opt='-O3' " # adding extra options to f2py

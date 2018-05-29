@@ -11,7 +11,7 @@ def findNbands(Emin,Emax,enefiles,strfile):
     lattic = line[:4]
     nat = int(line[4+23:4+23+3])
     fs.close()
-    print 'nat=', nat
+    print 'Number of all atoms found in struct file', nat
     nemin=10000
     nemax=0
     for enefile in enefiles:
@@ -39,6 +39,7 @@ def findNbands(Emin,Emax,enefiles,strfile):
         except StopIteration:
             fi.close()
         print 'file:', enefile, 'nemin=', nemin, 'nemax=', nemax
+    print 'Finally set nemin=', nemin, 'nemax=', nemax
     return (nemin,nemax)
 
 if __name__ == '__main__':

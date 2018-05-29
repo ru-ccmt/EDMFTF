@@ -292,6 +292,7 @@ def Diff(fday, case, dEF):
 
 
 SolveImpurity_num_calls=0
+Mlist=[]
 def SolveImpurity(EF, asolver, iat, extn, p, UpdateAtom, nl_imp, fh_info, fh_pinfo, fday):
 
     print 'Running ----- impurity solver -----'
@@ -310,15 +311,17 @@ def SolveImpurity(EF, asolver, iat, extn, p, UpdateAtom, nl_imp, fh_info, fh_pin
     ipars = copy.deepcopy(p[iprms])
     
     global SolveImpurity_num_calls
+    global Mlist
     if ipars.has_key('Mlist'):
         Mlist=ipars['Mlist'][0]
-        Mcurrent=ipars['M'][0]
+        ipars.pop('Mlist')
+    if Mlist:
+        #Mcurrent=ipars['M'][0]
         if len(Mlist)>SolveImpurity_num_calls:
             Mcurrent=Mlist[SolveImpurity_num_calls]
         else:
             Mcurrent=Mlist[-1]
         ipars['M'][0]=Mcurrent
-        ipars.pop('Mlist')
     SolveImpurity_num_calls+=1
     
     
@@ -570,6 +573,7 @@ def ConvertFromLatticeToImp(nd, icols_ind):
 
 def FindEtot(case,wopt):
     def FindLine(dat, strng, item):
+        Val = 0.0
         for line in dat:
             if re.match(strng, line) is not None:
                 Val = float(line.split()[item])
@@ -997,13 +1001,24 @@ if __name__ == '__main__':
 
         if (icycle>0): # Does not exists yet. Will find it after dmft1
             (nl_imp,nd_imp) = FindLatticeNd(w2k.case, wopt['m_extn'], inl.siginds, icols_ind, fh_info, scf_name='scf2')
-            
+        
         #####################
         # DMFT loop         #
         #####################
         sigmas=[]
         itt = 0
         n_imp = zeros(len(iSigind.keys()))
+        
+        if p.p.has_key('GoodGuess') and p['GoodGuess']==True:
+            if icycle == 0 : 
+                p['max_dmft_iterations'] = 0 # do not run impurity at the beginning, but rather converge DMFT charge on existing self-energy
+                itt = 1
+            if icycle == 1 : 
+                p['max_dmft_iterations'] = 2 # at the next iteration, rerun impurity twice to have good histogram from the second run
+                itt = 0
+            if icycle > 1  : p['max_dmft_iterations'] = 1 # finally, continue as normally
+            print >> fh_info, 'We have GoodGuess and max_dmft_iterations=', p['max_dmft_iterations'], 'itt=', itt
+        
         while itt < p['max_dmft_iterations']:
             
             extn = str(icycle+1)+'.'+str(itt+1)  # Extension of output files
