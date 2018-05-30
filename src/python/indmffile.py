@@ -294,7 +294,7 @@ class Indmf(IndmfBase):
             orbstrings.append("%s%d %s" % (anames[iatom], iatom, L2str(L)))
         return orbstrings
 
-    def user_input(self, inpt=''):
+    def user_input(self, inpt={}):
         '''Conventions used in this function:
         n = nonequivalent        cp  = correlated problem
         c = correlated           orb = orbital
@@ -310,22 +310,22 @@ class Indmf(IndmfBase):
         self.initvars()  # clear old data (if any)
 
 
-        if inpt:
-            inpts = inpt.split()
-        
         w = wienfile.Struct(self.case)     # parse WIEN2k struct file
         anames = [None] + w.flat(w.aname)  # pad to index from 1; flat list of atom names
-
+        if inpt: print "(ca) ",
         print "There are %d atoms in the unit cell:" % sum(w.mult)
         for i,name in enumerate(anames[1:]):
             print "%3d %s" % (i+1, name)
 
         while True:
             if inpt:
-                userin = inpts.pop(0)
+                if inpt.has_key('ca'):
+                    userin = inpt['ca']
+                else:
+                    userin = '1'
             else:
                 userin = raw_input("Specify correlated atoms (ex: 1-4,7,8): ")
-            
+
             catoms = expand_intlist(userin)
 
             print "You have chosen the following atoms to be correlated:"
@@ -346,12 +346,16 @@ class Indmf(IndmfBase):
             self.locrot[iatom] = (0,0)
         print
         while True:
-            print "For each atom, specify correlated orbital(s) (ex: d,f):"
+            if inpt: print '(ot) ',
+            print 'For each atom, specify correlated orbital(s) (ex: d,f):'
             corbs = []
             
             if inpt:
-                user_dat = inpts.pop(0).split(',') # should be given as d,d,d for three atoms
-                
+                if inpt.has_key('ot'):
+                    user_dat = inpt['ot'].split(',') # should be given as d,d,d for three atoms
+                else:
+                    user_dat = 'd,'*(len(catoms)-1)+'d'
+                    
                 if len(user_dat) < len(catoms) :
                     print 'ERROR in input : There are '+catoms+' correlated atoms and require the same number of orbital-types. Given input=', user_dat
                 for orb in user_dat:
@@ -378,11 +382,15 @@ class Indmf(IndmfBase):
         print
         
         while True:
+            if inpt: print '(qs) ',
             print "Specify qsplit for each correlated orbital (default = 0):"
             print qsplit_doc
 
             if inpt:
-                user_dat = inpts.pop(0).split(',') # should be given as 2,2,2 for three atoms
+                if inpt.has_key('qs'):
+                    user_dat = inpt['qs'].split(',') # should be given as 2,2,2 for three atoms
+                else:
+                    user_dat = ['0']*len(catoms)
                 if len(user_dat) < len(catoms) :
                     print 'ERROR in input : There are '+catoms+' correlated atoms and require the same number of Qsplit entries. Given input=', user_dat
                     
@@ -406,12 +414,13 @@ class Indmf(IndmfBase):
         
         print
         while True:
+            if inpt: print '(p) ',
             print "Specify projector type (default = 5):"
             print projector_doc,
             
             if inpt:
-                if len(inpts)>0:
-                    userin = inpts.pop(0)
+                if inpt.has_key('p'):
+                    userin = inpt['p']
                 else:
                     userin = '5'
                 self.projector = 5 if userin == '' else int(userin)
@@ -437,11 +446,11 @@ class Indmf(IndmfBase):
 
         if (len(corbs)>1): # cluster only if more than one atom correlated
             if inpt:  # non-interactive mode
-                if len(inpts)>0: # non-default value
-                    userin = inpts.pop(0)
+                if inpt.has_key('cl'):
+                    userin = 'y'
                 else:  # default is no cluster-dmft
                     userin = 'n'
-                print "Do you want to group any of these orbitals into cluster-DMFT problems? (y/n): ", userin
+                print "(cl) Do you want to group any of these orbitals into cluster-DMFT problems? (y/n): ", userin
                 
             else:     # interactive mode
                 userin = raw_input("Do you want to group any of these orbitals into cluster-DMFT problems? (y/n): ").strip().lower()
@@ -450,11 +459,14 @@ class Indmf(IndmfBase):
             
         if userin == 'y':
             while True:
+                if inpt: '(cl) ',
                 print "Enter the orbitals forming each cluster-DMFT problem, separated by spaces"
+
+                userin = inpt['cl']
                 
                 if inpt:  # non-interactive mode
-                    if len(inpts)>0: # non-default value
-                        userin = inpts.pop(0)
+                    if inpt.has_key('cl'):
+                        userin = inpt['cl']
                     else: # default = 1 2 3 4 ...
                         userin = ' '.join([str(icorb+1) for icorb,(iatom,L) in enumerate(corbs)])
                     print userin
@@ -487,19 +499,18 @@ class Indmf(IndmfBase):
                 if inpt: break
                 if self.user_continue(): break
         else:
-
             for icorb,(iatom,L) in enumerate(corbs):
                 icp = icorb+1
                 self.cps[icp] = [(iatom, L, qsplits[icorb])]
             print
 
         if (len(corbs)>1):
-            #print 'corbs=', corbs
             while True:
+                if inpt: print '(us) ',
                 print "Enter the correlated problems forming each unique correlated"
                 if inpt:  # non-interactive mode
-                    if len(inpts)>0: # non-default value
-                        userin = inpts.pop(0)
+                    if inpt.has_key('us'): # non-default value
+                        userin = inpt['us']
                     else: # if names of two atoms are the same, default = 1,2 otherwise default = 1 2
                         #   self.ucps = { 1: [1], 2: [2], 3: [3],... }
                         userin=''
@@ -560,12 +571,13 @@ class Indmf(IndmfBase):
         #        # bad user input
         #        pass
 
+        if inpt: print '(hr) ',
         print "Range (in eV) of hybridization taken into account in impurity"
 
         if inpt:  # non-interactive mode
             print "problems; default %.1f, %.1f: " % (self.hybr_emin, self.hybr_emax)
-            if len(inpts)>0: # non-default value
-                userin = inpts.pop(0)
+            if inpt.has_key('hr'): # non-default value
+                userin = inpt['hr']
             else: 
                 userin = str(self.hybr_emin) +','+str(self.hybr_emax)
             print userin
@@ -580,9 +592,9 @@ class Indmf(IndmfBase):
         print
 
         if inpt:  # non-interactive mode
-            print "Perform calculation on real; or imaginary axis? (i/r): (default=i)"
-            if len(inpts)>0: # non-default value
-                userin = inpts.pop(0)
+            print "(a) Perform calculation on real; or imaginary axis? (i/r): (default=i)"
+            if inpt.has_key('a'): # non-default value
+                userin = inpt['a']
             else:
                 userin = 'i'
             print userin

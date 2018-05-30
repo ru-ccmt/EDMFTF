@@ -12,6 +12,7 @@ Writes case.indmfl file
 
 
 from numpy import asarray, zeros, diag, bmat, cumsum, where, array, vstack, hstack
+import numpy as np
 import optparse, os, traceback
 import trafo, trafoso
 import indmffile
@@ -178,7 +179,7 @@ def cmp_cftrans(qsplit, L, nsites, nspins):
     elif transtype == 'relativistic':
         T = trafoso.trafoso(L)
     elif transtype == 'none':
-        T = identity(nspins*(2*L+1), dtype=complex)
+        T = np.identity(nspins*(2*L+1), dtype=complex)
     elif transtype == '5d-jeff':
         if (L==2):
             s23 = sqrt(2./3.)

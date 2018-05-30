@@ -13,10 +13,45 @@ import sys
 def print_prompt(text):
     print "----->", text
 
-inpt=''  # input from command line
+inpt={}  # input from command line
 if len(sys.argv)>1:
-    inpt = sys.argv[1]
-    
+    if sys.argv[1] in ['-h', '--help']:
+        print """Program : inid_dmft.py
+
+Initializes the EDMFTF run by producing case.indmfl and case indmfi files.
+The first connects DMFT problem with the Kohn-Sham orbitals, 
+      and the second connects DMFT with the impurity solver.
+
+Usage init_dmft.py  [-option val]
+     
+ where option's are:
+   -h, --help     -- displays this messgae
+   -ca  1,2,3     -- list of correlated atoms (which atoms from 
+                                 case.struct are treated by DMFT)
+   -ot  d,d,d     -- orbital type being correlated 
+                     (which orbital is treated by DMFT, i.e, d or f)
+   -qs  7,7,7     -- q-split described the symmetry of the orbital. 
+                      (7 cubic, 2 real harmonics,..). 
+                      For help execute -h qs
+   -p  5          -- projector type (For help execute -h p )
+   -hr -10,10     -- hybridization window in eV
+   -a  i          -- real (r) or imaginary (i) axis calculation
+   -us "1,2 3,4"  -- unique set of orbitals, i.e., atom 1 and 2 map to
+                     an equivalent imputy problem, and 3,4 map to the
+                     second equivalent impurity problem.
+   -cl "1,2 3,4"  -- grouping of atoms into cluster for cluster-DMFT 
+                     by default atoms are treated by single-site DMFT
+"""
+        if len(sys.argv)>2 and sys.argv[2] == 'qs':
+            print indmffile.qsplit_doc
+        if len(sys.argv)>2 and sys.argv[2] == 'p':
+            print indmffile.projector_doc
+        sys.exit(0)
+    else:        
+        for i in range(len(sys.argv)/2):
+            inpt[sys.argv[2*i+1][1:]] = sys.argv[2*i+2]
+        print 'given options are', inpt
+
 dmfenv = DmftEnvironment()
 w2kenv = W2kEnvironment()
 
