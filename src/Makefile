@@ -58,7 +58,8 @@ install :
 	cp putils/local_axes/w2k_nn.so ${DESTDIR}
 	cp putils/wavef/w2k_atpar.so ${DESTDIR}
 	cp putils/wavef/wavef.py ${DESTDIR}
-	cp dftKS/lapw1{c,} ${DESTDIR}
+	cp dftKS/lapw1 ${DESTDIR}
+	cp dftKS/lapw1c ${DESTDIR}
 	cp dftso/lapwso ${DESTDIR}
 	cp exactDC/*.py ${DESTDIR}
 	cp exactDC/*.so ${DESTDIR}

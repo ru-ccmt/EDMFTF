@@ -7,7 +7,9 @@ import sys
 import krams
 import time
 import scipy
-if int((scipy.__version__).split('.')[1]) > 14:
+
+from distutils.version import StrictVersion
+if StrictVersion(scipy.__version__) > StrictVersion('0.14.0'):
     import weave
 else:
     import scipy.weave as weave
