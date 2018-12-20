@@ -27,5 +27,7 @@ public:
   static Timer t_evolve, t_apply;
   NState& operator=(const NState& C);
   friend std::ostream& operator<< (std::ostream& stream, const NState& st);
+  void ReleaseMemory()
+  { M.ReleaseMemory(); }
 };
 

@@ -89,6 +89,7 @@ public:
   function1D(){};                 // default constructor exists for making arrays
   explicit function1D(int N_);    // basic constructor
   ~function1D();                  // destructor
+  void ReleaseMemory();
   function1D(const function1D& m);//copy constructor
   // INITIALIZATION ROUTINES
   void resize(int N_);
@@ -165,6 +166,7 @@ public:
   function2D() : memory(NULL), N0(0), Nd0(0), N(0), Nd(0) {};
   function2D(int N_, int Nd_);
   ~function2D();
+  void ReleaseMemory();
   funProxy<T>& operator[](int i) {Assert3(i<N0 && i>=0,"Out of range in function2D[] ", i, N0); return f[i];}
   const funProxy<T>& operator[](int i) const {Assert3(i<N0 && i>=0,"Out of range in function2D[] ", i, N0); return f[i];}
 
@@ -242,9 +244,11 @@ public:
   }
   ~function2DProxy()
   {
-    for (int i=0; i<this->N0; i++) this->f[i].~funProxy<T>();
-    operator delete(_memory_);
-    _memory_ = NULL;
+    if (_memory_!=NULL){
+      for (int i=0; i<this->N0; i++) this->f[i].~funProxy<T>();
+      operator delete(_memory_);
+      _memory_ = NULL;
+    }
   }
   void resize(int N_, int Nd_) {cerr<<"ERROR : Can not resize Proxy class !"<<endl; exit(1);};
   void resize_clear(int N_, int Nd_) {cerr<<"ERROR : Can not resize Proxy class !"<<endl; exit(1);};
@@ -302,8 +306,21 @@ inline function1D<T>::function1D(int N_) : functionb<T>(N_)
 template<class T>
 inline function1D<T>::~function1D()
 {
-  if (this->f!=NULL) delete[] this->f;
-  this->f = NULL;
+  if (this->f!=NULL) {
+    delete[] this->f;
+    this->f = NULL;
+  }
+  this->N = this->N0 = 0;
+}
+
+template<class T>
+void inline function1D<T>::ReleaseMemory()
+{
+  //cout << "Release memory of function1D on pointer "<< this->f << endl;
+  if (this->f!=NULL) {
+    delete[] this->f;
+    this->f = NULL;
+  }
   this->N = this->N0 = 0;
 }
 
@@ -369,9 +386,14 @@ inline function1D<T>& function1D<T>::copy_full(const function1D<T>& m)
 template<class T>
 inline spline1D<T>::~spline1D()
 {
-  delete[] this->f; this->f = NULL;
-  delete[] f2; f2 = NULL;
-  delete[] dxi; dxi = NULL;
+  if (this->f != NULL){
+    delete[] this->f;
+    this->f = NULL;
+    delete[] f2;
+    f2 = NULL;
+    delete[] dxi;
+    dxi = NULL;
+  }
   this->N=0;
   this->N0=0;
 }
@@ -615,13 +637,28 @@ function2D<T>::function2D(int N_, int Nd_) : N0(N_), Nd0(Nd_), N(N_), Nd(Nd_)
 template<class T>
 function2D<T>::~function2D()
 {
-  for (int i=0; i<N0; i++){
-    f[i].~funProxy<T>();
+  if (memory!=NULL){
+    //cout << "And is now executing" <<endl;
+    for (int i=0; i<N0; i++) f[i].~funProxy<T>();
+    operator delete(memory);
+    memory = NULL;
   }
-  if (memory!=NULL) operator delete(memory);
-  memory = NULL;
   N0=Nd0=N=Nd=0;
 }
+
+template<class T>
+void function2D<T>::ReleaseMemory()
+{
+  //cout << "Release memory of function2D called with memory="<< memory<<endl;
+  if (memory!=NULL){
+    //cout << "And is now executing" <<endl;
+    for (int i=0; i<N0; i++) f[i].~funProxy<T>();
+    operator delete(memory);
+    memory = NULL;
+  }
+  N0=Nd0=N=Nd=0;
+}
+
 
 template <class T>
 inline function2D<T>& function2D<T>::operator=(const function2D& m)

@@ -523,48 +523,38 @@ template <class Rand>
 void CTQMC<Rand>::ReleaseSomeTempMemory()
 {// This routine releases some memory at the end, so that the high frequency
   // calculation would not run out of memory.
-  state_evolution_left.~function2D();
-  state_evolution_right.~function2D();
-  state_evolution_copy.~function1D();
-  for (size_t ifl=0; ifl<MD.size(); ifl++) MD[ifl].~function2D();
+  state_evolution_left.ReleaseMemory();
+  state_evolution_right.ReleaseMemory();
+  state_evolution_copy.ReleaseMemory();
+  for (size_t ifl=0; ifl<MD.size(); ifl++) MD[ifl].ReleaseMemory();
 
   if (common::Qsvd){
-    //for (int ifl=0; ifl<cluster.N_ifl; ifl++) Gsvd[ifl].~function2D();
     if (common::QHB2){
-      /*
-      if (common::Segment){
-	for (int ifl=0; ifl<cluster.Nvfl; ifl++) Fsvd[ifl].~function2D();
-	for (int ifl=0; ifl<cluster.N_ifl; ifl++) Njcs[ifl].~function2D();
-      }else{
-      */
-	Fsvd1.~function2D();
-	for (int ifl=0; ifl<cluster.N_ifl; ifl++) Njcs1[ifl].~function1D();
-	/*}*/
+      Fsvd1.ReleaseMemory();
+      for (int ifl=0; ifl<cluster.N_ifl; ifl++) Njcs1[ifl].ReleaseMemory();
     }
   }
   
   if (common::cmp_vertex){
     if (common::Qsvd){
-      //VH.resize(cluster.Nvfl,cluster.Nvfl,svd.lmax_bose,svd.lmax,svd.lmax);
-      tMsMe.~function2D();
+      tMsMe.ReleaseMemory();
       for (int ifl=0; ifl<cluster.Nvfl; ifl++){
-	Gsvd_s[ifl].~function2D();
-	Gsvd_e[ifl].~function2D();
-	Gsvd_es[ifl].~function3D();
+	Gsvd_s[ifl].ReleaseMemory();
+	Gsvd_e[ifl].ReleaseMemory();
+	//Gsvd_es[ifl].~function3D();
       }
     }else{
       //VertexH.resize(cluster.Nvfl,cluster.Nvfl,2*nOm-1,2*nomv,2*nomv);
       //VertexF.resize(cluster.Nvfl,cluster.Nvfl,2*nOm-1,2*nomv,2*nomv);
-      for (int ifl=0; ifl<cluster.Nvfl; ifl++) Mv[ifl].~function2D();
+      for (int ifl=0; ifl<cluster.Nvfl; ifl++) Mv[ifl].ReleaseMemory();
     }
   }
-  //  Cf.~function2D();
-  tMD.~function2D();
-  dexp.~function2D();
-  dtau.~function1D();
+  tMD.ReleaseMemory();
+  dexp.ReleaseMemory();
+  dtau.ReleaseMemory();
 
-  Operators.ReleaseSomeTempMemory();
-  for (size_t ifl=0; ifl<intervals.size(); ifl++) intervals[ifl].ReleaseSomeTempMemory();
+  //Operators.ReleaseSomeTempMemory();
+  //for (size_t ifl=0; ifl<intervals.size(); ifl++) intervals[ifl].ReleaseSomeTempMemory();
   for (size_t ifl=0; ifl<TMD.size(); ifl++) TMD[ifl].ReleaseSomeTempMemory();
 }
 

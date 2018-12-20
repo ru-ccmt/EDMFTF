@@ -146,33 +146,33 @@ inline void MatrixM::Resize(int new_Nmax)
 
 void MatrixM::ReleaseSomeTempMemory()
 {
-  d_ln.~function1D();
-  d_nl.~function1D();
-  d_lm.~function1D();
-  d_ml.~function1D();
-  Lt.~function1D();
-  Rt.~function1D();
-  Lt2.~function1D();
-  Rt2.~function1D();
-  ipiv.~function1D();
+  d_ln.ReleaseMemory();//~function1D();
+  d_nl.ReleaseMemory();//~function1D();
+  d_lm.ReleaseMemory();//~function1D();
+  d_ml.ReleaseMemory();//~function1D();
+  Lt.ReleaseMemory();//~function1D();
+  Rt.ReleaseMemory();//~function1D();
+  Lt2.ReleaseMemory();//~function1D();
+  Rt2.ReleaseMemory();//~function1D();
+  ipiv.ReleaseMemory();//~function1D();
   
   if (! common::Qsvd){
-    Gf.~function2D();
-    if (common::QHB2) Ff.~function2D();
-    sum1.~function2D();
-    sum2.~function2D();
-    if (common::QHB2) sum2c.~function2D();
-    dG.~function2D();
-    dexp0.~function1D();
-    sum3.~function2D();
-    sumt.~function1D();
+    Gf.ReleaseMemory();//~function2D();
+    if (common::QHB2) Ff.ReleaseMemory();//~function2D();
+    sum1.ReleaseMemory();//~function2D();
+    sum2.ReleaseMemory();//~function2D();
+    if (common::QHB2) sum2c.ReleaseMemory();//~function2D();
+    dG.ReleaseMemory();//~function2D();
+    dexp0.ReleaseMemory();//~function1D();
+    sum3.ReleaseMemory();//~function2D();
+    sumt.ReleaseMemory();//~function1D();
     if (common::cmp_vertex)
-      for (unsigned i=0; i<dMv.size(); i++) dMv[i].~function2D();
+      for (unsigned i=0; i<dMv.size(); i++) dMv[i].ReleaseMemory();//~function2D();
   }else{
     //if (common::cmp_vertex)
-    M_ul.~function1D();
+    M_ul.ReleaseMemory();//~function1D();
   }
-  temp.~function1D();
+  temp.ReleaseMemory();//~function1D();
 }
 
 

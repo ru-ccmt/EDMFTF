@@ -328,12 +328,14 @@ inline mesh1D::mesh1D(int N_)
 
 inline mesh1D::~mesh1D() 
 { // Destructor cleans up
-  delete[] om;
-  delete[] delta;
-  delete[] dh;
-  om = NULL;
-  delta = NULL;
-  dh = NULL;
+  if (om != NULL){
+    delete[] om;
+    delete[] delta;
+    delete[] dh;
+    om = NULL;
+    delta = NULL;
+    dh = NULL;
+  }
   N0=N=0;
 }
 
@@ -653,13 +655,15 @@ mesh2D::mesh2D(int N_, int Nd_) : N(N_), N0(N_), Nd(Nd_), Nd0(Nd_)
 
 mesh2D::~mesh2D()
 {
-  for (int i=0; i<N0; i++)
-    r[i].~meshProxy();
-  operator delete (memory);
-  memory = NULL;
-  for (int i=0; i<N0; i++)
-    delete[] ind_1[i];
-  delete[] ind_1;
+  if (memory != NULL){
+    for (int i=0; i<N0; i++)
+      r[i].~meshProxy();
+    operator delete (memory);
+    memory = NULL;
+    for (int i=0; i<N0; i++)
+      delete[] ind_1[i];
+    delete[] ind_1;
+  }
 }
 
 void mesh2D::SetUp(const mesh1D& ome, const mesh1D& Om_, const mesh1D& omc, int M, double peakpos)

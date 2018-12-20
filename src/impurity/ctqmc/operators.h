@@ -135,12 +135,12 @@ inline void NOperators::Resize(int newNmax)
 
 void NOperators::ReleaseSomeTempMemory()
 {
-  time.~function1D();
-  index.~function1D();
-  type.~function1D();
-  tr_index.~function1D();
-  p_ifl.~function1D();
-  Exps.~function2D();
+  time.ReleaseMemory();//~function1D();
+  index.ReleaseMemory();//~function1D();
+  type.ReleaseMemory();//~function1D();
+  tr_index.ReleaseMemory();//~function1D();
+  p_ifl.ReleaseMemory();//~function1D();
+  Exps.ReleaseMemory();//~function2D();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
