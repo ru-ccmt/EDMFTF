@@ -11,6 +11,7 @@ DMFT installation instructions:
      "configure.py.gnu". You could also mix the two if desired.
      
   2. Execute `setup.py' and you should be guided through installation process.
+     Please make sure that you have /usr/bin/time installed.
 
   3. Learn how to use the code by reading "http://hauleweb.rutgers.edu/tutorials/"
 

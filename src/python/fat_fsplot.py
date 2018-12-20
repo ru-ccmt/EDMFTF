@@ -6,7 +6,7 @@ import os, sys
 import scipy
 
 from distutils.version import StrictVersion
-if StrictVersion(scipy.__version__) > StrictVersion('0.14.0'):
+if StrictVersion(scipy.__version__) > StrictVersion('0.19.0'):
     import weave
 else:
     import scipy.weave as weave

@@ -117,7 +117,9 @@ public:
     function1D<int> iwork(8*min(om.size(),tau.size()));
     int info=0;
     info = xgesdd(true, tau.size(), om.size(), K.MemPt(), K.fullsize_Nd(), S.MemPt(), U.MemPt(), U.fullsize_Nd(), Vt.MemPt(), Vt.fullsize_Nd(),work.MemPt(), lwork, work.MemPt(), iwork.MemPt());
-  
+    if (info!=0){
+      clog << "svd is returning "<<info<<" in svdfunc"<<endl;
+    }
     double dt = static_cast<double>( clock() - t0 )/CLOCKS_PER_SEC;
     clog<<"svd time="<<dt<<endl;
 
