@@ -87,26 +87,22 @@ class W2kEnvironment:
             raise Exception, 'Cannot determine location of WIEN executables because WIENROOT is not set.'
 
     def __get_case(self):
-        # Determine WIEN2k case name
+        # Determine WIEN2k case name                                                                                                                                                                         
         self.case = os.path.basename(os.getcwd())
-  
-        if not os.path.isfile(self.case+'.struct'):  # directory name is not case (happens when submitting to cluster)
+        if not (os.path.isfile(self.case+'.struct') and os.path.isfile(self.case+'.in0') ):  # directory name is not case (happens when submitting to cluster)                                               
             files = glob.glob('*.struct')
             if len(files) < 1:
                 raise Exception, 'No struct file present.'
             elif len(files) > 1:
-                # heuristic algorithm to determine case:
-                # the struct file whose head is the same as the most files in this directory is most likely the case
+                # heuristic algorithm to determine case:                                                                                                                                                     
+                # need in0 and struct present with the same case.
                 candidates = [os.path.splitext(f)[0] for f in files]
-                allheads = [os.path.splitext(f)[0] for f in os.listdir('.')]
-                counts = [len([1 for f in allheads if f == candidate]) for candidate in candidates]
-                index = counts.index(max(counts))
-                self.case = candidates[index]
-                # before, raised an exception -- now, maybe we should at least print a warning?
-                # raise Exception, 'Multiple struct files present.  Found following struct files:\n' + '\n'.join(files)
-            else:
+                for cand in candidates:
+                    if os.path.isfile(cand+'.in0'):
+                        self.case = cand
+                        break
+            else: # just one candidate exists, hence it must be it
                 self.case, ext = os.path.splitext(os.path.basename(files[0]))
-
 
 # energy units conversion between eV and Ry
 
