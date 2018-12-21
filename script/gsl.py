@@ -110,8 +110,9 @@ class Gsl(framework.Framework):
         
         if self.config.gsl == "":  # just trying default == -lgsl
             self.config.gsl='-lgsl'
-            
-        self.config.gslinc = includefromlib(self.config.gsl)
+
+        if self.config.gslinc == "":
+            self.config.gslinc = includefromlib(self.config.gsl)
         ccomm = self.config.cxx+' '+self.config.gslinc+ ' -o tmpc '+'tmpc.cc '+self.config.gsl
         print 'checking with:', ccomm
         (output, error, retz) = shellcmd(ccomm)

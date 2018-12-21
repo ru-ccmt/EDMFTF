@@ -119,7 +119,8 @@ class Fftw(framework.Framework):
         if self.config.fftwlib == "":
             self.config.fftwlib='-lfftw3'  # just trying default"
         
-        self.config.fftwinc = includefromlib(self.config.fftwlib)
+        if self.config.fftwinc == "":
+            self.config.fftwinc = includefromlib(self.config.fftwlib)
         ccomm = self.config.cc+' '+self.config.fftwinc+' -o tmpc  tmpc.c '+self.config.fftwlib
         print 'checking with:', ccomm
         

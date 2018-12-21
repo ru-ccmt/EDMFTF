@@ -113,7 +113,7 @@ SUBROUTINE CmpSymmetryTransformation(ig, RT, cfX, cix_orb, cixdim, iSx, iorbital
   INTEGER    :: l, cdim, i, j, latom_rotated, icase_rotated
   COMPLEX*16 :: Ds(2,2), tmp(maxdim2,maxdim2)
   COMPLEX*16, allocatable :: Dr(:,:), Drs(:,:)
-  COMPLEX*16 :: Drx(maxdim2,maxdim2)
+  COMPLEX*16 :: Drx(maxdim2,maxdim2), CfXC(maxdim2,maxdim2)
   !
   call inv_3x3(BR1,BR1inv)
   Id(:,:)=0.d0
@@ -196,7 +196,11 @@ SUBROUTINE CmpSymmetryTransformation(ig, RT, cfX, cix_orb, cixdim, iSx, iorbital
         do iorb1=1,norbitals
            if (cix_orb(iorb) .NE. cix_orb(iorb1) ) CYCLE
            nind1 = nindo(iorb1)
-           tmp(:nind1,:nind) = matmul( conjg(cfX(:nind1,:nind,iorb1,iorb)), Dr(:nind,:nind) )
+           !!!!gfortran bug discovered in 2018. It can not handle temporary variables
+           ! tmp(:nind1,:nind) = matmul( conjg(cfX(:nind1,:nind,iorb1,iorb)), Dr(:nind,:nind) )
+           cfXC(:nind1,:nind) = conjg(cfX(:nind1,:nind,iorb1,iorb))
+           tmp(:nind1,:nind) = matmul( cfXC(:nind1,:nind), Dr(:nind,:nind) )
+           !!!!gfortran bug discovered in 2018. It can not handle temporary variables
            do iorb2=1,norbitals
               if (cix_orb(iorb_rotated) .NE. cix_orb(iorb2) ) CYCLE
               nind2 = nindo(iorb2)
