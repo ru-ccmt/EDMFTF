@@ -116,10 +116,10 @@ class Fftw(framework.Framework):
         """
         writefile('tmpc.c',code)
 
-        if self.config.fftwlib == "":
+        if self.config.fftwlib == "" or self.config.fftwlib is None:
             self.config.fftwlib='-lfftw3'  # just trying default"
         
-        if self.config.fftwinc == "":
+        if self.config.fftwinc == "" or self.config.fftwinc is None:
             self.config.fftwinc = includefromlib(self.config.fftwlib)
         ccomm = self.config.cc+' '+self.config.fftwinc+' -o tmpc  tmpc.c '+self.config.fftwlib
         print 'checking with:', ccomm

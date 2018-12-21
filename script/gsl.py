@@ -108,10 +108,10 @@ class Gsl(framework.Framework):
         """
         writefile('tmpc.cc',code)
         
-        if self.config.gsl == "":  # just trying default == -lgsl
+        if self.config.gsl == "" or self.config.gsl is None:  # just trying default == -lgsl
             self.config.gsl='-lgsl'
 
-        if self.config.gslinc == "":
+        if self.config.gslinc == "" or self.config.gslinc is None:
             self.config.gslinc = includefromlib(self.config.gsl)
         ccomm = self.config.cxx+' '+self.config.gslinc+ ' -o tmpc '+'tmpc.cc '+self.config.gsl
         print 'checking with:', ccomm
