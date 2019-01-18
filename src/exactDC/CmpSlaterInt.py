@@ -81,7 +81,7 @@ def GetWaveF(finput):
 
 def SlaterF2J(Fk,l):
     if l==0:
-        return Fk
+        return [Fk[0],0]
     elif l==1:
         # F2 for p-electrons
         J2 = Fk[1]/5.

@@ -1093,6 +1093,7 @@ void CTQMC<Rand>::Exchange_Two_Intervals(long long istep)
   int iws=0;
   if (t_b<0) {t_b += common::beta; iws=1;}
   if (t_b>=common::beta) {t_b -= common::beta; iws=1;}
+  t_b = intervals[ifb].time(typeb,ib);
   if (t_a==t_b) return;
 
   t_mv.start();
@@ -1573,6 +1574,7 @@ void CTQMC<Rand>::Segment_Exchange_Two_Intervals(long long istep)
   int iws=0;
   if (t_b<0) {t_b += common::beta; iws=1;}
   if (t_b>=common::beta) {t_b -= common::beta; iws=1;}
+  t_b = intervals[ifb].time(typeb,ib); // BUG corrected 2019. Need very precise t_b, not approximate where beta is added and subtracted.
   if (t_a==t_b) return;
 
   t_mv.start();

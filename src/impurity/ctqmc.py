@@ -169,7 +169,7 @@ class IMP_CTQMC(object):
         Delta = Delta_dat[1::2] + Delta_dat[2::2]*1j
         # subtracting Edc, because the ksum used (Hk+s_oo-Edc)
         self.Eimps = Eimp-Edc
-        
+
         if DCs=='fixn0':
             self.Eimps = ones(len(self.Eimps))*sum(self.Eimps)/len(self.Eimps)  # All impurity levels should be the same
             print >> self.fh_info, 'Eimps(fixn0)=', Eimps
@@ -238,7 +238,7 @@ class IMP_CTQMC(object):
                 cmd = 'cd '+ self.dir + '; ' + self.atom_exe +' ' +atom_arg+' > nohup.out 2>&1'
                 subprocess.call(cmd,shell=True,stdout=self.fh_info,stderr=self.fh_info)
 
-            elif (self.l==2) :
+            elif (self.l < 3) :
                 # executable for ED of the atom
                 self.atom_exe = self.env.ROOT + '/atom_d.py'
 
@@ -794,7 +794,7 @@ class IMP_CTQMC(object):
             cmd = 'cd '+ self.dir + '; ' + self.atom_exe +' ' +atom_arg+' > nohup.out 2>&1'
             print '.... running ..', cmd
             
-        elif (self.l==2) :
+        elif (self.l < 3) :
             # executable for ED of the atom
             self.atom_exe = self.env.ROOT + '/atom_d.py'
             
