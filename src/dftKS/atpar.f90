@@ -5,7 +5,7 @@ SUBROUTINE ATPAR(NT,REL,NAT,LNSMAX,ZZ,force,lmmx,lomax,ngau,nrad,nslmax)
   use radial, only: A,B, AE, BE, VLM, A1, B1, AE1, BE1, A1LO, B1LO
   use lolog, only : loor, lapw, ilo
   use atspdt, only: LMMAX, LQIND, LM, LQNS, DP, DPE, E, P, PE,PEI, VNS1, VNS2, VNS3, GFAC!, NL
-  use structure, only  : jri, dx, r0
+  use structure, only  : jri, dx, r0, aname
   use loint, only : VNS1LO, VNS2LO, VNS3LO
   use potnlc, only: VR 
   use structure, only : IATNR
@@ -53,7 +53,7 @@ SUBROUTINE ATPAR(NT,REL,NAT,LNSMAX,ZZ,force,lmmx,lomax,ngau,nrad,nslmax)
      End Function RINT13
   end interface
   !        External Functions
-  EXTERNAL           ABC0,CBCOMB,FORFHS,OUTERR,OUTWINC,SELECT
+  EXTERNAL           CBCOMB,FORFHS,OUTERR,OUTWINC,SELECT!,ABC0
   !
   DATA IMAG /(0.0D+0,1.0D+0)/
   !
@@ -76,7 +76,7 @@ SUBROUTINE ATPAR(NT,REL,NAT,LNSMAX,ZZ,force,lmmx,lomax,ngau,nrad,nslmax)
         RNET(i)=r0(jatom)*exp(dx(jatom)*(i-1.d0))
      enddo
 
-     if (Qprint) WRITE (6,6020) ! Starts calculating potential parameters
+     if (Qprint) WRITE (6,6020) jatom, aname(jatom) ! Starts calculating potential parameters
      DELE = 2.0D-3
      DELEI = 0.250D0/DELE
      DO l=0,NT-1
@@ -352,7 +352,8 @@ SUBROUTINE ATPAR(NT,REL,NAT,LNSMAX,ZZ,force,lmmx,lomax,ngau,nrad,nslmax)
   call stop_MPI
   STOP 'ATPAR - Error'
   !
-6020 FORMAT (/,10X,'POTENTIAL PARAMETERS ',/,11X,'L',5X,'U(R)',10X,'U''(R)',9X,'DU/DE',8X,'DU''/DE',6X,'NORM-U''')
+!6000 FORMAT (/,10X,'ATOMIC SPHERE DEPENDENT PARAMETERS FOR ATOM  ',A10)
+6020 FORMAT (/,10X,'POTENTIAL PARAMETERS FOR JATOM=',I3,' ',A10,/,11X,'L',5X,'U(R)',10X,'U''(R)',9X,'DU/DE',8X,'DU''/DE',6X,'NORM-U''')
 6021 FORMAT (/,10X,'LOCAL ORBITAL POTENTIAL PARAMETERS',/,11X,'L',5X,'U(R)',10X,'U''(R)',5X,'NORM U1U2',8X,'NORM UE1U2')
 6030 FORMAT (10X,I2,5E14.6,5X,3I2)
 6031 FORMAT (10X,I2,4E14.6,5X,3I2)

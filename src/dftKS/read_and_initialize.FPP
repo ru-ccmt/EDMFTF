@@ -128,6 +128,16 @@ SUBROUTINE read_and_initialize(NUMKPT,DEFFN,INFO,nmat_only)
   ! case.in1 contains information of how to choose linearization energies.
   ! The linearization energies E & Elo are determined here inside on the fly.
   CALL ReadSecondPart_of_in1(E,Elo,lapw,loor,ilo,nlo, Vr,ZZ,jri,mult,dx,r0,Efermi,aname,REL,5,6,21,nat,nrad,nloat,lmax,lomax,Qprint)
+
+  !print *, 'Came out of ReadSecondPart_of_in1 and have E='
+  !do jatom=1,nat
+  !   do l=0,3
+  !      print *, jatom, l, E(l+1,jatom)
+  !   enddo
+  !enddo
+  ! call exit
+
+
   ! Compute how many localized orbitals appear before each atom nlov(jatom)
   allocate(nlov(nat+1))
   tnlov=0   ! all localized orbitals before jatom
@@ -147,6 +157,9 @@ SUBROUTINE read_and_initialize(NUMKPT,DEFFN,INFO,nmat_only)
   CALL END_RADIAL  
   ! Coefficients for local orbitals are computed such that the real local orbitals vanish at the MT-boundary
   DO jatom=1,NAT
+     if (Qprint) then
+        WRITE(6, '(/,10X,"LO PARAMETERS FOR JATOM=",I3," ",A10)') jatom, aname(jatom)
+     endif
      do l=0,lomax
         do jlo=1,ilo(l,jatom)
            CALL ABC0(alo(l,jlo,jatom),blo(l,jlo,jatom),clo(l,jlo,jatom),lapw(l,jatom),p(l+1,jatom),dp(l+1,jatom),pe(l+1,jatom),dpe(l+1,jatom),pei(l+1,jatom),plo(l,jlo,jatom),dplo(l,jlo,jatom),pi12lo(l,jlo,jatom),pe12lo(l,jlo,jatom),Rmt(JATOM),l,jlo,Qprint)
