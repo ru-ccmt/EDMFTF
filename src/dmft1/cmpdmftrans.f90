@@ -189,7 +189,7 @@ module DMFTProjector
                enddo
             enddo
             !$OMP END PARALLEL DO
-         elseif (abs(projector).eq.5) then
+         elseif (abs(projector).eq.5 .or. abs(projector).eq.6) then
             iind = al_ucase(icase,lcase)
             !$OMP PARALLEL DO SHARED(URx,rix_mat) PRIVATE(num1,is1,m1,lms1,ind1,cc,irf1) SCHEDULE(STATIC)
             do num1=1,nbands  
@@ -214,7 +214,7 @@ module DMFTProjector
             enddo
             !$OMP END PARALLEL DO
          else
-            print *, 'Only projector=[1,2,3,4,5] is allowed!'
+            print *, 'Only projector=[1,2,3,4,5,6] is allowed!'
             stop
          endif
 

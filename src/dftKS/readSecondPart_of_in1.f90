@@ -1,7 +1,7 @@
 ! @Copyright 2007 Kristjan Haule
 ! 
 SUBROUTINE ReadSecondPart_of_in1(El,Elo,lapw,loor,ilo,nlo, Vr,ZZ,jri,mult,dx,r0,Efermi,aname,REL,fh_in1,fh_cout,fh_scf,nat,nrad,nloat,lmax,lomax,Qprint)
-  use mpi, ONLY: stop_MPI
+  !use mpi, ONLY: stop_MPI
   IMPLICIT NONE
   REAL*8,  intent(inout) :: El(1:lmax,nat), Elo(0:lomax,1:nloat,nat)
   LOGICAL, intent(out) :: lapw(0:lmax-1,nat), loor(0:lomax,nat)
@@ -75,7 +75,7 @@ SUBROUTINE ReadSecondPart_of_in1(El,Elo,lapw,loor,ilo,nlo, Vr,ZZ,jri,mult,dx,r0,
         if(l.gt.lomax) then
            write(*,*) 'l-value of LOs.gt.LOMAX, increase LOMAX in the code'
            CALL ERRCLR('')
-           call stop_MPI
+           !call stop_MPI
            stop 'ERROR in lapw1'
         endif
         if (dE.lt.-1.0d-8) dE=-dE/10000.d0           ! if de<0 than de is really small positive, namely 1e4-times smaller than written

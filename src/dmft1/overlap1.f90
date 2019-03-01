@@ -664,17 +664,6 @@ SUBROUTINE cmp_overlap(projector,Olapm, SOlapm, Qcomplex, nsymop, csort, iorbita
         enddo
         deallocate( cind )
 
-        !allocate( olocf(cixdm,cixdm), ws(cixdm), tmp1(cixdm,cixdm) )
-        !olocf(:,:) = Olapm(:cixdm,:cixdm,icix)
-        !CALL ZHEEVD('V','U', cixdm, olocf, cixdm, ws, work, lwork, rwork, lrwork, iwork, liwork, info )
-        !if (info .ne. 0) then
-        !   print *, 'Diagonalization of renormalization factor failed. Info-zheevd=', info
-        !endif
-        !do ip=1,cixdm
-        !   tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
-        !enddo
-        !call zgemm('N','C', cixdm, cixdm, cixdm, (1.d0,0.d0), tmp1, cixdm, olocf, cixdm, (0.d0,0.d0), SOlapm(:,:,icix), maxdim)
-
         allocate( olocf(cixdms,cixdms), ws(cixdms), tmp1(cixdms,cixdms), solap(cixdms,cixdms) )
         do ip=1,cixdms
            do iq=1,cixdms

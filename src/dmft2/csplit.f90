@@ -7,13 +7,14 @@ SUBROUTINE csplit(nemin,nemax,l,jatom,mu,alm,blm,clm,coord)
   use structure, ONLY: isplit, mult
   use lo, ONLY: ilo, pi12lo, pe12lo, pr12lo
   USE lohelp, ONLY: TC22, TC12, TC21, TCe12, TCe21, sum12, sum21, sume12, sume21, sum22
-  USE xa, ONLY: TC100, TCA100, TCB100, LMAX2, NUME, nloat, suma, sumb 
+  USE xa, ONLY: TC100, TCA100, TCB100, LMAX2, NUME, nloat, suma, sumb, E 
   USE atspdt, only: p,dp,pe,dpe,pei
   IMPLICIT REAL*8 (A-H,O-Z)
   !
   CHARACTER*5:: COORD 
   REAL*8     :: tc21h,tc12h,tce21h
   REAL*8     :: tce12h,tc22h
+  REAL*8     :: wtca100, wtcb100
   COMPLEX*16 :: BLM((LMAX2+1)*(LMAX2+1),NUME),ALM((LMAX2+1)*(LMAX2+1),NUME),cLM((lomax+1)*(lomax+1),NUME,nloat)
   !                                                                       
   ! DEFINE CONSTANTS, FACTORIALS                                      
@@ -24,7 +25,16 @@ SUBROUTINE csplit(nemin,nemax,l,jatom,mu,alm,blm,clm,coord)
   ! nested subroutines produce:
   !          app variables in charp, chard, charf
   ! all are functions of L,num
-  SQFP=SQRT(4.D0*PI)                                                
+
+  SQFP=SQRT(4.D0*PI)
+  
+  !print *, 'L=', L, 'PEI=', PEI(l)
+  !do num=nemin,nemax
+  !   wtca100 = suma(num)*SQFP * 100
+  !   wtcb100 = sumb(num)*SQFP*PEI(l) * 100
+  !   WRITE(*, '("num=",I3,1x,"E=",F8.4,2x,"wtca100=",F12.6,2x,"wtcb100=",F12.6)') num, E(num), wtca100, wtcb100
+  !end do
+  
   num_loop:  DO NUM=NEMIN,NEMAX
      TCA=SUMA(NUM)*SQFP
      TCB=SUMB(NUM)*SQFP*PEI(L)

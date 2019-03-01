@@ -24,6 +24,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   USE xa2, ONLY: lda_weight, lda_nbmax
   USE fftw3_omp, ONLY: fft_init, fft_fini, fft_run, fft, fft_init_step1, fft_init_step2, fft_fini_step2
   USE fact, only: fct
+  USE Fermi, only: cmp_EF
   IMPLICIT NONE
   CHARACTER*5, intent(in)  :: coord
   REAL*8, intent(in)       :: sumw
@@ -295,7 +296,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   enddo
   if (myrank.EQ.master) WRITE(6,*) 'nipc=', nipc, 'For force calculation on correlated atom it should be 4'
   
-  if (abs(projector).eq.5) then
+  if (abs(projector).ge.5) then
      filename="projectorw.dat"
      call p_allocate(filename)
      call p_cmp_rixmat()
@@ -334,7 +335,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
 
   max_nbands=0
   ! If DMFT-transformation need to be normalized, we compute the renormalization coefficients
-  if (Qrenormalize) then
+  if (Qrenormalize .and. abs(projector).le.5) then
      allocate(Olapm0(maxdim,maxdim,ncix), SOlapm(maxdim,maxdim,ncix) )
      call read_overlap_from_file(info, Olapm0, SOlapm, cixdim, maxdim, ncix)
      time_dmf0=0; time_dmf0w=0
@@ -533,7 +534,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         !STOP
 !!! BRISI
         ! New
-        if (abs(projector).EQ.5) then
+        if (abs(projector).ge.5) then
            allocate( phi_jl(nmat, n_al_ucase) )
            
            Nri=2**kNri+1    ! Number of radial points in the interstitials
@@ -571,10 +572,15 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
 
         CALL Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0, nnlo, nbands, cix_orb, nindo, DM_nemin, DM_nemax, maxdim2, lmaxp)
         
-        if (abs(projector).EQ.5) deallocate( phi_jl )
+        if (abs(projector).ge.5) deallocate( phi_jl )
 
-        if (Qrenormalize) CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, nipc, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
-        
+        if (Qrenormalize) then
+           if (abs(projector).le.5) then
+              CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, nipc, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
+           else
+              CALL RenormalizeTransK(DMFTU, cix_orb, cixdim, nindo, iSx, Sigind, projector, nbands, nipc, maxdim2, norbitals, maxdim, ncix)
+           endif
+        endif
         allocate( STrans(maxsize,ncix,nbands,nbands) )
         allocate( lgTrans(nbands,nbands,ntcix,nipc) )
         
@@ -688,7 +694,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         
         nbandsx = DM_nemaxx-DM_nemin+1
 
-        CALL cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, nbands, nbandsx, nbands_dft, lm_max, n0, nnlo, coord, ikp, time_bl,time_bl_w, time_reduc, time_reduc_w, time_radprod, time_radprod_w, time_m, time_m_w, time_rad, time_rad_w, time_ilm, time_ilm_w, time_lo, time_lo_w, time_force, time_force_w)
+        CALL cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, nbands, nbandsx, nbands_dft, lm_max, n0, nnlo, coord, ikp, DM_EF, time_bl,time_bl_w, time_reduc, time_reduc_w, time_radprod, time_radprod_w, time_m, time_m_w, time_rad, time_rad_w, time_ilm, time_ilm_w, time_lo, time_lo_w, time_force, time_force_w)
         
         DEALLOCATE( wEpsw )
         CALL cputim(time1)
@@ -722,7 +728,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
 
   deallocate( dNds )
   
-  if (abs(projector).eq.5) call p_deallocate()
+  if (abs(projector).ge.5) call p_deallocate()
   if (Qforce) CALL Deallocate_nsh()
 
   allocate( Edimp(ntcix) )
@@ -1094,7 +1100,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   CALL fini_xa3
   CALL w_deallocate1
 
-  if (Qrenormalize) then
+  if (Qrenormalize .and. abs(projector).le.5) then
      deallocate(Olapm0, SOlapm )
   endif
 

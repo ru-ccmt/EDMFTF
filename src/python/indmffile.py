@@ -43,6 +43,8 @@ projector_doc="""  Projector  Description
           MT-zero moves (folows band with certain index)
      5  fixed projector, which is written to projectorw.dat. You can
         generate projectorw.dat with the tool wavef.py
+     6  similar to projector 5, except projector is here momentum dependent, 
+        i.e., similarly to Wannier orbital construction
 ------  ------------------------------------------------------------
 """
 
@@ -87,7 +89,7 @@ class IndmfBase:
             ('hybr_emin', -10.0 ),  # (eV) range of hybridization to pass on to impurity problem
             ('hybr_emax',  10.0  ), # (eV)
             ('Qrenorm',    1    ),  # whether or not to renormalize (what are we renormalizing?)
-            ('projector',  2    ),  # type of projection onto correlated space (0,1,2,3,4)
+            ('projector',  5    ),  # type of projection onto correlated space (0,1,2,3,4)
             ('matsubara',  0    ),  # 0 = real axis, 1 = imaginary axis
             ('broadc',     0.025),  # (eV) broadening for correlated (applied to what -- self-energy?)
             ('broadnc',    0.025),  # (eV) broadening for noncorrelated
@@ -145,7 +147,7 @@ class IndmfBase:
         self.om_npts   = int(self.om_npts) 
         self.Qrenorm   = int(self.Qrenorm)
         self.projector = int(self.projector)
-        if self.projector==5:
+        if self.projector>=5:
             self.hybr_emin = int(self.hybr_emin)
             self.hybr_emax = int(self.hybr_emax)
             
@@ -711,7 +713,7 @@ class Indmfl(IndmfBase):
                 
                 if len(enefiles)==0:
                     print 'all enefiles=', enefiles
-                    print "ERROR : The case.energy* files should be present in this directory when using projector 5. Exiting...."
+                    print "ERROR : The case.energy* files should be present in this directory when using projector 5 or 6. Exiting...."
                     sys.exit(1)
 
                 (nemin,nemax) = findNbands.findNbands(self.hybr_emin+self.EF,self.hybr_emax+self.EF,enefiles,strfile)

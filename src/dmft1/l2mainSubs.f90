@@ -961,13 +961,114 @@ SUBROUTINE GlocEigvals(evals, gxc, Sigini, Off_diagonal, cixdms, csize)
   endif
 END SUBROUTINE GlocEigvals
   
+SUBROUTINE RenormalizeTransK(DMFTU, cix_orb, cixdim, nindo, iSx, Sigind, projector, nbands, maxdim2, norbitals, maxdim, ncix)
+  IMPLICIT NONE
+  COMPLEX*16, intent(inout) :: DMFTU(nbands,maxdim2,norbitals)
+  INTEGER, intent(in)       :: cix_orb(norbitals), nindo(norbitals), iSx(maxdim2,norbitals), cixdim(ncix), Sigind(maxdim,maxdim,ncix)
+  INTEGER, intent(in)       :: nbands, maxdim2, norbitals, maxdim, ncix, projector
+  ! locals
+  INTEGER :: iorb1, icix, nind1, ind1, cixdm
+  REAL*8  :: olocef
+  !
+  INTEGER :: cixdms, cixdms_m, info, ip, lwork, lrwork, i
+  INTEGER,    allocatable :: cind(:), cini(:), iwork(:)
+  COMPLEX*16, allocatable :: Ucix(:,:), work(:), Uw(:,:), Vw(:,:)
+  REAL*8,     allocatable :: rwork(:), ws(:)
+  !
+  DO icix=1,ncix
+     cixdm = cixdim(icix)
+     
+     ! If we project out some orbitals, for example eg-orbitals, we might have
+     ! Sigind= [[0,0,0,0,0], [0,0,0,0,0], [0,0,1,0,0], [0,0,0,2,0], [0,0,0,0,3]]
+     ! then
+     !     cind[1:5] = [0,0,1,2,3] and
+     !     cini[1:3] = [3,4,5]
+     allocate( cind(cixdm) )
+     cixdms=0 ! real dimension, excluding states which must be projected out, because they are treated as non-correlated                                                                                    
+     cind=0   ! In most cases, cind(i)=i, however, when some states are projected out, cind points to smaller block                                                                                         
+     DO ip=1,cixdm
+        if (Sigind(ip,ip,icix) .ne. 0) then
+           cixdms = cixdms + 1
+           cind(ip) = cixdms
+        endif
+     ENDDO
+     
+     allocate( cini(cixdms))
+     do ip=1,cixdm
+        if (cind(ip).gt.0) cini(cind(ip))=ip
+     enddo
+     ! Now cini[1:3] = [3,4,5] contains the small index of non-zero components
+     
+     ! If we have cluster-DMFT calculations, we need several orbitals combined into cix block
+     allocate( Ucix(nbands,cixdms) )
+     Ucix(:,:) = 0.d0
+     DO iorb1=1,norbitals
+        if ( cix_orb(iorb1).NE.icix ) CYCLE
+        nind1 = nindo(iorb1)
+        do ind1=1,nind1
+           ip = iSx(ind1,iorb1)
+           if (cind(ip).gt.0) Ucix(:,cind(ip)) = DMFTU(:,ind1,iorb1)
+        enddo
+     ENDDO
 
-SUBROUTINE RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, maxdim2, norbitals, maxdim, ncix, SIMPLE)
+     cixdms_m = min(cixdms,nbands) ! should normally be cixdms, as the number of bands should be larger
+     allocate( ws(cixdms_m), Uw(nbands,cixdms_m), Vw(cixdms_m,cixdms) )
+     
+     lwork = 2*cixdms*(cixdms+nbands)
+     lrwork = 7*cixdms*(cixdms + 1)
+     allocate( work(lwork), rwork(lrwork), iwork(8*cixdms) )
+
+     !do i=1,nbands
+     !   WRITE(6,'(A)', advance='no') "["
+     !   do ip=1,cixdms
+     !      WRITE(6, '(f14.10,"+",f8.5,3x,"*1j, ")',advance='no') real(Ucix(i,ip)), aimag(Ucix(i,ip))
+     !   enddo
+     !   WRITE(6,*) "],"
+     !enddo
+
+     
+     call ZGESDD('S', nbands, cixdms, Ucix, nbands, ws, Uw, nbands, Vw, cixdms_m, work, lwork, rwork, iwork, info )
+     if (info .ne. 0) then
+        print *, 'SVD decomposition of the projector failed. Info-zgesdd=', info
+        if (info.lt.0) print *, 'The ', abs(info),' th argument had an illegal value.'
+        if (info.gt.0) print *, 'The updating process of DBDSDC did not converge.'
+     endif
+     call zgemm('N', 'N', nbands, cixdms, cixdms_m, (1.d0,0.d0), Uw, nbands, Vw, cixdms_m, (0.d0,0.d0), Ucix, nbands)
+
+
+     !WRITE(6,*)
+     !do i=1,nbands
+     !   do ip=1,cixdms
+     !      WRITE(6, '(f14.10,1x,f8.5,3x)',advance='no') real(Ucix(i,ip)), aimag(Ucix(i,ip))
+     !   enddo
+     !   WRITE(6,*)
+     !enddo
+     print *, 'Singular values=', ws
+
+     
+     deallocate( work, rwork, iwork )
+     deallocate( ws, Uw, Vw )
+     
+     DO iorb1=1,norbitals
+        if ( cix_orb(iorb1).NE.icix ) CYCLE
+        nind1 = nindo(iorb1)
+        do ind1=1,nind1
+           ip = iSx(ind1,iorb1)
+           if (cind(ip).gt.0) DMFTU(:,ind1,iorb1) = Ucix(:,cind(ip))
+        enddo
+     ENDDO
+     
+     deallocate( cind, cini )
+     deallocate( Ucix )
+  ENDDO
+END SUBROUTINE RenormalizeTransK
+
+SUBROUTINE RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, projector, nbands, maxdim2, norbitals, maxdim, ncix, SIMPLE)
   IMPLICIT NONE
   COMPLEX*16, intent(inout) :: DMFTU(nbands,maxdim2,norbitals)
   COMPLEX*16, intent(in)    :: Olapm0(maxdim,maxdim,ncix), SOlapm(maxdim,maxdim,ncix)
   INTEGER, intent(in)       :: cix_orb(norbitals), nindo(norbitals), iSx(maxdim2,norbitals), cixdim(ncix)
-  INTEGER, intent(in)       :: nbands, maxdim2, norbitals, maxdim, ncix
+  INTEGER, intent(in)       :: nbands, maxdim2, norbitals, maxdim, ncix, projector
   LOGICAL, intent(in)       :: SIMPLE
   ! locals
   INTEGER :: iorb1, icix, nind1, ind1, cixdm

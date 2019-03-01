@@ -143,7 +143,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   filename = 'BasicArrays.dat'
   if (mode.EQ.'u') CALL PrintSomeArrays(filename, nat, iso, norbitals, ncix, natom, numkpt, nmat, nume, Qcomplex, lmax2, maxdim2, maxdim, maxsize, nindo, cixdim, nl, ll, cix, iorbital, csize, iSx, Sigind, EF, VOL)
 
-  if (abs(projector).eq.5) then
+  if (abs(projector).ge.5) then
      filename='projectorw.dat'
      call p_allocate(filename, maxucase,csort)
      call w_allocate_rfk(n_al_ucase) !------ contains all variables which depend on atom / which are changed by atpar -----------!
@@ -222,7 +222,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         w_dp(:,1,:,iucase) = DP(:,1,:)                       ! DP(lmax,is,irf)
         w_ri_mat(:,:,:,1,iucase) = ri_mat(:,:,:,1)           ! ri_mat(nrf,nrf,0:lmax,is)
         
-        if (abs(projector).eq.5) then
+        if (abs(projector).ge.5) then
            nr0 = jri(jatom)
            do irf=1,nrf
               do il=1,nl_case(iucase)
@@ -248,7 +248,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      endif
   ENDDO
 
-  if (abs(projector).eq.5) then
+  if (abs(projector).ge.5) then
      CALL p_cmp_rixmat(w_rfk)
      call w_deallocate_rfk()
   endif
@@ -332,7 +332,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   !endif
 
   call cputim(time0)
-  if (Qrenormalize) then
+  if (Qrenormalize .and. abs(projector).le.5) then
      allocate(Olapm0(maxdim,maxdim,ncix), SOlapm(maxdim,maxdim,ncix) )
      if (read_overlap) then
         call read_overlap_from_file(info, SOlapm, cixdim, maxdim, ncix)
@@ -452,7 +452,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         if (iikp.gt.0) Tcompute=.TRUE.       ! If Tcompute is true, the point needs to be computed.
         if (iikp.GT.pr_proc) EXIT            ! Processor finished. The rest of the points will be taken care of by the other processors.
 
-        if (Tcompute .and. abs(projector).eq.5) allocate( phi_jl(nmat, n_al_ucase) )
+        if (Tcompute .and. abs(projector).ge.5) allocate( phi_jl(nmat, n_al_ucase) )
 
         read_time2=0
         call cputim(time0)
@@ -488,7 +488,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            call cputim(time3)
            read_time2 = read_time2 + time3-time2
            
-           if (abs(projector).GE.4) then
+           if (abs(projector).ge.4) then
               nemin=nemin0
               nemax=min(nemax0,NE)
            endif
@@ -511,7 +511,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  ! You could optimize here and compute up to N-nnlo only. Because the rest is for local orbitals.
               ENDDO
               ! New
-              if (abs(projector).EQ.5) then
+              if (abs(projector).ge.5) then
                  Nri=2**kNri+1    ! Number of radial points in the interstitials
                  phi_jl(:,:)=0.d0
                  allocate( aKR(Nri), jlr(Nri), jlp(Nri) )
@@ -547,7 +547,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         if (cmp_partial_dos) allocate( DMFTrans(nbands,nbands,maxdim2,maxdim2,norbitals) )
         allocate( DMFTU(nbands,maxdim2,norbitals) )
         
-        if (abs(projector).eq.5) then
+        if (abs(projector).ge.5) then
            allocate( h_interstitial(2*LMAX2+1,iblock,2) )
            allocate( a_interstitial(2*LMAX2+1,nbands,iso), al_interstitial(2*LMAX2+1,nbands,iso,max_lcase) )
         endif
@@ -630,7 +630,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  STOP
               endif
               isize = N-(nlo+nlon+nlov)
-              if (abs(projector).eq.5) al_interstitial(:,:,:,:)=0.d0
+              if (abs(projector).ge.5) al_interstitial(:,:,:,:)=0.d0
 
               nonzero_shft = sum(abs(shft(:3,latom))) .GT. 1e-10
               FAC=4.0D0*PI*RMT(jatom)**2/SQRT(VOL)
@@ -650,7 +650,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  crotloc_x_BR1(:,:) = matmul( crotloc(:,:,lcase,icase),BR1 )
                  
                  ALM = 0.0         !------  ALM(m,band,nrf,is) will hold product of eigenvectors and a/b expansion coefficients --!
-                 if (abs(projector).eq.5) a_interstitial=0
+                 if (abs(projector).ge.5) a_interstitial=0
                  !--------- blocks are for efficiency. Matrix is multiplied in block form. This must be important in the past, while modern BLAS should do that better. I think it is obsolete.
                  DO ii=1,isize,iblock !------ iblock is 128 for 32-bit system -------!
                     !-------- nlo-number of local orbitals -----!
@@ -706,7 +706,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                           END DO
                        enddo
                        !!! New
-                       if (abs(projector).eq.5) then
+                       if (abs(projector).ge.5) then
                           iind=al_ucase(icase,lcase)
                           do i=ii,min(ii+iblock-1,isize)
                              DO M=1,2*L+1
@@ -734,7 +734,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                        call cputim(time2)
                        call zgemm('N','N',2*l+1,nemax-nemin+1,ibb,(1.d0,0.d0), h_alyl(1,1,is),lda,a(ii,nemin,is),ldb,(1.d0,0.d0), alm(1,nemin,1,is),ldc)
                        call zgemm('N','N',2*l+1,nemax-nemin+1,ibb,(1.d0,0.d0), h_blyl(1,1,is),lda,a(ii,nemin,is),ldb,(1.d0,0.d0), alm(1,nemin,2,is),ldc)
-                       if (abs(projector).eq.5) then !! The new
+                       if (abs(projector).ge.5) then !! The new
                           call zgemm('N','N',2*l+1,nbands,ibb,(1.d0,0.d0),h_interstitial(1,1,is),lda,a(ii,nemin,is),ldb,(1.d0,0.d0), a_interstitial(1,1,is),ldc)
                        endif !! The new
                        call cputim(time3)
@@ -752,7 +752,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     ALML(l,:(2*L+1),nemin:nemax,:nrf,1) = ALM(:(2*L+1),nemin:nemax,:nrf,1)*(CFAC*Rispin(1,1)) + ALM(:(2*L+1),nemin:nemax,:nrf,2)*(CFAC*Rispin(2,1))
                     ALML(l,:(2*L+1),nemin:nemax,:nrf,2) = ALM(:(2*L+1),nemin:nemax,:nrf,1)*(CFAC*Rispin(1,2)) + ALM(:(2*L+1),nemin:nemax,:nrf,2)*(CFAC*Rispin(2,2))
                     !ALML(l,:(2*L+1),nemin:nemax,:nrf,:iso) = ALM(:(2*L+1),nemin:nemax,:nrf,:iso)*CFAC
-                    if (abs(projector).eq.5) then
+                    if (abs(projector).ge.5) then
                        ! This implements spin rotation depending on the group operation. The orbitals are rotated by rotation of momenta, while spin rotation needs to be added
                        ! to Gamma * chi_{\vK,s} = chi_{Gamma^{-1}*\vK,\Gamma^{-1}s}
                        al_interstitial(:(2*L+1),:nbands,1,lcase) = a_interstitial(:(2*L+1),:nbands,1)*(CFAC*Rispin(1,1)) + a_interstitial(:(2*L+1),:nbands,2)*(CFAC*Rispin(2,1))
@@ -761,7 +761,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     endif
                  else
                     ALML(l,:(2*L+1),nemin:nemax,:nrf,1) = ALM(:(2*L+1),nemin:nemax,:nrf,1)*CFAC
-                    if (abs(projector).eq.5) al_interstitial(:(2*L+1),:nbands,1,lcase) = a_interstitial(:(2*L+1),:nbands,1)*CFAC
+                    if (abs(projector).ge.5) al_interstitial(:(2*L+1),:nbands,1,lcase) = a_interstitial(:(2*L+1),:nbands,1)*CFAC
                  endif
               enddo  !--------- end of atom L loop (alm)  ----------------!
               !----------------  ALML(l,m,iband,ifr,ispin) contains (A*C,B*C) for all l,m,iband,ifr=(1,2),ispin --------!
@@ -788,7 +788,13 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            !-------- computing correlated green's function --------!
 
            call cputim(time0)
-           if (Qrenormalize) CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, nbands, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
+           if (Qrenormalize) then
+              if (abs(projector).le.5) then
+                 CALL RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, projector, nbands, maxdim2, norbitals, maxdim, ncix, RENORM_SIMPLE)
+              else
+                 CALL RenormalizeTransK(DMFTU, cix_orb, cixdim, nindo, iSx, Sigind, projector, nbands, maxdim2, norbitals, maxdim, ncix)
+              endif
+           endif
 
            !call Debug_Print_Projector(DMFTU,nindo,norbitals,nbands,maxdim2)
            
@@ -947,7 +953,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         deallocate( DMFTU, STrans )
         if (cmp_partial_dos) deallocate( DMFTrans, GTrans )
 
-        if (abs(projector).eq.5) then
+        if (abs(projector).ge.5) then
            deallocate( phi_jl )
            deallocate( h_interstitial )
            deallocate( a_interstitial, al_interstitial )
@@ -973,7 +979,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      
   !---- Deallocating some arrays before MPI_Gather
   CALL w_deallocate()
-  if (abs(projector).eq.5) call p_deallocate()
+  if (abs(projector).ge.5) call p_deallocate()
   DEALLOCATE(a_real)
   if (mode.EQ.'g') then
      deallocate( Olapmk, Eimpmk )
@@ -1101,7 +1107,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      DEALLOCATE(Ekp, nbandsk, nemink, n_ik)
   endif
 
-  if (Qrenormalize) deallocate( Olapm0, SOlapm )
+  if (Qrenormalize .and. abs(projector).le.5) deallocate( Olapm0, SOlapm )
   !------ Deallocation of memory ---------------
   
   if (Qprint) then

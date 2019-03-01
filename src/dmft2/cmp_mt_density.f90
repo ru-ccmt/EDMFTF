@@ -1,7 +1,7 @@
 ! @Copyright 2007 Kristjan Haule
 ! 
 
-SUBROUTINE cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, nbands, nbandsx, nbands_dft, lm_max, n0, nnlo, coord, ikp, time_bl,time_bl_w, time_reduc, time_reduc_w, time_radprod, time_radprod_w,time_m, time_m_w, time_rad, time_rad_w, time_ilm, time_ilm_w, time_lo, time_lo_w, time_force, time_force_w)
+SUBROUTINE cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, nbands, nbandsx, nbands_dft, lm_max, n0, nnlo, coord, ikp, DM_EF, time_bl,time_bl_w, time_reduc, time_reduc_w, time_radprod, time_radprod_w,time_m, time_m_w, time_rad, time_rad_w, time_ilm, time_ilm_w, time_lo, time_lo_w, time_force, time_force_w)
   USE defs,  ONLY: pi, imag
   USE param, ONLY: lmax2, nume, nloat, iblock, nmat, nrad, CHUNK, lomax, ngau
   USE atspdt,ONLY: p, dp, pe, dpe, el
@@ -23,9 +23,10 @@ SUBROUTINE cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, ne
   REAL*8, intent(out)    :: w_RHOLM(NRAD,LM_MAX,nat)!, w_vRHOLM(NRAD,LM_MAX,nat)
   INTEGER, intent(in)    :: nemin, nemax, DM_nemin, DM_nemax, DM_nemaxx, nbands, nbandsx, nbands_dft, lm_max, n0, nnlo, ikp
   COMPLEX*16, intent(in) :: Aweight(nbands,nbands), wEpsw(nbands_dft,nbands_dft)
-  REAL*8, intent(in)     :: weight(nume)
+  REAL*8, intent(in)     :: weight(nume), DM_EF
   REAL*8, intent(inout)  :: time_bl, time_bl_w, time_reduc, time_reduc_w, time_radprod, time_radprod_w, time_m, time_m_w, time_rad, time_rad_w, time_ilm, time_ilm_w, time_lo, time_lo_w, time_force, time_force_w
   CHARACTER*5, intent(in):: coord
+  REAL*8,PARAMETER       :: Ry2eV= 13.60569253d0
   !
   REAL*8, intent(inout) :: fsph(3,natm)
   REAL*8, intent(inout) :: fnsp(3,natm)
@@ -388,11 +389,11 @@ SUBROUTINE cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, ne
 
 
   IF(test1.GT.15.d0) THEN
-     IF(myrank.eq.master) WRITE(6,1001)  test1,EQBAD, jatombad,lbad
-     IF(myrank.eq.master) WRITE(21,1001) test1,EQBAD, jatombad,lbad
+     IF(myrank.eq.master) WRITE(6,1001)  test1,(EQBAD-DM_EF)*Ry2eV, jatombad,lbad,test1/100.
+     IF(myrank.eq.master) WRITE(21,1001) test1,(EQBAD-DM_EF)*Ry2eV, jatombad,lbad,test1/100.
   else IF(test1.GT.2.d0) THEN
-     IF(myrank.eq.master) WRITE(6,1002)  test1,EQBAD, jatombad,lbad
-     IF(myrank.eq.master) WRITE(21,1002) test1,EQBAD, jatombad,lbad
+     IF(myrank.eq.master) WRITE(6,1002)  test1,(EQBAD-DM_EF)*Ry2eV, jatombad,lbad,test1/100.
+     IF(myrank.eq.master) WRITE(21,1002) test1,(EQBAD-DM_EF)*Ry2eV, jatombad,lbad,test1/100.
   ENDIF
 
 
@@ -402,10 +403,10 @@ SUBROUTINE cmp_MT_density(w_RHOLM, Aweight, wEpsw, weight, fsph, fnsp, fsph2, ne
   DEALLOCATE(dh_alm,dh_blm,dh_clm)
 
 
-1001 FORMAT(//,'   QTL-B VALUE .EQ. ',F10.5,' in Band of energy ',F9.5,2x,'ATOM=',i5,2x,'L=',i3,/,'    Check for ghostbands or EIGENVALUES BELOW XX messages',/, &
-              '    Adjust your Energy-parameters for this ATOM and L (or use -in1new switch), check RMTs  !!!',//)
-1002 FORMAT(//,'   QTL-B VALUE .EQ. ',F10.5,'   in Band of energy ',F10.5,3x,'ATOM=',i5,3x,'L=',i3,/, &
-               '    Most likely no ghostbands, but adjust Energy-parameters for this ATOM and L',//)
+1001 FORMAT(//,'   QTL-B VALUE .EQ. ',F10.5,' in Band of energy ',F9.4,'eV from EF ATOM=',i5,2x,'L=',i3,/,'    Check for ghostbands or EIGENVALUES BELOW XX messages',/, &
+              '    The projection of charge to \dot{u}(r) is',F10.5,', which is large. Adjust your Energy-parameters for this ATOM and L (or use -in1new switch), check RMTs  !!!',//)
+1002 FORMAT(//,'   QTL-B VALUE .EQ. ',F10.5,' in Band of energy ',F9.4,'eV from EF ATOM=',i5,2x,'L=',i3,/, &
+               '   The projection of charge to \dot{u}(r) is',F10.5,', which is large. Most likely no ghostbands, but adjust Energy-parameters for this ATOM and L',//)
 
 END SUBROUTINE cmp_MT_density
 
