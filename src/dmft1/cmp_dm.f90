@@ -183,10 +183,13 @@ SUBROUTINE Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, ncix, Sigind
         do iq=1,cixdm
            ! Interpolating gloc on all Matsubara points
            dg(:) = gmloc(ip,iq,icix,:)-g_inf(ip,iq,icix,:)
-           df2 = NumericSecondDeriv(dg,omega,n0_om,nomega)
-           df3 = NumericSecondDeriv(dg,omega,nomega-1,nomega)
+           !print *, 'n0_om=', n0_om, 'nomega=', nomega
            dg_all(:n0_om) = dg(:n0_om)
-           dg_all(n0_om:) = zspline3( omega(n0_om:), dg(n0_om:), omega_all(n0_om:), df2, df3) ! The tail needs to be interpolated
+           if (n0_om.lt.nomega) then
+              df2 = NumericSecondDeriv(dg,omega,n0_om,nomega)
+              df3 = NumericSecondDeriv(dg,omega,nomega-1,nomega)
+              dg_all(n0_om:) = zspline3( omega(n0_om:), dg(n0_om:), omega_all(n0_om:), df2, df3) ! The tail needs to be interpolated
+           endif
            DM(ip,iq,icix) = sum(dg_all)/beta
         enddo
      ENDDO
@@ -286,7 +289,10 @@ Function NumericSecondDeriv(funcy,omega,ii,nomega) result(df2)
   ! locals
   COMPLEX*16 :: f0, f1, f2
   REAL*8     :: dx0, dx1
-  if (ii.le.1 .or. ii.ge.nomega) print *, 'Can not determine derivative outside the range of a function'
+  if (ii.le.1 .or. ii.ge.nomega) then
+     print *, 'Can not determine derivative outside the range of a function'
+     print *, 'nomega=', nomega, 'and ii=', ii
+  endif
   f0 = funcy(ii-1)
   f1 = funcy(ii)
   f2 = funcy(ii+1)

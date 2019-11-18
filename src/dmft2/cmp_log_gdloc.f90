@@ -132,10 +132,11 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
 
         ! Interpolating Gdloc on all Matsubara points ( stored in Gdloc_ )
         Gdloc_(:n0_om)=Gdloc(it2,:n0_om,1) ! The first few points should not be interpolated
-        df2 = NumericSecondDeriv(Gdloc(it2,:,1),omega,n0_om,nomega)
-        df3 = -2./(IMAG*omega(nomega)-epsinf(it2))**3
-        Gdloc_(n0_om:) = zspline3(omega(n0_om:),Gdloc(it2,n0_om:,1),omega_all(n0_om:),df2,df3) ! The tail needs to be interpolated
-        
+        if (n0_om.lt.nomega) then
+           df2 = NumericSecondDeriv(Gdloc(it2,:,1),omega,n0_om,nomega)
+           df3 = -2./(IMAG*omega(nomega)-epsinf(it2))**3
+           Gdloc_(n0_om:) = zspline3(omega(n0_om:),Gdloc(it2,n0_om:,1),omega_all(n0_om:),df2,df3) ! The tail needs to be interpolated
+        endif
         if (.false.) then
            write(sitx,'(I3)') it2
            open(999,file=TRIM('gd_debug.')//trim(ADJUSTL(sitx)),status='unknown')
@@ -199,9 +200,11 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
         ! Interpolating sigma on all Matsubara points
         allocate( sigma_(nom_all) )
         sigma_(:n0_om)= sigma0(it,icix,:n0_om) ! The first few points should not be interpolated
-        df2 = NumericSecondDeriv(sigma0(it,icix,:),omega,n0_om+1,nomega)
-        df3 = NumericSecondDeriv(sigma0(it,icix,:),omega,nomega-1,nomega)
-        sigma_(n0_om:) = zspline3(omega(n0_om:),sigma0(it,icix,n0_om:), omega_all(n0_om:), df2, df3) ! The tail needs to be interpolated
+        if (n0_om.lt.nomega) then
+           df2 = NumericSecondDeriv(sigma0(it,icix,:),omega,n0_om+1,nomega)
+           df3 = NumericSecondDeriv(sigma0(it,icix,:),omega,nomega-1,nomega)
+           sigma_(n0_om:) = zspline3(omega(n0_om:),sigma0(it,icix,n0_om:), omega_all(n0_om:), df2, df3) ! The tail needs to be interpolated
+        endif
         CALL GetHighFrequency(A,C,sigma_,omega_all,nom_all)
         C=1.d0
         if (.false.) then
@@ -222,9 +225,11 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
            else
               ! Interpolating vector form of Gdloc on all Matsubara points
               Gdloc_(:n0_om) = Gdloc(it2,:n0_om,ip) ! The first few points should not be interpolated
-              df2 = NumericSecondDeriv(Gdloc(it2,:,ip),omega,n0_om+1,nomega)
-              df3 = NumericSecondDeriv(Gdloc(it2,:,ip),omega,nomega-1,nomega)
-              Gdloc_(n0_om:) = zspline3(omega(n0_om:),Gdloc(it2,n0_om:,ip),omega_all(n0_om:),df2,df3) ! The tail needs to be interpolated
+              if (n0_om.lt.nomega) then
+                 df2 = NumericSecondDeriv(Gdloc(it2,:,ip),omega,n0_om+1,nomega)
+                 df3 = NumericSecondDeriv(Gdloc(it2,:,ip),omega,nomega-1,nomega)
+                 Gdloc_(n0_om:) = zspline3(omega(n0_om:),Gdloc(it2,n0_om:,ip),omega_all(n0_om:),df2,df3) ! The tail needs to be interpolated
+              endif
               CALL GetHighFrequency(A2,C2,Gdloc_,omega_all,nom_all)
            endif
            
@@ -396,7 +401,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
               it2 = Sigini_orig(ip,iq)
               id=0
               if (ip.eq.iq) id=1
-              if (it2.gt.0) then
+              if (it2.gt.0 .and. n0_om.lt.nomega) then
                  df2 = NumericSecondDeriv(Gdloc(it2,:,1),omega,n0_om,nomega)
                  df3 = -2.d0*id/(IMAG*omega(nomega)-epsinf(it2))**3
                  Gdloc__(it2,n0_om:) = zspline3(omega(n0_om:),Gdloc(it2,n0_om:,1),omega_all(n0_om:),df2,df3) ! The tail needs to be interpolated

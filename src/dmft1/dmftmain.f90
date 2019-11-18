@@ -27,12 +27,18 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
   CHARACTER*1  :: mode
   INTEGER      :: kindex, nsymop
   INTEGER      :: wndim, icix, wicix, size, imatsubara, irenormalize, icmp_partial_dos
-  REAL*8       :: EF_LDA, Ry2eV, cost, cosf, sint, sinf, theta, fi
-  REAL*8       :: POST(3), BKRLOC(3,3), S(3)
+  REAL*8       :: EF_LDA, Ry2eV, cost, cosf, sint, sinf, theta, fi, wdet
+  REAL*8       :: POST(3), BKRLOC(3,3), tmp(3,3), BR1inv(3,3), S(3)
   INTEGER      :: projector
   INTEGER      :: strlen, locrot, shift, latom, wfirst, iat, im, wat, minsigind_p, maxsigind_p, minsigind_m, lngth
   INTEGER      :: ivector, nkpt, inkp, ik_start, il
   INTEGER      :: identity3(3,3), diff, ig
+  interface
+     REAL*8 FUNCTION detx(a)
+       IMPLICIT NONE
+       REAL*8, intent(in) :: a(3,3)
+     end FUNCTION detx
+  end interface
 
   REAL*8,ALLOCATABLE:: wtmp(:)
   DATA SO /.false./, Qcomplex /.false./, IMAG/(0.0D0,1.0D0)/, Ry2eV/13.60569193/
@@ -680,13 +686,20 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
      write(6,*)
      write(6,'(A)') 'Combined transformation (acting on k-point) for correlated atoms'
      write(6,'(A)') 'including users rotation and internal local rotation'
+     call inv_3x3(BR1,BR1inv)
      DO icase=1,natom
         latom = iatom(icase)
         write(6, '(A,I3,1x,A,1x,I3)') 'catom', icase, 'atom', latom
         BKRLOC = matmul(crotloc(:,:,1,icase),matmul(BR1,rotij(:,:,latom)))
+        tmp = matmul(BKRLOC,BR1inv)
         DO JR=1,3
-           WRITE(6, '(3F10.5)') (BKRLOC(JR,JC),JC=1,3) 
+           WRITE(6, '(3F10.5)') (tmp(JR,JC),JC=1,3)  ! (BKRLOC(JR,JC),JC=1,3) 
         ENDDO
+        if (so) then
+           WRITE(6,'(A,I3,A)', advance='no') '  spin-z-quantization axis for corr-atom', icase, ':'
+           wdet = detx(rotij(:,:,latom)) ! note that when det<0 we have inversion, which does not change spin
+           WRITE(6, '(3F10.5)') (tmp(3,JC)*wdet,JC=1,3)
+        endif
         WRITE(6,*)
      ENDDO
      write(6,*)

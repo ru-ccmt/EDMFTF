@@ -134,7 +134,9 @@ PROGRAM lapwso
   if (Qprint) CALL WriteInfoStructure(6, nato)
   CALL ReadStructureGroup(20, nato)
   
-  call get_nloat(lomax,nato,nloat)
+  call get_new_nloat(4,nloat)
+  nloat = nloat + 1 ! Here we have different definition on nloat. Some inconsistency with the rest of the code.
+  !call get_nloat(lomax,nato,nloat)
 
   allocate( elo(0:lomax,nloat,nato,2) )
   ALLOCATE( e(0:lmax,nato,2) )
