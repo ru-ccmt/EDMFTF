@@ -461,11 +461,9 @@ class Indmf(IndmfBase):
             
         if userin == 'y':
             while True:
-                if inpt: '(cl) ',
+                #if inpt: '(cl) ',
                 print "Enter the orbitals forming each cluster-DMFT problem, separated by spaces"
-
-                userin = inpt['cl']
-                
+                #userin = inpt['cl']
                 if inpt:  # non-interactive mode
                     if inpt.has_key('cl'):
                         userin = inpt['cl']
