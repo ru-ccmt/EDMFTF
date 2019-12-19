@@ -488,6 +488,15 @@ PROGRAM DMFTMAIN  ! Program DMFT calculates
 
   READ(2,*) ! comment: mode and the current chemical potential 
   READ(2,*) mode, EF, nsymop
+  ! Check if we want to force Hermitian H
+  Hrm = '  '
+  READ(2,*,iostat=ios)  Hrm
+  if (ios .eq. 0 .and. Hrm(1:1).eq.'H') then
+     if (myrank.EQ.master) WRITE(6,*) 'Hermitian mode'
+  else
+     if (myrank.EQ.master) WRITE(6,*) 'Non hermitian mode'
+  endif
+  
   EF = EF/Ry2eV
 
   READ(5,*) ! comment: Next few lines contain instructions (transformation,index) for all correlated orbitals

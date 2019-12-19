@@ -5,7 +5,7 @@ class Config:
   prefix      = "../bin"    # Installation path
 
   compiler    = "GNU"          # Compiler
-  cxx         = "g++-8"        # C++ compiler
+  cxx         = "g++-9"        # C++ compiler
   
   cflags      = "-O3"          # compiling flags for C++ programs
   fflags      = "-O3"          # compiling flags for Fortran programs

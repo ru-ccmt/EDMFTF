@@ -8,7 +8,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   !--        'e' -> eigenvalues are printed
   !--        'u' -> printing transformation
   !--        'x' -> computes xqtl2, just for debugging
-  USE param,    ONLY: LMAX2, LOMAX, NRAD, nloat, nrf, nmat, nume, gamma, gammac, aom_default, bom_default, nom_default, IBLOCK, matsubara, Cohfacts, ComputeLogGloc, maxbands, nemin0, nemax0, max_nl, cmp_partial_dos
+  USE param,    ONLY: LMAX2, LOMAX, NRAD, nloat, nrf, nmat, nume, gamma, gammac, aom_default, bom_default, nom_default, IBLOCK, matsubara, Cohfacts, ComputeLogGloc, maxbands, nemin0, nemax0, max_nl, cmp_partial_dos, Hrm, lmaxr
   USE structure,ONLY: VOL, RMT, iord, iz, nat, mult, pos, tau, rotij, tauij, jri, BR1, rot_spin_quantization
   USE case,     ONLY: cf, csize, maxsize, nl, cix, ll, Sigind, iatom, legend, maxdim, natom, ncix, shft, isort, crotloc, ifirst
   USE sym2,     ONLY: tmat, idet, iz_cartesian
@@ -49,7 +49,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   complex*16, allocatable :: xqtl2(:,:,:,:), gk(:), gij(:,:), gloc(:,:), gtot(:), gmk(:,:,:), gmloc(:,:,:,:), Ekp(:,:,:,:)
   complex*16, allocatable :: g_inf(:,:,:,:), g_ferm(:,:,:)!, DM(:,:,:)
   complex*16, allocatable :: sigma(:,:,:), Deltac(:,:,:), Glc(:,:,:), zek(:), s_oo(:,:)
-  real*8,     allocatable :: a_real(:), omega(:), Eimpc(:,:), Olapc(:,:)
+  real*8,     allocatable :: a_real(:), omega(:), Eimpc(:,:), Olapc(:,:), dek(:)
   real*8,     allocatable :: Cohf0(:)
   complex*16, allocatable :: Eimpm(:,:,:), Eimpmk(:,:,:), Cohf(:,:), evl(:,:), evr(:,:)
   complex*16, allocatable :: Olapm(:,:,:), Olapmk(:,:,:), Olapm0(:,:,:), SOlapm(:,:,:)
@@ -58,6 +58,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   complex*16, allocatable :: tEk(:,:,:,:), cfX(:,:,:,:)!, Rspin(:,:,:)
   integer,    allocatable :: tnbands(:), tnemin(:)     
   INTEGER,    allocatable :: pr_procs(:)
+  complex*16, allocatable :: A2(:,:)
   ! For p_interstitial
   COMPLEX*16, allocatable :: a_interstitial(:,:,:), h_interstitial(:,:,:)
   REAL*8, allocatable     :: phi_jl(:,:), crotloc_x_rotij(:,:,:,:)
@@ -68,7 +69,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   complex*16  :: h_blyl(2*LMAX2+1,iblock,2)
   complex*16  :: YL((LMAX2+1)*(LMAX2+1))
   integer     :: iorbital(natom,lmax2+1), csizes(ncix)
-  real*8      :: BK(3), BKROT(3), BKROT2(3), BKRLOC(3)
+  real*8      :: BK(3), BKROT(3), BKROT2(3), BKRLOC(3), el_read(lmaxr)
   !------ other local variables
   logical     :: Tcompute, read_overlap, Qsymmetrize
   character*10:: KNAME
@@ -78,30 +79,32 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   integer     :: norbitals, cnemin, cnbands
   integer     :: l1, idt, num, iscf, maxdim2
   integer     :: nomega, icix
-  integer     :: i, ii, jj, j, iom, icase, lcase, is, itape, jtape, jatom, i3, lda, ldb, ldc, irf, iind
+  integer     :: i, ii, jj, j, iom, icase, lcase, is, itape, jtape, jatom, i3, lda, ldb, ldc, irf, iind, iat
   integer     :: iorb, L, nind, it, ikp, iks, iikp, ivector, N, NE, NEMIN, NEMAX, nbands, isym, igi, M, ibb, LATOM
   integer     :: fh_sig, fh_dos, fh_gc, fh_dt, fh_eig, fh_Eimp
   integer     :: iucase, pr_proc, pr_procr, max_bands, natm, maxucase
-  integer     :: fh_p, ind, lfirst, nkp, il, nr0, ir, Nri, isize, info
+  integer     :: fh_p, ind, lfirst, nkp, il, nr0, ir, Nri, isize, info, iband
   character*100:: filename
   logical     :: pform, nonzero_shft
   CHARACTER*200 :: FNAME
   !
-  REAL*8      :: Det, phi1, the1, psi1
+  REAL*8      :: Det, phi1, the1, psi1, WGH
   COMPLEX*16  :: Rispin(2,2)
   complex*16  :: IMAG, gtc
   LOGICAL    :: RENORM_SIMPLE, cmp_DM
   INTEGER    :: Nstar
   REAL*8     :: k_star(3,iord), rotij_cartesian(3,3), BR1inv(3,3), tmp3(3,3), Trans3(3,3)
-  INTEGER    :: gind(iord), nsymop2
+  INTEGER    :: gind(iord), nsymop2,  iom_zero
   REAL*8     :: time0, time1, time2, time3, read_time, read_time2, atpar_time, overlap_time, bess_time, zgemm_time, zgem2_time, alm_time, trans_time, comprs_time, imp_time, inv_time, gc_time, dm_time
-  
+  LOGICAL    :: vector_out
+  INTEGER    :: vcn_out(2)
+
   RENORM_SIMPLE=.False.
   cmp_DM = matsubara
   read_overlap = nsymop.ne.iord .and. mode.NE.'g'  ! We do not intent to go over all symmetry operations (like plotting), hence need overlap from before
   Qsymmetrize  = nsymop.ne.iord .and. mode.EQ.'g'   ! We also do not go over all symmetry operations, but we will symmetrize
-  
-  !!!! Here you should set ComputeLogGloc to true if you want to compute it for free energy!!! 
+
+!!!! Here you should set ComputeLogGloc to true if you want to compute it for free energy!!! 
   ComputeLogGloc = .False.
   !------------------------------------------------------------------
   DATA IMAG/(0.0D0,1.0D0)/
@@ -122,18 +125,18 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   tmat(:,:,:iord) =  iz(:,:,:iord)
 
   call cputim(time0)
-  
+
   natm = sum(mult) 
   ALLOCATE( csort(nat) )
   CALL Create_Atom_Arrays(csort, maxucase, isort, iatom, nat, natm, natom)
 
   !----------- Find index to atom/L named iorbital(icase,lcase) -------------------------------!
   CALL Create_Orbital_Arrays(iorbital, norbitals, maxdim2, nl, ll, cix, natom, lmax2, iso)
-  
+
   allocate( noccur(maxsize,ncix) )
   ALLOCATE( cixdim(ncix), iSx(maxdim2, norbitals), nindo(norbitals), cix_orb(norbitals), cfX(maxdim2,maxdim2,norbitals,norbitals) )
   cfX=0
-  
+
   CALL Create_Other_Arrays(cixdim, iSx, noccur, nindo, cix_orb, cfX, CF, nl, ll, cix, iorbital, csize, csizes, Sigind, iso, natom, maxdim, lmax2, ncix, maxsize, norbitals, maxdim2)
 
   !ALLOCATE( Rspin(2,2,norbitals) )
@@ -148,10 +151,18 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      call p_allocate(filename, maxucase,csort)
      call w_allocate_rfk(n_al_ucase) !------ contains all variables which depend on atom / which are changed by atpar -----------!
   endif
-  
+
   call w_allocate(maxucase,nat,iso2) !------ contains all variables which depend on atom / which are changed by atpar -----------!
 
-
+  vector_out = Hrm(1:2).eq.'HW' .and. .not.vector_para 
+  if ( vector_out ) then
+     do is=1,iso
+        vcn_out(is) = 1973+is
+        FNAME = TRIM(VECFN(is))//'_dmft'
+        open(vcn_out(is),FILE=FNAME,STATUS='unknown',FORM='unformatted')
+     enddo
+  end if
+  
   do is=1,iso2
      itape=8+is
      if (vector_para) then
@@ -165,16 +176,23 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         !------------ vector files need to be read from the beginning -------------------!           
         rewind(itape) 
      endif
-     
-     DO i=1,nat
-        READ(itape) el_store(0:lmax2,i,is)   ! linearization energies
-        READ(itape) elo_store(0:lomax,1:nloat,i,is) ! local
+
+     DO iat=1,nat
+        READ(itape) el_read(1:lmaxr)   ! linearization energies
+        el_store(0:lmax2,iat,is) = el_read(1:lmax2+1)
+        READ(itape) elo_store(0:lomax,1:nloat,iat,is) ! local
+        if ( vector_out ) then  
+           write(vcn_out(is)) (el_read(j),j=1,lmaxr)   ! linearization energies
+           write(vcn_out(is)) ((elo_store(j,ii,iat,is),j=0,lomax),ii=1,nloat) ! local
+           !print *, 'el=', el_read(1:lmaxr)
+           !print *, 'elo=', elo_store(0:lomax,1:nloat,iat,is)
+        endif
      ENDDO
   end do
 
   call cputim(time1)
   read_time = time1-time0
-  
+
   time0=time1
   !-------------------------------------------------------------------------------------!
   !--------------- Reading potential parameters for all atoms.   -----------------------!
@@ -208,7 +226,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         endif
      end do
      nnlo=nlo+nlon+nlov  ! sum of all local orbitals. It does not depend on jatom
-          
+
      if (iucase.gt.0) then ! save values of potential parameters
         if (Qprint) write(6,'(A,I2,A,I2)')'Saving potential parameters for atom',jatom, ' into ', iucase
         w_nlo(iucase)  = nlo
@@ -221,7 +239,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         w_p(:,1,:,iucase) = P(:,1,:)                         ! P(lmax,is,irf)
         w_dp(:,1,:,iucase) = DP(:,1,:)                       ! DP(lmax,is,irf)
         w_ri_mat(:,:,:,1,iucase) = ri_mat(:,:,:,1)           ! ri_mat(nrf,nrf,0:lmax,is)
-        
+
         if (abs(projector).ge.5) then
            nr0 = jri(jatom)
            do irf=1,nrf
@@ -233,7 +251,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               enddo
            enddo
         endif
-        
+
         if (iso2.eq.2) then
            w_alo(:,:,:,2,iucase) = alo(:,:,:,2)                 ! alo(l,jlo,irf,is)
            w_p(:,2,:,iucase) = P(:,2,:)                         ! P(lmax,is,irf)
@@ -255,7 +273,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
 
   call cputim(time1)
   atpar_time = time1-time0
-  
+
   !---------------- Reading self-energy ------------------------------------------------------------------!
   !---------------- Input self-energy must be in eV units. Will convert to Rydbergs below ----------------!
   !---------------- Resulting gloc written to file is also in eV units -----------------------------------!
@@ -263,8 +281,8 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      nomega = CountSelfenergy(fh_sig+1, csize(1))-1 !--- How many frequency point exists in the input file? ---!
   else                                           !--- For non-correlated case we do not have self-energy ---!
      nomega = nom_default                        !--- using default ----------------------------------------!
-  endif                                        
-  
+  endif
+
   allocate( sigma(maxsize,ncix,nomega), omega(nomega), s_oo(maxsize,ncix) ) !----- allocating necessary arrays for self-energy ---!
 
   if (ncix.eq.0) then
@@ -272,7 +290,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         omega(iom) = aom_default + (bom_default-aom_default)*iom/(nomega-1.)     !-- default frequency mesh --!
      enddo
   endif
-  
+
   !----------- Actual reading of the self-energy -------------!
   if (mode.eq.'g' .or. mode.eq.'e') then
      if (Qprint) then
@@ -289,7 +307,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   endif
   !---------------- Reading self-energy --------------------------------!
 
-  
+
 !!! ---------- Preparation of arrays for paralel executaion --------------
   if (vector_para) then
      pr_proc = sum(vectors(:,2))
@@ -309,10 +327,22 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      endif
      if (Qprint) WRITE(6,'(A,I3,2x,A,I3)') 'pr_proc=', pr_proc, 'pr_procr=', pr_procr, 'tot-k=', numkpt
   endif
+
+
+  ! frequency closer to zero
+  iom_zero=1
+  do iom=2,nomega
+     if (abs(omega(iom)).LT.abs(omega(iom_zero))) then
+        iom_zero = iom
+     end if
+  end do
+  if (vector_out .and. myrank.eq.master) then
+     WRITE(6,*) 'iom_zero=', iom_zero, 'omega(iom_zero)=', omega(iom_zero)
+  endif
   
   ALLOCATE( pr_procs(nprocs) )
   CALL Gather_procs(pr_procr, pr_procs, nprocs)
-  
+
   if (myrank.eq.master .AND. SUM(pr_procs).NE.numkpt) then
      WRITE(6,*) 'ERROR: sum(pr_procs) should be numkpt, but is not', sum(pr_procs), numkpt
   endif
@@ -346,7 +376,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   endif
   call cputim(time1)
   overlap_time = time1-time0
-  
+
   !------------ allocating some important arrays --------------!
   ALLOCATE( a_real(nmat) ) !---  for eigenvectors -------------!
 
@@ -415,7 +445,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
 !!! start-kpoints
   iikp=0
   DO ivector=1,nvector
-     
+
      DO is=1,iso    !------ over up/dn ---------------------!
         itape=8+is
         if (vector_para) then
@@ -430,13 +460,13 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            READ(itape) EMIST !---- We just skip them ---------------------------------!
         ENDDO
      END DO
-     
+
      if (vector_para) then
         nkp = vectors(ivector,2)
      else
         nkp= numkpt
      endif
-     
+
      DO iks=1,nkp   !------ Over all irreducible k-points ------!
         if (vector_para) then
            ikp = vectors(ivector,3)+iks  ! successive index in k-point table from case.klist
@@ -447,7 +477,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            !--- This is because we need to read vector file sequentially.
            iikp = ikp-myrank*pr_proc            ! The index of the point to compute. If negative, do not compute! 
         endif
-        
+
         Tcompute=.FALSE.
         if (iikp.gt.0) Tcompute=.TRUE.       ! If Tcompute is true, the point needs to be computed.
         if (iikp.GT.pr_proc) EXIT            ! Processor finished. The rest of the points will be taken care of by the other processors.
@@ -460,10 +490,15 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         DO is=1,iso    !------ over up/dn ---------------------!
            call cputim(time2)
            itape=8+is
-           READ(itape,END=998) S,T,Z,KNAME,N,NE  !--- Here we can jupm out of loop 4 and stop at 998 -----------------------------------!
+           READ(itape,END=998) S,T,Z,KNAME,N,NE,WGH  !--- Here we can jupm out of loop 4 and stop at 998 -----------------------------------!
            IF(N.GT.MAXWAV) MAXWAV=N                                         
            IF(N.LT.MINWAV) MINWAV=N
            READ(itape) (KX(I),KY(I),KZ(I),I=1,N) !--- Reads all reciprocal vectors -----------------------------------------------------!
+
+           if (vector_out) then
+              write(vcn_out(is)) S,T,Z,KNAME,N,NE,WGH
+              write(vcn_out(is)) (KX(I),KY(I),KZ(I),I=1,N)
+           endif
 
            NEMIN=1
            NEMAX=0
@@ -480,19 +515,19 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               if (abs(projector).LT.4) then
                  IF(E(NUM).LT.EMIN) NEMIN=NEMIN+1
                  IF(E(NUM).LT.EMAX) NEMAX=NEMAX+1
-              !else
-              !   nemin=nemin0
-              !   nemax=nemax0
+                 !else
+                 !   nemin=nemin0
+                 !   nemax=nemax0
               endif
            ENDDO
            call cputim(time3)
            read_time2 = read_time2 + time3-time2
-           
+
            if (abs(projector).ge.4) then
               nemin=nemin0
               nemax=min(nemax0,NE)
            endif
-           
+
            IF (Tcompute .and. is.eq.1) THEN         !----- No need to compute this for both spins ----!
               isize=N-nnlo
               DO I=1,N                              !----- Over reciprocal vectors --------------------------------------------------------!
@@ -546,12 +581,12 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         nbands = nemax-nemin+1
         if (cmp_partial_dos) allocate( DMFTrans(nbands,nbands,maxdim2,maxdim2,norbitals) )
         allocate( DMFTU(nbands,maxdim2,norbitals) )
-        
+
         if (abs(projector).ge.5) then
            allocate( h_interstitial(2*LMAX2+1,iblock,2) )
            allocate( a_interstitial(2*LMAX2+1,nbands,iso), al_interstitial(2*LMAX2+1,nbands,iso,max_lcase) )
         endif
-        
+
         if (mode.EQ.'e') then
            nbandsk(iikp) = nbands
            nemink(iikp) = NEMIN
@@ -570,7 +605,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
         bess_time = bess_time + time1-time0 - read_time2
         read_time = read_time + read_time2
         time0=time1
-        
+
         if (Cohfacts) then
            ALLOCATE( Cohf(nbands,nbands) )
            READ(1001,*) jj, cnemin, cnbands
@@ -584,11 +619,11 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            call cputim(time1)
            read_time = read_time + time1-time0
         endif
-     
-     
+
+
         allocate( STrans(maxsize,ncix,nbands,nbands) )  ! WWW
         if (cmp_partial_dos) allocate( GTrans(nbands,nbands,norbitals) )
-        
+
         if (.False.) then
            ! Finds all star members and corresponding group operations
            ! This is switched off, as there are some cases of selection of G vectors, which are not completely symmetric
@@ -636,7 +671,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
               FAC=4.0D0*PI*RMT(jatom)**2/SQRT(VOL)
               do lcase=1,nl(icase) !----------- loop over L(jatom) requested in the ionput ---------------!
                  l=ll(icase,lcase) !------ current L --!
-                 
+
                  if (iso.eq.2) then
                     !!  local_axis_defined_by_locrot  <- local_axis_of_equivalent_atom <- group_operation_symmetry <- from_spin_quantization_to_global_cartesian
                     !!* Trans3 = crotloc(:,:,icase) * rotij_cartesian * iz_cartesian(:,:,isym) * rot_spin_quantization
@@ -648,7 +683,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     CALL Spin_Rotation(Rispin,phi1,the1,psi1)
                  endif
                  crotloc_x_BR1(:,:) = matmul( crotloc(:,:,lcase,icase),BR1 )
-                 
+
                  ALM = 0.0         !------  ALM(m,band,nrf,is) will hold product of eigenvectors and a/b expansion coefficients --!
                  if (abs(projector).ge.5) a_interstitial=0
                  !--------- blocks are for efficiency. Matrix is multiplied in block form. This must be important in the past, while modern BLAS should do that better. I think it is obsolete.
@@ -685,7 +720,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                           h_yl(m,i3)=conjg(yl(l*l+m))*phshel !----- h_yl is rotated yl when k is rotated to k' -----!
                        END DO
                     enddo
-                    
+
                     DO is=1,iso  !--- over both spins
                        do i=ii,min(ii+iblock-1,isize)
                           i3 = i-ii+1
@@ -705,7 +740,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                              end if
                           END DO
                        enddo
-                       !!! New
+!!! New
                        if (abs(projector).ge.5) then
                           iind=al_ucase(icase,lcase)
                           do i=ii,min(ii+iblock-1,isize)
@@ -715,7 +750,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                              ENDDO
                           enddo
                        endif
-                       !!! New
+!!! New
                        ibb=min(iblock,isize-ii+1)
                        lda=2*LMAX2+1
                        ldc=lda
@@ -746,7 +781,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  if (nlo.ne.0) then
                     call lomain (nemin,nemax,lfirst,latom,n,jatom,isym,L,iso,crotloc_x_BR1)
                  end if
-                 
+
                  CFAC = FAC*IMAG**L      !------  (i)^l*fac -----!
                  if (iso.eq.2) then
                     ALML(l,:(2*L+1),nemin:nemax,:nrf,1) = ALM(:(2*L+1),nemin:nemax,:nrf,1)*(CFAC*Rispin(1,1)) + ALM(:(2*L+1),nemin:nemax,:nrf,2)*(CFAC*Rispin(2,1))
@@ -797,7 +832,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            endif
 
            !call Debug_Print_Projector(DMFTU,nindo,norbitals,nbands,maxdim2)
-           
+
            CALL CompressSigmaTransformation2(STrans, DMFTU, Sigind, iSx, cix, iorbital, ll, nl, natom, iso, ncix, maxdim, maxdim2, lmax2, norbitals, nbands, maxsize) ! WWW
            call cputim(time1)
            comprs_time = comprs_time + time1-time0
@@ -829,16 +864,17 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            ENDIF
            call cputim(time1)
            imp_time = imp_time + time1-time0
-           
+
            if (Cohfacts) WRITE(1002,'(A,5I5,2x,A)') '#', ikp, isym, nbands, nemin, nomega, ': ikp, isym, nbands nemin, nomega, kweight'
-           
+           if (vector_out) ALLOCATE( A2(nmat,nbands) )
+
            !$OMP PARALLEL DO SHARED(gtot,gmloc,gloc,Ekp,sigma,STrans,cohf) PRIVATE(gij,i,zek,evl,evr,xomega,gk,gmk,gtc) SCHEDULE(STATIC)
            do iom=1,nomega                !-------------------- over frequency ---------------------------------!
               ALLOCATE( gij(nbands,nbands) )
               if (mode.EQ.'e') allocate( zek(nbands) )
               if (mode.EQ.'g') allocate( gmk(maxdim,maxdim,ncix) )
               if (mode.EQ.'g' .and. cmp_partial_dos) allocate( gk(norbitals) )
-              
+
               if (Cohfacts) allocate( evl(nbands,nbands), evr(nbands,nbands))
               gij=0                       !-------- band structure part of g^-1 --------------------------------!           
               ! Building of G^-1 or H_LDA
@@ -850,9 +886,15 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  if (ncix.gt.0) then         !-------- adding self-energy if correlated orbitals exist ------------!
                     CALL AddSigma_optimized2(gij, sigma(:,:,iom), STrans, csize, 1, nbands, ncix, maxsize) ! WWW
                  endif
-     
+                 if (Hrm(1:1).eq.'H') then ! For Hermitian mode force Hamiltonian to be Hermitian
+                    gij(:,:) = 0.5*(gij(:,:)+conjg(transpose(gij(:,:))))
+                 endif
                  if (Cohfacts) then
-                    CALL eigsys(gij, zek, evl, evr, nbands)
+                    if (Hrm(1:1).eq.'H') then
+                       CALL zheigsys(gij, zek, evl, evr, nbands)
+                    else
+                       CALL eigsys(gij, zek, evl, evr, nbands)
+                    endif
                     call zgemm('N','N', nbands,  nbands,  nbands, (1.d0,0.d0), evl, nbands, Cohf, nbands, (0.d0,0.d0), gij, nbands)
                     call zgemm('N','N', nbands,  nbands,  nbands, (1.d0,0.d0), gij, nbands, evr, nbands, (0.d0,0.d0), evl, nbands)
                     !$OMP CRITICAL 
@@ -862,11 +904,54 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     enddo
                     WRITE(1002,*)
                     !$OMP END CRITICAL 
+                 else if ( vector_out .and. iom.eq.iom_zero) then
+                    allocate( evr(nbands,nbands), dek(nbands) )
+                    ! in HV mode we write out new Hermitian vector file, which can be used to determine irreducible representations of every band
+                    CALL dheigsys(gij, dek, evr, nbands)
+                    !$OMP CRITICAL 
+                    write(6,6000) S,T,Z,KNAME,nbands, 1.0,' ', (dek(i),i=1,nbands)
+                    write(6,6010) nemin, E(nemin)
+                    write(6,6030)
+                    !$OMP END CRITICAL
+                    do is=1,iso
+                       call zgemm('N','N', N,  nbands,  nbands, (1.d0,0.d0), A(1,nemin,is), nmat, evr, nbands, (0.d0,0.d0), A2, nmat)
+                       !$OMP CRITICAL 
+                       do num=1,nemin-1
+                          write(vcn_out(is))  num,E(num)
+                          if (.not.Qcomplex) then
+                             write(vcn_out(is)) (dble(A(i,num,is)),i=1,N)
+                          else
+                             write(vcn_out(is)) (A(i,num,is),i=1,N)
+                          endif
+                       enddo
+                       do num=nemin,nemin+nbands-1
+                          iband = num-nemin+1
+                          write(vcn_out(is))  num, dek(iband)
+                          if (.not.Qcomplex) then
+                             write(vcn_out(is)) (dble(A2(i,iband)),i=1,N)
+                          else
+                             write(vcn_out(is)) (A2(i,iband),i=1,N)
+                          endif
+                       enddo
+                       do num=nemin+nbands,NE
+                          write(vcn_out(is))  num,E(num)
+                          if (.not.Qcomplex) then
+                             write(vcn_out(is)) (dble(A(i,num,is)),i=1,N)
+                          else
+                             write(vcn_out(is)) (A(i,num,is),i=1,N)
+                          endif
+                       enddo
+                       !$OMP END CRITICAL 
+                    enddo
+                    deallocate( evr, dek )
                  else
-                    CALL eigvals(gij, zek, nbands)
+                    if (Hrm(1:1).eq.'H') then
+                       CALL zheigvals(gij, zek, nbands)
+                    else
+                       CALL eigvals(gij, zek, nbands)
+                    endif
                  endif
                  Ekp(iom,isym,:nbands,iikp) = zek(:nbands)
-                 
               ELSEIF (mode.EQ.'g') THEN
                  IF (matsubara) THEN
                     xomega = omega(iom)*IMAG
@@ -894,16 +979,16 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  call cputim(time1)
                  inv_time = inv_time + time1-time0
                  time0=time1
-                 
+
                  CALL CmpGkc2(gmk, gij, DMFTU, iSx, iorbital, ll, nl, cix, natom, iso, ncix, maxdim, maxdim2, lmax2, norbitals, nbands)
                  gmloc(:,:,:,iom) = gmloc(:,:,:,iom) + gmk(:,:,:)*(mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
-                 
+
                  ! G not resolved in m-quantum number. It is computed by using wave functions, u,\cdot{u},...
                  if (cmp_partial_dos) then
                     CALL CmpGknc(gk, gij, GTrans, nindo, norbitals, ncix, nbands)
                     gloc(:,iom) = gloc(:,iom) + gk(:)*(mweight(ikp)/tweight/nsymop2) ! proper weight for the reducible k-point
                  endif
-                 
+
                  ! Total g
                  gtc=0
                  DO i=1,nbands       ! over bands-1
@@ -918,10 +1003,10 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     gtc = gtc + 1/(xomega+EF-E(i) + (0.d0, 1.d0)*gamma*5)
                  ENDDO
                  gtot(iom) = gtot(iom) + gtc*(mweight(ikp)/tweight/nsymop2) 
-     
+
                  call cputim(time1)
                  gc_time = gc_time + time1-time0
-                 
+
               ELSEIF (mode.EQ.'x') THEN
                  ! do nothing
               ELSEIF (mode.EQ.'u') THEN
@@ -938,13 +1023,14 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            !$OMP END PARALLEL DO
 
            if (mode.EQ.'g' .and. cmp_DM) then
-              
+
               call cputim(time0)
               mweight_ikp = (mweight(ikp)/tweight/nsymop2)
               call cmp_DensityMatrix(g_inf, g_ferm, EF, E, s_oo, STrans, DMFTU, omega, nl, ll, iSx, cix, mweight_ikp, iso, iorbital, nbands, nume, nemin, maxdim, maxdim2, ncix, nomega, csize, maxsize, natom, lmax2, norbitals)
               call cputim(time1)
               dm_time = dm_time + time1-time0
            endif
+           if (vector_out) DEALLOCATE( A2 )
         ENDDO !------  isym: over star of the irreducible k-point ----!
 
         if (Cohfacts) then
@@ -958,11 +1044,11 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            deallocate( h_interstitial )
            deallocate( a_interstitial, al_interstitial )
         endif
-        
+
         WRITE(*,'(I3,A,1x,I5,1x,A,I4,A,I2)') myrank, ') Finished k-point number', ikp, 'with #bands=', nbands, ' Nstar=', nsymop2
         call flush(6)
      ENDDO !---- over reducible k-point: ikp
-     
+
 998  CONTINUE !---- irreducible k-points end (jump) from reading
      !--- end k-points
 
@@ -974,9 +1060,9 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
            rewind(itape)
         endif
      ENDDO
-     
+
   END DO ! over different vector files
-     
+
   !---- Deallocating some arrays before MPI_Gather
   CALL w_deallocate()
   if (abs(projector).ge.5) call p_deallocate()
@@ -989,6 +1075,12 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      DEALLOCATE(Cohf0)
      CLOSE(1002)
      CLOSE(1001)
+  endif
+
+  if ( vector_out ) then
+     do is=1,iso
+        close(vcn_out(is))
+     enddo
   endif
   
   !if (iso.eq.2) then
@@ -1003,39 +1095,39 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      if (cmp_DM) then
         CALL Reduce_dm_MPI(g_inf, g_ferm, maxdim, ncix, nomega)
      endif
-     
+
   elseif (mode.eq.'e') then
      if (myrank.eq.master) then
         ALLOCATE( tEk(nomega,nsymop,max_bands,numkpt) )
         ALLOCATE( tnbands(numkpt), tnemin(numkpt), tn_ik(numkpt) )
      endif
-     
+
      CALL Gather_MPI(tEk, tnbands, tnemin, tn_ik, Ekp, nbandsk, nemink, n_ik, pr_procr, pr_procs, nprocs, numkpt, max_bands, nomega, nsymop) 
   endif
   !***************** MPI CALLS ***************************
   DEALLOCATE( pr_procs )
-  
+
   !------------- Printing the calculated local green's function for all requested orbitals in requested shape --------!
   IF (mode.EQ.'g' .and. myrank.eq.master) THEN
-     
+
      if (Qsymmetrize) then
         WRITE(6,*) 'Symmetrizing the Greens function since the group symmetrization is turned off.'
         Call SymmetrizeLocalQuantities(gmloc, Eimpm, Olapm, s_oo, sigma, cfX, cix_orb, cixdim, iSx, iorbital, nindo, norbitals, noccur, maxdim2, nomega)
         if (cmp_DM) Call SymmetrizeLocalQuantities2(g_inf, g_ferm, cfX, cix_orb, cixdim, iSx, iorbital, nindo, norbitals, maxdim2, nomega)
      endif
-     
+
      if (cmp_DM) then
         call Print_DensityMatrix(gmloc, g_inf, g_ferm, omega, maxdim, ncix, Sigind, nomega, cixdim, iso)
         deallocate( g_inf )
         deallocate( g_ferm )
      end if
-     
+
      allocate( Deltac(maxsize, ncix, nomega), Glc(maxsize, ncix, nomega), Eimpc(maxsize, ncix), Olapc(maxsize,ncix) )
-     
+
      CALL GetDelta2(Deltac, Glc, Eimpc, Olapc, logGloc, matsubara, omega, sigma, s_oo, gamma, gmloc, Eimpm, Olapm, Sigind, csize, cixdim, noccur, ncix, maxsize, maxdim, nomega, projector, ComputeLogGloc, Qsymmetrize)
 
      CALL PrintGloc(fh_dos, fh_gc, fh_dt, Glc, gloc, gtot, Deltac, omega, csize, csizes, nl, ll, legend, iatom, ncix, nomega, natom, norbitals, maxsize, Ry2eV)
-     
+
      WRITE(6,'(A)',advance='no') 'Eimp='
      do icix=1,ncix
         do it=1,csize(icix)
@@ -1073,7 +1165,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      do ikp=1,numkpt
         korder(tn_ik(ikp))=ikp
      enddo
-     
+
      DO j=1,numkpt
         ikp = korder(j)
         nbands = tnbands(ikp)
@@ -1109,7 +1201,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
 
   if (Qrenormalize .and. abs(projector).le.5) deallocate( Olapm0, SOlapm )
   !------ Deallocation of memory ---------------
-  
+
   if (Qprint) then
      write(6,'(//,3X,"=====>>> CPU TIME SUMMARY",/)')
      write(6,*)
@@ -1126,11 +1218,14 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
      write(6,'(a,f10.2)') '   greens function   :', gc_time
      write(6,'(a,f10.2)') '   density matrix    :', dm_time
   endif
-  
-  
-  
+
+
+
   RETURN                    
-2032 FORMAT(50X,I2,//)                                                        
+2032 FORMAT(50X,I2,//)
+6000 FORMAT(/5X,'K=',3F10.5,3X,A10/5X,' MATRIX SIZE',I6,'  WEIGHT=',F5.2, '  PGR: ',A3,/5X,'EIGENVALUES ARE:',8(/2X,5F13.7))
+6010 FORMAT(I13,' EIGENVALUES BELOW THE ENERGY ',F10.5)
+6030 FORMAT(7X,14('****')/)
 END SUBROUTINE L2MAIN
 
 

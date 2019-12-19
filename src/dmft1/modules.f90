@@ -6,7 +6,8 @@ MODULE param
   parameter (IBLCK=   64)
   PARAMETER (IBLOCK= 128)
 !.....Optimize IBLOCK and IBLCK for your hardware (32-255)
-  PARAMETER (LMAX2=   3)                                              
+  PARAMETER (LMAX2=   3)  
+  PARAMETER (lmaxr=  13)
   PARAMETER (LOMAX=   3)
   PARAMETER (NDIM=  2*lmax2+1)
   PARAMETER  (NDIM2= 2*NDIM)                                              
@@ -25,6 +26,7 @@ MODULE param
   INTEGER          :: nemin0, nemax0
   INTEGER          :: max_nl
   LOGICAL          :: cmp_partial_dos
+  CHARACTER*2      :: Hrm
 ! for x-dos set lxdos to 3
   parameter (lxdos= 3)
   parameter (nloat= 3)

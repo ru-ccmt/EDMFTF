@@ -252,7 +252,7 @@ def PrepareDefinitionFile_lapwso(widmf, case, para, scratch, cmplx, updn='',orb=
         print >> fdef, "%3d, %-15s, %-10s, %-13s, %-4d" % (13, "'"+case+".vorbdu'",                     "'unknown'", "'formatted'", 0)
 
 
-def PrepareInFile(idmf, mode, case, updn, nsymop=0, recomputeEF=None, mixEF=1.0, WL=None,Temperature=None, Q_ETOT=False):
+def PrepareInFile(idmf, mode, case, updn, nsymop=0, recomputeEF=None, mixEF=1.0, WL=None,Temperature=None, Q_ETOT=False, Hermitian=''):
     if Q_ETOT:
         Q_ETOT_ = '.T.'
     else:
@@ -268,7 +268,8 @@ def PrepareInFile(idmf, mode, case, updn, nsymop=0, recomputeEF=None, mixEF=1.0,
             print >> fdin, WL, '       # frequency range where to look for a pole'
     else:
         print >> fdin, mode, EF, nsymop, '        #  mode, EF, nsymop'
-    
+        if (Hermitian):
+            print >> fdin, Hermitian, '# Forcing Hermitian Hamiltonian'
     fdin.close()
 
 def checkSigmas(cixs, sig='sig.inp'):
@@ -346,7 +347,8 @@ if __name__=='__main__':
     parser.add_option("-g", "--no_group", action="store_true", dest="_no_group", default=False, help="use case.klist_band instead of case.klist")
     parser.add_option("-q", "--q_etot",  dest="Q_ETOT",  type="int", default=1, help="Compute total energy of free energy in dmft2 [0|1]")
     parser.add_option("-u", "--mode", dest="mode",  default='c',  help="Mode of calculation for dmft2. Can be 'c' for charge and 'm' for calculating EF only")
-
+    parser.add_option("--hermitian", action="store_true", dest="herm", default=False, help="make Hamiltonian matrix hermitian, i.e., like neglecting scattering rate")
+    parser.add_option("--hermitianw", action="store_true", dest="hermw", default=False, help="make Hamiltonian matrix hermitian and create a new vector file for irreps")
 
     # Next, parse the arguments
     (options, args) = parser.parse_args()
@@ -395,6 +397,12 @@ if __name__=='__main__':
             runExternal('lapw1'+__updn, dmfe.ROOT, dmfe.MPI2, None, None, exe, options.m_ext, False)
         sys.exit(0)
 
+    Herm=''
+    if options.herm:
+       Herm = 'H'
+    if options.hermw:
+        Herm = 'HW'
+    
     if args[0]=='lapwso':
         exe = 'lapwso'
         if para: print 'Parallel vector/energy files written.'
@@ -430,7 +438,7 @@ if __name__=='__main__':
         mode = 'e'               # mode for computing eigenvalues
         
         PrepareDefinitionFile_dmft1(idmf, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx)
-        PrepareInFile(idmf, mode, w2k.case, updn, 1)
+        PrepareInFile(idmf, mode, w2k.case, updn, 1, Hermitian=Herm)
 
         if not options.def_only:
             #checkSigmas(cixs)
@@ -442,7 +450,7 @@ if __name__=='__main__':
         #__updn = '' if options.m_ext else updn  # if m_ext adds up/dn then updn should not. Otherwise it should.... maybe you can find a better solution.
         #dn = options.m_ext+__updn
         PrepareDefinitionFile_dmft1(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, '', options.m_ext)
-        PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn)
+        PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn, Hermitian=Herm)
         
         if not options.def_only:
             #checkSigmas(cixs)
@@ -516,7 +524,7 @@ if __name__=='__main__':
         idmf = 'p'
         mode = 'p'               # mode for computing eigenvalues
 
-        PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn,1)
+        PrepareInFile(idmf+options.m_ext, mode, w2k.case, updn,1, Hermitian=Herm)
         PrepareDefinitionFile_dmft1(idmf+options.m_ext, mode, w2k.case, cixs, updn, dnup, so, para, w2k.SCRATCH, cmplx, '_band', options.m_ext)
 
         nom = inl.om_npts 

@@ -140,21 +140,47 @@ if __name__=='__main__':
         shutil.copy2(options.insig, options.insig+'.bak')
 
 
-    print 'om=', omega
+    #print 'om=', omega
 
+    imp_cols=[]
+    findmfi = case+'.indmfi'
+    if os.path.exists(findmfi):
+        fi = open(findmfi)
+        N_imp = int(fi.next().split()[0])
+        for i in range(N_imp):
+            dim = int(fi.next().split()[0])
+            Sigi=[]
+            for j in range(dim):
+                Sigi.append( map(int,fi.next().split()[:dim]) )
+            #print 'Sigi=', Sigi
+            cols = sort(union(array(Sigi).flatten().tolist())).tolist()
+            if 0 in cols: cols.remove(0)
+            imp_cols.append(cols)
+    else:
+        imp_cols=[range(1,Nc+1)]
+    #print 'imp_cols=', imp_cols
+    
+    Edc = zeros(Nc).tolist()
     if options.Edc==0 and os.path.isfile('params.dat'):
         execfile('params.dat')
-        if iparams0.has_key('U') and iparams0.has_key('J') and iparams0.has_key('nf0'):
-            U = iparams0['U'][0]
-            J = iparams0['J'][0]
-            nf = iparams0['nf0'][0]
-            options.Edc = U*(nf-0.5)-0.5*J*(nf-1.)
-            
+        for imp in range(len(imp_cols)):
+            ii = str(imp)
+            cols = imp_cols[imp]
+            if eval('iparams'+ii+'.has_key("U") and iparams'+ii+'.has_key("J") and iparams'+ii+'.has_key("nf0")'):
+                U =  eval('iparams'+ii+'["U"][0]')
+                J =  eval('iparams'+ii+'["J"][0]')
+                nf = eval('iparams'+ii+'["nf0"][0]')
+                edc = U*(nf-0.5)-0.5*J*(nf-1.)
+                for ic in cols:
+                    Edc[ic-1] = edc
+    else:
+        Edc = (ones(Nc)*options.Edc).tolist()
+    print 'Edc=', Edc
         
     # writing to the file
     fo = open(options.outsig, 'w')
-    print >> fo, '# s_oo=', (ones(Nc)*options.Edc).tolist()
-    print >> fo, '#  Edc=', (ones(Nc)*options.Edc).tolist()
+    print >> fo, '# s_oo=', Edc
+    print >> fo, '#  Edc=', Edc
     for iom,om in enumerate(omega):
         print >> fo, ("%20.15f "%om), ("0.0 "*(2*Nc))
         

@@ -124,6 +124,10 @@ if __name__=='__main__':
     #fh_sig.close()
     
     sigdata = loadtxt(options.insig).transpose()  # self-energy from 'sig.inp' on long mesh
+    # fix for the case of a single frequency in the input
+    if len(shape(sigdata))==1 : 
+        sigdata = array([sigdata]).T
+    print 'shape(sigdata)=', shape(sigdata)
     print 's_oo=', s_oo
     print 'Edc=', Edc
     

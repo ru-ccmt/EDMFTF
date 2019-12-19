@@ -271,7 +271,97 @@ SUBROUTINE permute_eigenvals(idxarr, ev, ndim)
   RETURN 
 END SUBROUTINE permute_eigenvals
 
+SUBROUTINE zheigsys(ham, zek, evl, evr, ndim)
+!!!----------------------------------------------------------------------!!!
+!!! This routine solves the hermitian eigenvalue problems                !!!
+!!!       H.Ev^{R} = E Ev^{R}                                            !!!
+!!! but acts like the non-hermitian solver above                         !!!
+!!!----------------------------------------------------------------------!!!
+  IMPLICIT NONE
+  !---------- Passed variables ----------
+  COMPLEX*16, INTENT(inout):: ham(ndim,ndim)  ! Hamiltonian / overwritten with right eigenvectors
+  COMPLEX*16, INTENT(out)  :: zek(ndim)       ! Vector of eigenvalues
+  COMPLEX*16, INTENT(out) :: evl(ndim,ndim)   ! left eigenvectors
+  COMPLEX*16, INTENT(out) :: evr(ndim,ndim)   ! right eigenvectors
+  INTEGER, INTENT(in)     :: ndim            ! Dimension of hamiltonian
+  ! locals
+  INTEGER :: lwork, liwork, lrwork, info
+  COMPLEX*16, allocatable :: work(:)
+  REAL*8,     allocatable :: rwork(:)
+  INTEGER,    allocatable :: iwork(:)
+  REAL*8  :: ek(ndim)
+  
+  lwork  = 1+4*ndim+ndim**2
+  liwork = 4+5*ndim
+  lrwork = 1+6*ndim+2*ndim**2
+  allocate( work(lwork), iwork(liwork), rwork(lrwork))
+  
+  ! ham = evr * ek * evr^C
+  !   or
+  ! ek = evr^C * ham * evr
+  !
+  ! zheevd(jobz, uplo, n, a, lda, w, work, lwork, rwork, lrwork, iwork, liwork, info)
+  CALL ZHEEVD('V','U', ndim, ham, ndim, ek, work, lwork, rwork, lrwork, iwork, liwork, info )
+  evr(:,:) = ham(:,:)
+  evl(:,:) = transpose(conjg(ham))
+  zek(:) = ek(:)
+  deallocate( work, iwork, rwork )
+END SUBROUTINE zheigsys
 
+SUBROUTINE dheigsys(ham, ek, evr, ndim)
+!!!----------------------------------------------------------------------!!!
+!!! This routine solves the hermitian eigenvalue problems                !!!
+!!!       H.Ev^{R} = E Ev^{R}                                            !!!
+!!! but acts like the non-hermitian solver above                         !!!
+!!!----------------------------------------------------------------------!!!
+  IMPLICIT NONE
+  !---------- Passed variables ----------
+  COMPLEX*16, INTENT(inout):: ham(ndim,ndim)  ! Hamiltonian / overwritten with right eigenvectors
+  REAL*8, INTENT(out)     :: ek(ndim)       ! Vector of eigenvalues
+  COMPLEX*16, INTENT(out) :: evr(ndim,ndim)   ! right eigenvectors
+  INTEGER, INTENT(in)     :: ndim            ! Dimension of hamiltonian
+  ! locals
+  INTEGER :: lwork, liwork, lrwork, info
+  COMPLEX*16, allocatable :: work(:)
+  REAL*8,     allocatable :: rwork(:)
+  INTEGER,    allocatable :: iwork(:)
+  lwork  = 1+4*ndim+ndim**2
+  liwork = 4+5*ndim
+  lrwork = 1+6*ndim+2*ndim**2
+  allocate( work(lwork), iwork(liwork), rwork(lrwork))
+  
+  ! ham = evr * ek * evr^C
+  !   or
+  ! ek = evr^C * ham * evr
+  !
+  ! zheevd(jobz, uplo, n, a, lda, w, work, lwork, rwork, lrwork, iwork, liwork, info)
+  CALL ZHEEVD('V','U', ndim, ham, ndim, ek, work, lwork, rwork, lrwork, iwork, liwork, info )
+  evr(:,:) = ham(:,:)
+  deallocate( work, iwork, rwork )
+END SUBROUTINE dheigsys
+
+SUBROUTINE zheigvals(ham, zek, ndim)
+  IMPLICIT NONE
+  !---------- Passed variables ----------
+  COMPLEX*16, INTENT(in)  :: ham(ndim,ndim)  ! Hamiltonian
+  COMPLEX*16, INTENT(out) :: zek(ndim)       ! Vector of eigenvalues 
+  INTEGER, INTENT(in)     :: ndim            ! Dimension of hamiltonian
+  !---------- Local variables ----------
+  INTEGER :: lwork, liwork, lrwork, info
+  COMPLEX*16, allocatable :: work(:)
+  REAL*8,     allocatable :: rwork(:)
+  INTEGER,    allocatable :: iwork(:)
+  REAL*8  :: ek(ndim)
+  lwork  = 1+2*ndim
+  liwork = 1+ndim
+  lrwork = 1+2*ndim
+  allocate( work(lwork), iwork(liwork), rwork(lrwork))
+  !
+  ! zheevd(jobz, uplo, n, a, lda, w, work, lwork, rwork, lrwork, iwork, liwork, info)
+  CALL ZHEEVD('N','U', ndim, ham, ndim, ek, work, lwork, rwork, lrwork, iwork, liwork, info )
+  zek(:) = ek(:)
+  deallocate( work, iwork, rwork )
+END SUBROUTINE zheigvals
 
 SUBROUTINE heigsys(ham, ek, ndim)
 !!!----------------------------------------------------------------------!!!
