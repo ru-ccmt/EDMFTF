@@ -5,7 +5,7 @@ MODULE com_mpi
 !!! This module should contain everything connected with paralelezation 
 !!! of the code with MPI
 
-#ifdef MPI
+#ifdef _MPI
   include 'mpif.h'
 #endif
 
@@ -19,7 +19,7 @@ MODULE com_mpi
   INTEGER      :: nargs                 ! Number of command line arguments
 CONTAINS
 
-#ifdef MPI
+#ifdef _MPI
   ! What needs to be done for parallel job
   SUBROUTINE start_MPI
     IMPLICIT NONE
@@ -29,7 +29,7 @@ CONTAINS
     CALL MPI_INIT( ierr )
     CALL MPI_COMM_SIZE( MPI_COMM_WORLD, nprocs, ierr)
     CALL MPI_COMM_RANK( MPI_COMM_WORLD, myrank, ierr)
-    !    PRINT *,'nprocs=',nprocs,'myrank =',myrank 
+    !PRINT *,'nprocs=',nprocs,'myrank =',myrank 
     master = 0
     write(cpuID,'(I3)') myrank
     ! Get command-line arguments
@@ -138,6 +138,7 @@ CONTAINS
        CALL getarg(j, argv(j))
     ENDDO
     cpuID='0'
+    print *, 'Non parallel calculation'
   END SUBROUTINE start_MPI
 
   SUBROUTINE stop_MPI

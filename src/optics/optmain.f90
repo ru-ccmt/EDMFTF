@@ -1,11 +1,11 @@
 ! @Copyright 2007 Kristjan Haule
 
-SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_, delta, Nd, gammac, gamma, alphaV, Ndirection, Qsym, Qsimple, nom, nat, iso, norbitals, ncix, natom, nkpt, nmat, nume, Qcomplex, lmax2, maxdim2, maxdim, maxsize, dwindow, InterbandOnly)
+SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fh_m, fhb, ommax, Temperature_, delta, Nd, gammac, gamma, alphaV, Ndirection, Qsym, Qsimple, nom, nat, iso, norbitals, ncix, natom, nkpt, nmat, nume, Qcomplex, lmax2, maxdim2, maxdim, maxsize, dwindow, InterbandOnly)
   USE com_mpi, ONLY: nprocs, myrank, master, Reduce_MPI, Reduce_MPI_dos
   IMPLICIT NONE
-  CHARACTER*100, intent(in) :: fenergy, fUdmft, fsymop, fmommat
+  CHARACTER*100, intent(in) :: fenergy, fUdmft, fsymop!, fmommat
   REAL*8, intent(in)  :: ommax, delta, gammac, gamma, alphaV(3,3,Ndirection), dwindow, Temperature_
-  INTEGER, intent(in) :: Nd, Ndirection
+  INTEGER, intent(in) :: Nd, Ndirection, fh_m
   LOGICAL, intent(in) :: Qsym, Qsimple
   INTEGER, intent(in) :: fhb, nom, nat, iso, norbitals, ncix, natom, nkpt, nmat, nume
   LOGICAL, intent(in) :: Qcomplex
@@ -25,7 +25,7 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_
   INTEGER :: ios, pr_proc
   INTEGER :: itape, i, j, k, l, is, N, nemin, nemax, ikp, iikp, ip, iq, NE, nb_min, nb_max, dir, n_min, n_max
   REAL*8  :: EF, VOL, EMIST, renorm_wgh, wommax, wdelta, wgamma, wdwindow, Ek(nume), wgh(nkpt), womega, eps_p, eps_m, ferm_factors, Temperature
-  integer :: fh_p, fh_s, fh_m, fh_d, fh_o
+  integer :: fh_p, fh_s, fh_d, fh_o!, fh_m
   integer :: numk, nsymop, nbands, isym, ddi, iw, istart, iend, ix, iw_p, iw_m
   integer :: iorb, wkii, wkis, iom, iband, nord, N0, Nw, Nsymw, icix, tnorbitals
   integer :: nindo(norbitals), csize(ncix), tnindo(norbitals), cixdim(ncix), nl(natom), ll(natom,4)
@@ -53,14 +53,14 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_
   Temperature = Temperature_/Ry2eV
   
   fh_p = 399 ! file for DMFT transformation UDMFT
-  fh_m = 99  ! file for velocity matrix elements
 
   ! Logarithmic frequency mesh for integration
   N0 = int(log((wommax/wdelta)/Nd)/log(2.) + 1 + 0.5) ! Number of different logarithmic intervals
+  if (N0 .LT. 1) N0=1 ! should not be zero
   Nw = (N0+1)*Nd/2   ! Number of all points in the logarithmic mesh  
   ALLOCATE ( amesh(2*Nd+1), zomega(2*Nw), conduc(Nw,Ndirection), gc(2*Nw) )
   gc=0
-  print *, 'N0=', N0, 'Nw=', Nw
+  print *, 'Number of logarithmic intervals=', N0, 'Number of all points in the logarithmic mesh=', Nw
   
   ! Many index arrays are imported from DMFT
   CALL Read_The_Rest_Basic_Arrays(fhb, nindo, cixdim, nl, ll, iorbital, cix, nind, csize, iSx, Sigind, EF, VOL, norbitals, ncix, natom, maxdim, maxdim2)
@@ -117,7 +117,7 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_
   endif
 
   ! optics matrix elements
-  open(fh_m, file=fmommat, status='old')
+  !open(fh_m, file=fmommat, status='old')
   READ(fh_m,*) 
 
   COmega=0
@@ -145,8 +145,7 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_
      nemax = nemin+nbands-1
      
      ALLOCATE( bandind(NE) )
-
-
+     
      DO ip=1,NE
         bandind(ip)=ip
      ENDDO
@@ -389,7 +388,7 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_
      
      ! Normalization over irreducible k-points and over symmetrization (all k-points)
      gc = gc/(renorm_wgh*Nsymw)
-     conduc = conduc/(renorm_wgh*Nsymw)
+     conduc = conduc/(renorm_wgh*Nsymw) * (2.0/iso)  ! changed in 2019. Needs to be multiplied by 2 due to spin, except if spin-orbit is included
      
      ! Output of total DOS and optics
      fh_d = 501
@@ -428,7 +427,6 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature_
   
 998 CONTINUE
 
-  close(fh_m)
   close(fh_s)
   close(fh_p)
   close(59)
@@ -966,7 +964,7 @@ program read_optm
   ! variables
   CHARACTER*100 :: case, fmommat, fsymop, fUdmft, fenergy, fbasicArrays, fsigname
   CHARACTER*2   :: updn, dnup, so
-  INTEGER :: fhb, fhi
+  INTEGER :: fhb, fhi, fh_m
   CHARACTER*100 :: STR
   INTEGER :: nom, nk, iso, nat, norbitals, ncix, natom, nkpt, nmat, nume, lmax2, maxdim2, maxdim, maxsize
   LOGICAL :: Qsym, Qsimple, Qcomplex, InterbandOnly, ProjectToCorrelated
@@ -974,6 +972,7 @@ program read_optm
   INTEGER :: Nd, Nd0, i, j, l
   CHARACTER*5 :: adum
   INTEGER :: Ndirection
+  LOGICAL :: file_exists
   REAL*8, ALLOCATABLE :: alphaV(:,:,:)
 
   
@@ -1043,6 +1042,15 @@ program read_optm
   fsymop = TRIM(case)//'.symop'
   fUdmft = 'Udmft'//TRIM(updn)//'.'
 
+  fh_m = 99  ! file for velocity matrix elements
+  
+  INQUIRE(file=fmommat, exist=file_exists)
+  if (.not. file_exists) then
+     fmommat = TRIM(case)//'.mommat2'//TRIM(updn)
+     INQUIRE(file=fmommat, exist=file_exists)
+     if (.not. file_exists) WRITE(*,*) 'ERROR File not found: Expecting that ', fmommat, 'exists.'
+  endif
+  open(fh_m, file=fmommat, status='old')
 
   if (Temperature.NE.0.0) then
      ! We will use linear mesh only. We need to set very large Nd, so that
@@ -1072,8 +1080,9 @@ program read_optm
 
 
   Nd = 2*Nd0
-  CALL Cmp_Optics(fenergy, fUdmft, fsymop, fmommat, fhb, ommax, Temperature, delta, Nd, gammac, gamma, alphaV, Ndirection, Qsym, Qsimple, nom, nat, iso, norbitals, ncix, natom, nkpt, nmat, nume, Qcomplex, lmax2, maxdim2, maxdim, maxsize, dwindow, InterbandOnly)
+  CALL Cmp_Optics(fenergy, fUdmft, fsymop, fh_m, fhb, ommax, Temperature, delta, Nd, gammac, gamma, alphaV, Ndirection, Qsym, Qsimple, nom, nat, iso, norbitals, ncix, natom, nkpt, nmat, nume, Qcomplex, lmax2, maxdim2, maxdim, maxsize, dwindow, InterbandOnly)
   
+  close(fh_m)
   DEALLOCATE( alphaV )
   CALL stop_MPI()
   
