@@ -41,6 +41,14 @@ if __name__ == '__main__':
     #itensity = 0.2
     DY = 0 # 0.01318
 
+    # colors
+    if False:
+        _cmap_ = cm.hot # color map from matplotlib
+        _col_ = 'w'     # lines are of this color
+    else:
+        _cmap_ = cm.Purples
+        _col_ = 'k'
+    
     fEF = open('EF.dat', 'r')
     mu = float(fEF.next().split()[0])
 
@@ -122,20 +130,20 @@ if __name__ == '__main__':
     
     print 'xmin,xmax,ymin,ymax=', xmin, xmax, ymin, ymax
 
-    imshow(Akom, interpolation='bilinear', cmap=cm.hot, origin='lower', vmin=vmm[0], vmax=vmm[1], extent=[xmin,xmax,ymin,ymax], aspect=(xmax-xmin)*0.8/(ymax-ymin) )
+    imshow(Akom, interpolation='bilinear', cmap=_cmap_, origin='lower', vmin=vmm[0], vmax=vmm[1], extent=[xmin,xmax,ymin,ymax], aspect=(xmax-xmin)*0.8/(ymax-ymin) )
 
     for i in range(len(wkpointi)):
         print 'wp=', wkpointi[i]
-        plot([wkpointi[i],wkpointi[i]], [ymin,ymax], 'w-')
+        plot([wkpointi[i],wkpointi[i]], [ymin,ymax], _col_+'-')
         
-    plot([xmin,xmax],[0,0], 'w:')
+    plot([xmin,xmax],[0,0], _col_+':')
 
     dytck=0.005
     Ntck=5
     for j in range(len(wkpointi)-1):
         for ix in range(1,Ntck):
             x = wkpointi[j]+(wkpointi[j+1]-wkpointi[j])*ix/float(Ntck)
-            plot([x,x],[-dytck,dytck],'w-')
+            plot([x,x],[-dytck,dytck], _col_+'-')
         
     axis([xmin,xmax,ymin,ymax])
     xticks( wkpointi, wkpoints, fontsize='x-large' )

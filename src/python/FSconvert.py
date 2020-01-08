@@ -3,12 +3,25 @@
 from scipy import *
 import sys, re
 from utils import W2kEnvironment, Ry_in_eV
+import argparse
+
+
+usage = 'Reads eigvals.dat and Ta2NiSe5O.outputkgen to construct Fermi surface file for xcrysden.  Also requires EF.dat,Ta2NiSe5O.struct'
+parser = argparse.ArgumentParser(description=usage)
+parser.add_argument('fname', nargs='?', default='eigvals.dat', type=str, help='filename for eigenvalues eigvals.dat')
+parser.add_argument('-n', type=str, default='0:50', help='range of bands to print [-n0:50]')
+args = parser.parse_args()
+
+
+print args
+band0,band1 = map(int,args.n.split(':'))
+feigvals = args.fname
 
 # Finds what is case
 w2k = W2kEnvironment()
 
-band0=0
-band1=50
+#band0=0
+#band1=50
 
 f = open(w2k.case+'.outputkgen', 'r')
 
@@ -72,7 +85,7 @@ Nkmax = max(index.flatten())+1
 print Nkmax
 
 
-g = open('eigvals.dat')
+g = open(feigvals)
 n_emin=0
 n_emax=1000
 for ik in range(Nkmax):

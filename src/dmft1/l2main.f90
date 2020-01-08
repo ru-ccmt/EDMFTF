@@ -77,7 +77,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
   real*8      :: PI, TWOPI, EMIST, S, T, Z, exxx, ARG123, ARG2, ARGT, ARGT2, FAC, logGloc(ncix), Kn(3), rx, mweight_ikp
   real*8      :: crotloc_x_BR1(3,3)
   integer     :: norbitals, cnemin, cnbands
-  integer     :: l1, idt, num, iscf, maxdim2
+  integer     :: l1, idt, num, NUM_MAX, iscf, maxdim2
   integer     :: nomega, icix
   integer     :: i, ii, jj, j, iom, icase, lcase, is, itape, jtape, jatom, i3, lda, ldb, ldc, irf, iind, iat
   integer     :: iorb, L, nind, it, ikp, iks, iikp, ivector, N, NE, NEMIN, NEMAX, nbands, isym, igi, M, ibb, LATOM
@@ -520,6 +520,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                  !   nemax=nemax0
               endif
            ENDDO
+           NUM_MAX=NUM
            call cputim(time3)
            read_time2 = read_time2 + time3-time2
 
@@ -999,7 +1000,7 @@ SUBROUTINE L2MAIN(Qcomplex,nsymop,mode,projector,Qrenormalize,fUdmft)
                     gtc = gtc + 1/(xomega+EF-E(i) + (0.d0, 1.d0)*gamma*5)
                  ENDDO
                  ! nemax
-                 DO i=nemax+1,NUM
+                 DO i=nemax+1,NUM_MAX
                     gtc = gtc + 1/(xomega+EF-E(i) + (0.d0, 1.d0)*gamma*5)
                  ENDDO
                  gtot(iom) = gtot(iom) + gtc*(mweight(ikp)/tweight/nsymop2) 

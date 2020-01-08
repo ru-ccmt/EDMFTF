@@ -125,7 +125,7 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fh_m, fhb, ommax, Temperature_, d
   
 !!! ---------- Preparation of arrays for paralel executaion --------------
   pr_proc  = floor(nkpt/DBLE(nprocs)+0.999)  ! The maximum number of points calculated per processor                                          
-  WRITE(6,'(A,I3,2x,A,I3)') 'pr_proc=', pr_proc, 'tot-k=', nkpt
+  WRITE(6,'(A,I4,2x,A,I4)') 'pr_proc=', pr_proc, 'tot-k=', nkpt
 
 
   wgh=0
@@ -278,11 +278,10 @@ SUBROUTINE Cmp_Optics(fenergy, fUdmft, fsymop, fh_m, fhb, ommax, Temperature_, d
               iend=Nd-4*Temperature/wdelta
               if (iend<1) iend=1
            endif
-           WRITE(*,'(A,I3,1x,A,I3,1x,A,I3,1x,A,I4,1x,A,I4,1x,A,F10.3)') 'ikp=', ikp, 'isym=', isym, 'istart=', istart, 'iend=', iend, 'Nd=', Nd, '4*T/d=', 4*Temperature/wdelta
+           WRITE(*,'(A,I4,1x,A,I3,1x,A,I3,1x,A,I3,1x,A,I4,1x,A,I4,1x,A,F10.3)') 'ikp=', ikp, 'isym=', isym, 'j=', j, 'istart=', istart, 'iend=', iend, 'Nd=', Nd, '4*T/d=', 4*Temperature/wdelta
 
            ix=1
            do k=istart,iend
-              
               ! Frequency mesh for printing
               zomega(Nw+iw)   = amesh(k+Nd+1)*wdelta ! positive frequencies
               zomega(Nw-iw+1) = amesh(Nd-k+1)*wdelta ! negative frequencies

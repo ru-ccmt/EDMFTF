@@ -5,20 +5,28 @@
 from scipy import *
 import sys
 from fractions import gcd
+from scipy import linalg
 
+BR2 = None
 ######################################
 ##    Edit this part  only          ##
 ######################################
 Nt = 500                                                  # number of all points along the path
 legend=['Z','Gamma','X/2','Y/2','Gamma']                  # name of  the points
-BS=[[0,0,0.5], [0,0,0], [0.25,0,0],[0.13426,0.13426,0],[0,0,0]] # coordinates of the points
-BR2=[[0.94919,  -0.25835,   0.00000],  # reciprocal vectors from case.rotlm
-     [0.94919,   0.25835,   0.00000],  # absolute value is not important, only ratios are important
-     [0.00000,   0.00000,   0.21209]]  # Needed to find the length of each interval, and redistribute points along the path
+#BR2=[[0.94919,  -0.25835,   0.00000],  # reciprocal vectors from case.rotlm
+#     [0.94919,   0.25835,   0.00000],  # absolute value is not important, only ratios are important
+#     [0.00000,   0.00000,   0.21209]]  # Needed to find the length of each interval, and redistribute points along the path
+BR1=[[0.94919,   0.00000,   0.00000],
+     [0.00000,   0.25835,   0.00000],
+     [0.00000,   0.00000,   0.21209]]
+BS = [[0.025, 0, 0], [0.025, 1, 0], [0.1,1,0],[0,0,0]]   # CAREFUL: Has to be specified in conventional brillouine zone, not primitive
 ########################################
+if BR2 is not None:
+    Prim2Conv = dot(linalg.inv(array(BR1).T), array(BR2).T)
 BS = array(BS,dtype=float)
 
-lBS = dot(BS,array(BR2))
+lBS = dot(BS,array(BR1))
+#print  'lBS=', lBS
 dl=zeros(len(lBS)-1)
 for i in range(len(lBS)-1):
     dr=lBS[i+1]-lBS[i]
@@ -32,14 +40,9 @@ Mi = zeros(len(Ni),dtype=int)
 for i in range(len(Ni)):
     fracts = 1/array(filter(lambda x:x>1e-6, hstack((BS[i+1],BS[i]))))
     fact = int( reduce(lambda x,y: x*y/gcd(int(x),int(y)), fracts) )
-    #print i, 'fract=', fracts, 'fact=', fact
-    #if Ni[i] % fact==0:
-    #    Mi[i]=Ni[i]
-    #else:
     Mi[i]=Ni[i]*fact
 
 
-#print 'Ni=', Ni, 'Mi=', Mi
 Klist = []
 Name = []
 l=0
