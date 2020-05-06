@@ -1,3 +1,52 @@
+module set_unique
+  integer, allocatable :: previously_found(:)
+  integer :: nc, nmax
+contains
+  subroutine set_init(nmax1)
+    implicit none
+    integer, intent(in) :: nmax1
+    nmax = nmax1
+    allocate( previously_found(nmax) )
+    nc = 0
+  end subroutine set_init
+  !
+  subroutine set_del()
+    deallocate( previously_found )
+  end subroutine set_del
+  !
+  logical Function set_already_appeared(n)
+    implicit none
+    integer, intent(in) :: n
+    set_already_appeared = (ANY(previously_found(:nc) == n ))
+    return
+  end Function set_already_appeared
+  !
+  integer function set_first_unique()
+    implicit none
+    integer :: i
+    do i=1,nmax
+       if (.not.set_already_appeared(i)) then
+          set_first_unique = i
+          return
+       endif
+    enddo
+    set_first_unique = 0
+    return
+  end function set_first_unique
+  !
+  subroutine add_to_set(c)
+    implicit none
+    integer, intent(in) :: c
+    if (.not.set_already_appeared(c)) then
+       nc = nc + 1
+       previously_found(nc) = c
+    end if
+  end subroutine add_to_set
+  subroutine print_set
+    write(6,*) previously_found(:nc)
+  end subroutine print_set
+end module set_unique
+
 MODULE dmfts
   INTEGER :: lmaxp =    0   ! maximum l for projector. Should be set in l2main
   REAL*8  :: DM_Emin, DM_Emax, DM_EF, gammac, gamma, aom_default, bom_default, mixEF, Temperature, wl
@@ -32,13 +81,15 @@ CONTAINS
     WL = WL/Ry2eV
   END SUBROUTINE Read_indmf2
 
-  SUBROUTINE Read_indmfl(fhr, fh_stdout, nemin0, nemax0, loro, rotloc, mult, nat, natm, Qprint)
+  SUBROUTINE Read_indmfl(fhr, fh_stdout, nemin0, nemax0, loro, rotloc, mult, nat, natm, Qforce, Qprint)
     ! Reads input file case.indmfl
+    use set_unique
     IMPLICIT NONE
     INTEGER, intent(in) :: fhr, fh_stdout  ! fhr should be 7, fh_stdout should be 6
     INTEGER, intent(in) :: nat, natm, mult(nat)
     INTEGER, intent(out):: nemin0, nemax0, loro
     REAL*8, intent(in)  :: rotloc(3,3,nat)
+    LOGICAL, intent(in) :: Qforce
     LOGICAL, intent(in) :: Qprint ! should be myrank.EQ.master .OR. fastFilesystem
     ! locals
     REAL*8,PARAMETER    :: Ry2eV= 13.60569253d0
@@ -47,7 +98,9 @@ CONTAINS
     REAL*8  :: xx(3), xz(3), thetaz, phiz, thetax, phix, ddd, check
     REAL*8, allocatable :: wtmpx(:)
     LOGICAL :: Qident
-    
+    INTEGER :: ncix2, ip, iq, it2, minv
+    INTEGER, allocatable :: cix_atom(:), cdim(:)
+
     READ(fhr,*) DM_Emin,DM_Emax,irenormalize,projector
 
     if (irenormalize.EQ.0) then
@@ -55,7 +108,7 @@ CONTAINS
     else
        Qrenormalize = .TRUE.
     endif
-    
+
     if (abs(projector).lt.4) then
        DM_Emin = DM_Emin/Ry2eV
        DM_Emax = DM_Emax/Ry2eV
@@ -65,7 +118,7 @@ CONTAINS
        nemax0=int(DM_Emax)
        if (Qprint) WRITE(fh_stdout,'(A,1x,I6,1x,I6)') 'nemin,nemax=', nemin0, nemax0
     endif
-  
+
     READ(fhr,*) imatsubara, gammac, gamma, nom_default, aom_default, bom_default
     if (imatsubara.EQ.0) then
        matsubara = .FALSE.
@@ -74,7 +127,7 @@ CONTAINS
     endif
     if (Qprint) WRITE(fh_stdout,'(A,I2,1x,A,f10.5,1x,A,f10.5,1x)') 'imatsubara=', imatsubara, 'gammac=', gammac, 'gamma=', gamma
     read(fhr,*) natom
-  
+
     ALLOCATE(nl(natom))
     allocate(ll(natom,4), qsplit(natom,4), cix(natom,4), iatom(natom))
     ALLOCATE(crotloc(3,3,natom))
@@ -95,7 +148,7 @@ CONTAINS
     ll(:,:)=0
     cix(:,:)=0
     iatom(:)=0
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     DO i=1,natom
        READ(fhr,*) latom, nl(i), locrot ! read from case.inq
        iatom(i) = latom       ! The succesive number of atom (all atoms counted)
@@ -110,12 +163,12 @@ CONTAINS
        do j=1,nl(i)
           read(fhr,*) ll(i,j), qsplit(i,j), cix(i,j) ! LL contains all L-quantum numbers which need to be computed.
        enddo
-       
+
        do j=1,nl(i)
           if (Qprint) write(fh_stdout, '(A,I3,2x,A,I3)') 'l=', ll(i,j), 'qsplit=', qsplit(i,j)
        enddo
        if (Qprint) write(fh_stdout,*)'No symmetrization over eq. k-points is performed'
-       
+
        crotloc(:,:,i) = rotloc(:,:,jatom)  ! Rotation for this type from the struct file
 
        ! Rotation matrix in case the coordinate system is changed!
@@ -180,26 +233,40 @@ CONTAINS
           endif
        endif   !change of loc.rot. end
        ! end Rotation matrix loro
-       
+
        if (shift.ne.0) then
           read(fhr,*) (shft(latom,j),j=1,3)
           if (Qprint) write(fh_stdout,'(A,1x,I2,A,2x,3F4.1)') '** atom', i, ' has nonzero shift: ', shft(latom,1), shft(latom,2), shft(latom,3)
        endif
     enddo
 
-
     READ(fhr,*) ! comment: Next few lines contain instructions (transformation,index) for all correlated orbitals
     READ(fhr,*) ncix, maxdim, maxsize ! number of independent cix blocks
     if (Qprint) WRITE(fh_stdout,*) '********** Start Reading Cix file *************'
-    
+
+
+    ncix2 = maxval(cix)
+    if (ncix2 .ne. ncix) then
+       write(6,*) 'WARNING: from reading case.indfl file: ncix=', ncix, 'and max(cix)=', ncix2
+       write(6,*) '         we expect the two to be equal'
+    end if
+    allocate( cix_atom(0:ncix2) )
+    do i=1,natom
+       do j=1,nl(i)
+          cix_atom(cix(i,j)) = iatom(i)
+       enddo
+    enddo
+
+
     ALLOCATE(CF(maxdim,maxdim,ncix))      ! transformation matrix
     ALLOCATE(Sigind(maxdim,maxdim,ncix))  ! correlated index
     ALLOCATE(legend(maxsize, ncix))       ! names of correlated orbitals
     ALLOCATE(csize(ncix))                 ! independent components
-    
+
     ALLOCATE(wtmpx(2*maxdim))              ! temp
-  
+
     ALLOCATE(Sigind_orig(maxdim,maxdim,ncix))  ! correlated index                                                                                                                                                                               
+    allocate( cdim(ncix) )
 
     CF=0
     Sigind=0  
@@ -207,6 +274,7 @@ CONTAINS
     ntcix=0
     do wicix=1,ncix
        READ(fhr,*) icix, wndim, size  ! icix, size-of-matrix, L, number of independent components of the matrix
+       cdim(icix) = wndim
        if (wicix.ne.icix) then
           print *, 'Something wrong reading case.indmfl file. Boilig out...'
           CALL OUTERR('dmftdat.f90','Something wrong reading case.indmfl file (1)')
@@ -250,7 +318,7 @@ CONTAINS
                 if (Sigind(i,j,icix).lt.0) Sigind(i,j,icix) = (abs(Sigind(i,j,icix))-minsigind_m+maxsigind_p+1)
              enddo
           enddo
-          
+
           if (Qprint) then
              WRITE(fh_stdout,*) 'Sigind corrected to'
              do i=1,wndim
@@ -261,7 +329,7 @@ CONTAINS
              enddo
           endif
        endif
-       
+
        READ(fhr,*) ! Comment: Transformation matrix follows
        do i=1,wndim
           READ(fhr,*) (wtmpx(j),j=1,2*wndim)
@@ -310,7 +378,83 @@ CONTAINS
           enddo
        endif
     enddo
+
+    if (Qforce) then
+       ! For calculation of forces we use Sigind_orig. It can happen that many similar atoms are treated by the same Sigind_orig,
+       ! which makes the force to be averaged over several atoms, rather than calculating the force on each atom separately.
+       ! The averaging is OK if the atoms are equivalent in this space group, but it is not OK if the atoms are almost the same
+       ! (being treated by the same impurity problem) but not striclty equivalent.
+       ! We hence need to properly modify Sigind_orig, so that each atom has different Sigind_orig if inequivalent.
+       ! This will not break the code for cluster DMFT (I think) but forb force probably does not work for clusters yet.
+       call set_init(maxdim*maxdim*ncix)
+       do iat=1,nat
+          ! finding minv == smallest possible value of Sigind_orig (excluding 0) for this type of atom
+          minv = 1000
+          do icix=1,ncix
+             latom = cix_atom(icix)
+             jatom = isort(latom)
+             if (jatom.ne.iat) cycle
+             !
+             do ip=1,cdim(icix)
+                do iq=1,cdim(icix)
+                   it2 = Sigind_orig(ip,iq,icix)
+                   if (it2 > 0 .and. it2 < minv) minv = it2
+                enddo
+             enddo
+          enddo
+          ! Correcting Sigind_orig so that if atom is of different type, it must have different Sigind_orig, even if impurity solver treats it as equivalent.
+          ! Streactly speaking, this should not be necessary if we allowed all possible local problems to be solved by independent impurity problem. But in large
+          ! unit celss for phonon calculation, this is hard, and mostly unnecessary, as hybridizations do not change much from atom to atom. Hence we can keep a few
+          ! atoms equivalent in impurity problem, but we want to compute orbital force on each of them, not just the average over all that are treated as equal in impurity problems.
+          do icix=1,ncix
+             latom = cix_atom(icix)
+             jatom = isort(latom)
+             if (jatom.ne.iat) cycle
+             !
+             do ip=1,cdim(icix)
+                do iq=1,cdim(icix)
+                   it2 = Sigind_orig(ip,iq,icix)
+                   if (it2.gt.0) then
+                      if ( set_already_appeared(it2) ) then
+                         Sigind_orig(ip,iq,icix) = Sigind_orig(ip,iq,icix) - minv + set_first_unique()
+                      endif
+                   endif
+                enddo
+             enddo
+          enddo
+          ! Finally remembering which indices were already used on all previous atoms, so that next atom will start with unique index.
+          do icix=1,ncix
+             latom = cix_atom(icix)
+             jatom = isort(latom)
+             if (jatom.ne.iat) cycle
+             do ip=1,cdim(icix)
+                do iq=1,cdim(icix)
+                   call add_to_set( Sigind_orig(ip,iq,icix) )
+                enddo
+             enddo
+          enddo
+          
+          if (Qprint) then
+             do icix=1,ncix
+                latom = cix_atom(icix)
+                jatom = isort(latom)
+                if (jatom.ne.iat) cycle
+                write(fh_stdout,*)' Unique Correlated index for forces', icix
+                do ip=1,cdim(icix)
+                   do iq=1,cdim(icix)
+                      write(fh_stdout,'(I3)',advance='no') Sigind_orig(ip,iq,icix)
+                   enddo
+                   write(fh_stdout,*)
+                enddo
+             end do
+          end if
+       end do
+       ntcix = maxval(Sigind_orig)
+       call set_del()
+    endif
+
     DEALLOCATE(wtmpx)
+    deallocate( cix_atom, cdim )
 
     if (Qprint) then
        if (Qident) then
@@ -319,6 +463,7 @@ CONTAINS
           write(fh_stdout,*)' At least one transformation matrix is not Identity'
        endif
     endif
+
 120 FORMAT(' New z axis || ',3f9.4)
 121 FORMAT('        Energy to separate low and high energy','states: ',f10.5)
 1013 FORMAT('LOCAL ROT MATRIX:   ',3f10.7,/,20x,3f10.7,/,20x,3f10.7)
@@ -338,3 +483,4 @@ CONTAINS
   END SUBROUTINE DeallocateDmf
   
 END MODULE dmfts
+

@@ -70,6 +70,9 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, d
   REAL*8  :: fer, tlogGD, tlogG, tlogG0, tdens, ek_inf, beta, csm, wkpt, C0, sginf2, second_order_correction, fermi!, diff
   INTEGER :: i, iom, num, num0, it, nomq_max, icix, j, ip, start_nipc
   LOGICAL :: Qforce
+  complex*16 :: czero, cone
+  cone  = cmplx(1.d0,0.d0, 8)
+  czero = cmplx(0.d0,0.d0, 8)
   
   start_nipc=2
   
@@ -119,7 +122,7 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, d
      
      allocate(tmp(nbands,nbands))
      ! Bii = zal_inf * (Sigmaij*iw) * zar_inf                                                                                                                                                                                                      
-     CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),zal_inf,nbands,Sigmaij,nbands,(0.d0,0.d0),tmp,nbands)
+     CALL zgemm('N','N',nbands,nbands,nbands,cone,zal_inf,nbands,Sigmaij,nbands,czero,tmp,nbands)
      CALL ProductTrace3(Bii, tmp, zar_inf, nbands)
      
      deallocate( Sigmaij )
@@ -207,13 +210,13 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, d
         logG0 = logG0 + tlogG0* wkpt
         logGD = logGD + tlogGD* wkpt
 
-        DO it=1,ntcix  ! sum_{ij} Gij(i,j) * STrans(j,i)                                                                                                                                                                                      
+        DO it=1,ntcix  ! sum_{ij} Gij(i,j) * STrans(j,i)
            if (lg_deg(it).eq.0) cycle
            do ip=start_nipc,nipc
               Gdloc(it,iom,ip) = Gdloc(it,iom,ip) + ProductTrace2(Gij, lgTrans(:,:,it,ip), nbands)*(wkp*0.5)  ! 0.5 because wkp=2*wk/sumw
            enddo
         ENDDO
-        Call ProjectToLocal(Gdloc0(:,:,:,iom), Gij, DMFTU, 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
+        Call ProjectToLocal(Gdloc0(:,:,:,iom), Gij, DMFTU(:,:,:,1), 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
         deallocate( Sigmaij, Gij )
         deallocate( Eij, zek )
      enddo   ! iom loop
@@ -286,7 +289,7 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, d
         gtc = sum(Dni)
         sginf = sginf + sginf_
         ! Wsum = Ar * 1/(i*om+mu-ek) * Al
-        CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),tmp,nbands,zal,nbands,(0.d0,0.d0),Gij,nbands)
+        CALL zgemm('N','N',nbands,nbands,nbands,cone,tmp,nbands,zal,nbands,czero,Gij,nbands)
         Wsum = Wsum + Gij
 
         if (Qforce) then
@@ -294,30 +297,30 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, d
            do num0=1,nbands
               tmp(:,num0) = tmp(:,num0)*zek(num0)
            enddo
-           CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),tmp,nbands,zal,nbands,(1.d0,0.d0),WEsum,nbands)
+           CALL zgemm('N','N',nbands,nbands,nbands,cone,tmp,nbands,zal,nbands,cone,WEsum,nbands)
         endif
         
-        ! Evaluating G_local                                                                                                                                                                                                                  
+        ! Evaluating G_local
         do j=1,nbands
            tmp2(:,j) = zar(:,j)*Dni(j)
         enddo
-        CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),tmp2,nbands,zal,nbands,(0.d0,0.d0),Gij,nbands)
+        CALL zgemm('N','N',nbands,nbands,nbands,cone,tmp2,nbands,zal,nbands,czero,Gij,nbands)
         DO it=1,ntcix
            if (lg_deg(it).eq.0) cycle
-           !CALL zgemm('N','T',nbands,nbands,nbands,(1.d0,0.d0),zal,nbands,lgTrans(:,:,it),nbands,(0.d0,0.d0),tmp,nbands)
+           !CALL zgemm('N','T',nbands,nbands,nbands,cone,zal,nbands,lgTrans(:,:,it),nbands,czero,tmp,nbands)
            !
            ! Here we want to compute   Gdloc = \sum_{ij} (A^R * g * A^L)_{ij} * lgTrans_{ij} = Tr( A^R * g * A^L * lgTrans^T )
            !   We first compute   tmp = lgTrans * {A^L}^T
            !          and next    tmp2_{ij} = A^R_{ij}*g_j
            !          finally     G_loc = \sum_{ij} tmp2_{ji} tmp_{ji} = A^R_{ji} g_i A^L_{il} * lgTrans^T_{lj} 
            do ip=start_nipc,nipc
-              !CALL zgemm('N','T',nbands,nbands,nbands,(1.d0,0.d0),lgTrans(:,:,it,ip),nbands,zal,nbands,(0.d0,0.d0),tmp,nbands)
+              !CALL zgemm('N','T',nbands,nbands,nbands,cone,lgTrans(:,:,it,ip),nbands,zal,nbands,czero,tmp,nbands)
               !Gdloc(it,iom,ip) = Gdloc(it,iom,ip) +  ProductTrace2(tmp2,tmp,nbands)* 0.5*wkp
               !
               Gdloc(it,iom,ip) = Gdloc(it,iom,ip) + ProductTrace2(Gij, lgTrans(:,:,it,ip), nbands)*(wkp*0.5)  ! 0.5 because wkp=2*wk/sumw
            enddo
         ENDDO
-        Call ProjectToLocal(Gdloc0(:,:,:,iom), Gij, DMFTU, 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
+        Call ProjectToLocal(Gdloc0(:,:,:,iom), Gij, DMFTU(:,:,:,1), 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
         tlogGD = 2/beta*tlogGD
         tlogG0 = 2/beta*tlogG0
         tdens  = 2/beta*tdens
@@ -406,7 +409,7 @@ SUBROUTINE cmp_dmft_weights2(Aweight, gloc, logG, dens,  Gdloc, Gdloc0, DMFTU, d
      DO i=1,nbands
         Gij(i,i) = E(i+DM_nemin-1)-DM_EF
      ENDDO
-     call ProjectToLocal(Edimp0, Gij, DMFTU, 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
+     call ProjectToLocal(Edimp0, Gij, DMFTU(:,:,:,1), 0.5*dble(wkp), iorbital, iSx, nbands, maxdim2, norbitals)
      deallocate( Gij )
      
      deallocate( Bii )
@@ -529,6 +532,9 @@ SUBROUTINE cmp_dmft_weights(Aweight, gloc, logG, logGD, logG0, dens, STrans, sig
   COMPLEX*16 :: cc, gtc, cek, omn, w0, p_w0, e0, e1
   REAL*8  :: fer, tlogGD, tlogG, tlogG0, tdens, ek_inf, beta
   INTEGER :: i, iom, num, num0, j0, j1, iomt
+  complex*16 :: czero, cone
+  cone  = cmplx(1.d0,0.d0, 8)
+  czero = cmplx(0.d0,0.d0, 8)
   
   beta = 1/Temperature
   
@@ -599,7 +605,7 @@ SUBROUTINE cmp_dmft_weights(Aweight, gloc, logG, logGD, logG0, dens, STrans, sig
         
         ! Wsum = Ar * 1/(i*om+mu-ek) * Al
         ! Wsum(:,:) = Wsum(:,:) + matmul(tmp,zal)
-        CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),tmp,nbands,zal,nbands,(1.d0,0.d0),Wsum,nbands)
+        CALL zgemm('N','N',nbands,nbands,nbands,cone,tmp,nbands,zal,nbands,cone,Wsum,nbands)
 
 
         tlogGD = 2/beta*tlogGD
@@ -700,12 +706,12 @@ SUBROUTINE cmp_dmft_weights(Aweight, gloc, logG, logGD, logG0, dens, STrans, sig
 
         ! Wsum = Ar * 1/(i*om+mu-ek) * Al
         ! Wsum(:,:) = Wsum(:,:) + matmul(tmp,zal)
-        CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),tmp,nbands,zal,nbands,(1.d0,0.d0),Wsum,nbands)
+        CALL zgemm('N','N',nbands,nbands,nbands,cone,tmp,nbands,zal,nbands,cone,Wsum,nbands)
 
         ! iom>n0_om :  Wsum = tmp * Al + p_tmp*p_zal
         if (iom.GT.n0_om) then
            ! Wsum(:,:) = Wsum(:,:) + matmul(p_tmp,p_zal)
-           CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),p_tmp,nbands,p_zal,nbands,(1.d0,0.d0),Wsum,nbands)
+           CALL zgemm('N','N',nbands,nbands,nbands,cone,p_tmp,nbands,p_zal,nbands,cone,Wsum,nbands)
         endif
 
         p_zek(:) = zek(:)
@@ -824,12 +830,12 @@ SUBROUTINE GetLocalNds(Nds, Aweight, lgTrans, vnorm1, lg_deg, nbands, ntcix, nip
   REAL*8, intent(out)    :: Nds(nip,ntcix)
   ! locals
   COMPLEX*16 :: ProductTrace2
-  INTEGER :: ip, it
+  INTEGER :: ip, it2
   Nds(:,:)=0.d0
-  DO it=1,ntcix  ! sum_{ij} Gij(i,j) * STrans(j,i)                                                                                                                                                                                      
-     if (lg_deg(it).eq.0) cycle
+  DO it2=1,ntcix  ! sum_{ij} Gij(i,j) * STrans(j,i)                                                                                                                                                                                      
+     if (lg_deg(it2).eq.0) cycle
      do ip=1,nip
-        Nds(ip,it) = Nds(ip,it) + dble(ProductTrace2(Aweight, lgTrans(:,:,it,ip), nbands))*lg_deg(it)*vnorm1
+        Nds(ip,it2) = Nds(ip,it2) + dble(ProductTrace2(Aweight, lgTrans(:,:,it2,ip), nbands))*lg_deg(it2)*vnorm1
      enddo
   ENDDO
 END SUBROUTINE GetLocalNds
@@ -842,9 +848,12 @@ REAL*8 Function ProductTrace(Sigmaij,Gij,nbands)
   COMPLEX*16 :: smSG(nbands,nbands), Gji(nbands,nbands)
   REAL*8     :: res
   INTEGER    :: i, j
+  complex*16 :: czero, cone
+  cone  = cmplx(1.d0,0.d0, 8)
+  czero = cmplx(0.d0,0.d0, 8)
 
   if (.False.) then
-     CALL zgemm('N','N',nbands,nbands,nbands,(1.d0,0.d0),Sigmaij,nbands,Gij,nbands,(1.d0,0.d0),smSG,nbands)
+     CALL zgemm('N','N',nbands,nbands,nbands,cone,Sigmaij,nbands,Gij,nbands,cone,smSG,nbands)
      res=0
      do i=1,nbands
         res = res + real(smSg(i,i))
@@ -934,6 +943,10 @@ SUBROUTINE ProjectToLocal(Gloc, Gij, DMFTU, wk, iorbital, iSx, nbands, maxdim2, 
   !                                                                                                                                                                                                                                                                                           
   INTEGER :: icase, jcase, l1case, l2case, icix, l1, l2, nind1, nind2, iorb1, iorb2, ind1, ind2, i1, i2
   COMPLEX*16, allocatable :: tmp(:,:), gd(:,:)
+  complex*16 :: czero, cone
+  cone  = cmplx(1.d0,0.d0, 8)
+  czero = cmplx(0.d0,0.d0, 8)
+  
   allocate( tmp(maxdim2,nbands), gd(maxdim2,maxdim2) )
   DO icase=1,natom
      do l1case=1,nl(icase)
@@ -948,8 +961,8 @@ SUBROUTINE ProjectToLocal(Gloc, Gij, DMFTU, wk, iorbital, iSx, nbands, maxdim2, 
               l2 = ll(jcase,l2case)
               nind2 = (2*l2+1)*iso
               iorb2 = iorbital(jcase,l2case)
-              call zgemm('C','N', nind1, nbands, nbands, (1.d0,0.d0), DMFTU(:,:,iorb1), nbands, Gij(:,:), nbands, (0.d0,0.d0), tmp(:,:),maxdim2)
-              call zgemm('N','N', nind1, nind2, nbands, (1.d0,0.d0), tmp, maxdim2, DMFTU(:,:,iorb2),nbands, (0.d0,0.d0), gd, maxdim2)
+              call zgemm('C','N', nind1, nbands, nbands, cone, DMFTU(:,:,iorb1), nbands, Gij(:,:), nbands, czero, tmp(:,:),maxdim2)
+              call zgemm('N','N', nind1, nind2, nbands,  cone, tmp, maxdim2, DMFTU(:,:,iorb2),nbands, czero, gd, maxdim2)
               do ind1=1,nind1
                  do ind2=1,nind2
                     i1 = iSx(ind1,iorb1)

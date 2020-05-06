@@ -64,7 +64,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   REAL*8     :: emist, fac, ETOT2, FTOT2, FTOT0, SQRT2, SQFP, Y, TDE1, TDE2!, S,T,Z
   REAL*8     :: time_bl, time_bl_w, time_reduc, time_reduc_w, time_write, time_writeclm, time_writescf, time4_w, time3, time4, time_force, time_force_w
   REAL*8     :: time_write_w, time_writeclm_w, time_ilm, time_ilm_w, time_radprod, time_radprod_w, time_m, time_m_w, time_rad, time_rad_w, time3_w
-  REAL*8     :: time_rd_w, time_rd_c, time_atpar_w, time_atpar_c, time_writescf_w, time_r_w, time_r_c, time_lo, time_lo_w
+  REAL*8     :: time_rd_w, time_rd_c, time_atpar_w, time_atpar_c, time_writescf_w, time_r_w, time_r_c, time_lo, time_lo_w, time_lnG,time_lnGw
   REAL*8     :: time_writeefg, time_writeefg_w, t1c, t1w, t2c, t2w, t3c, t3w, time1, time1_w, time2, time2_w, time_mt, time_mt_w
   REAL*8     :: time_dmf, time_dmfw, time_int, time_intw, time_ed, time_edw, time_dmf0, time_dmf0w, time_dmf1, time_dmf1w, time_dmfwgh, time_dmfwgh_w
   !
@@ -644,7 +644,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         ENDDO
         FTOT2 = FTOT2 + TDE1+TDE2+logG
         FTOT0 = FTOT0 + TDE1+TDE2
-        WRITE(*,'(A,f11.6,1x,A,f11.6,1x,A,f11.6,1x,A,f11.6,1x,A,f11.6,1x,A,f11.6)') 'Density=', dens, 'ETOT(band)=', ETOT2, 'trlgG+mu*N=', FTOT2+DM_EF*dens, 'logG=',logG,'TDE=', TDE1+TDE2, 'trlgG=', FTOT2
+        !WRITE(6,'(A,f11.6,1x,A,f11.6,1x,A,f11.6,1x,A,f11.6,1x,A,f11.6,1x,A,f11.6)') 'Density=', dens, 'ETOT(band)=', ETOT2, 'trlgG+mu*N=', FTOT2+DM_EF*dens, 'logG=',logG,'TDE=', TDE1+TDE2, 'trlgG=', FTOT2
         
         allocate( zw2(nbands) )
         CALL Diagonalize_DMFT_WEIGHTS(zw2, Aweight, nbands, DM_nemin, DM_nemaxx, .True.)
@@ -738,14 +738,17 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
   CALL Reduce_MPI(xwt, ETOT2, FTOT2, FTOT0, gloc, w_RHOLM, DM, Gdloc, fsph, fnsp, fsph2, Edimp, Nds, w_xwt1, w_xwteh, w_xwtel, w_xwt1h, w_xwt1l, sumfft, tloc, nomega, NRAD, LM_MAX, nat, natm, iff1, iff2, iff3, ift1, ift2, ift3, maxdim, ncix, ntcix, nipc, Qforce)
   
   if (myrank.eq.master) then
+
+     CALL cputim(time1)
+     CALL walltim(time1_w)
      
      call SymmetrizeDensityMatrix(DM, cfX, cix_orb, cixdim, iSx, iorbital, nindo, norbitals, maxdim2)
 
-     print *, 'Sum of eigenvalues=', ETOT2*Ry2eV, 'eV'
-     print *, 'TrLogG=', (FTOT2+DM_EF*elecn)*Ry2eV, 'eV'
+     write(6,*) 'Sum of eigenvalues=', ETOT2*Ry2eV, 'eV'
+     write(6,*) 'TrLogG=', (FTOT2+DM_EF*elecn)*Ry2eV, 'eV'
      if (matsubara) then
         ! THIS SHOULD BE EXTENDED TO REAL AXIS
-        CALL cmpLogGdloc(logGloc, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc)
+        CALL cmpLogGdloc(logGloc, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc, SOlapm)
      else
         logGloc=0.
         DeltaG=0.
@@ -753,12 +756,17 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         eimp_nd2=0.
      endif
      
+     CALL cputim(time2)
+     CALL walltim(time2_w)
+     time_lnG = time2-time1
+     time_lnGw =time2_w-time1_w
+     
      logGloc = logGloc*2./iso
      DeltaG = DeltaG*2./iso
-     WRITE(*,*) 'TrLog(Gloc)[eV]=', logGloc*Ry2eV
-     WRITE(*,*) 'Eimp*Nd[eV]=', eimp_nd*Ry2eV
-     WRITE(*,*) '(Eimp+s_oo)*Nd[eV]=', eimp_nd2*Ry2eV
-     WRITE(*,*) 'Tr((Delta-w*dDelta)G)=', DeltaG*Ry2eV
+     WRITE(6,*) 'TrLog(Gloc)[eV]=', logGloc*Ry2eV
+     WRITE(6,*) 'Eimp*Nd[eV]=', eimp_nd*Ry2eV
+     WRITE(6,*) '(Eimp+s_oo)*Nd[eV]=', eimp_nd2*Ry2eV
+     WRITE(6,*) 'Tr((Delta-w*dDelta)G)=', DeltaG*Ry2eV
      WRITE(6,'(A,f15.12,1x,A,f15.10)') 'Ratio to renormalize=', (elecn/xwt), 'rho-rho_expected=', (xwt-elecn)
      if (Rho_Renormalize) then
         w_RHOLM = w_RHOLM * (elecn/xwt)
@@ -1046,6 +1054,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
      WRITE(6,'(a,2f10.1)') '   dmft transformation(cpu,wall):',time_dmf, time_dmfw
      WRITE(6,'(a,2f10.1)') '   dmft exact-diag    (cpu,wall):',time_ed, time_edw
      WRITE(6,'(a,2f10.1)') '   interstitial charge(cpu,wall):',time_int, time_intw
+     WRITE(6,'(a,2f10.1)') '   cmp_log_gdloc      (cpu,wall):',time_lnG,time_lnGw
      
      WRITE(6,881)  XWT
      WRITE(21,881) XWT
@@ -1211,7 +1220,7 @@ SUBROUTINE L2MAIN(coord,NSPIN1,sumw,tclm,tclm_w,tfour,tfour_w)
         
         DO jatom=1,nat
            fsur_norm = sqrt(sum(fsur(:,jatom)**2))
-           WRITE(6, '(2i3,a7,4e15.7)') jatom,1,'+ SUR', fsur_norm, fsur(:,jatom)
+           WRITE(6, '(2i3,a7,4f17.9)') jatom,1,'+ SUR', fsur_norm*1000, fsur(:,jatom)*1000
            WRITE(21,'(A,i3.3,A,1x,i3,A,4F17.9) ') ':FSU', jatom, ':', jatom, '.ATOM', fsur_norm*1000, fsur(:,jatom)*1000
         ENDDO
         
@@ -1322,8 +1331,9 @@ SUBROUTINE cmp_interstitial(sumfft, tloc, Aweight, AEweight, zwe, nedim, iff1, i
   ! locals
   INTEGER :: is, num, ii !, isig, ierr, csize, dsize
   COMPLEX*16, ALLOCATABLE :: Asc(:,:), Asq(:,:)
-  !COMPLEX*16, ALLOCATABLE :: cwork(:), fft(:,:,:)
-  !DOUBLE PRECISION, ALLOCATABLE :: dwork(:)
+  complex*16 :: cone, czero
+  cone  = cmplx(1.d0, 0.d0, 8)
+  czero = cmplx(0.d0, 0.d0, 8)
   
   !isig=-1
   !csize = iff1+iff2+iff3
@@ -1336,11 +1346,11 @@ SUBROUTINE cmp_interstitial(sumfft, tloc, Aweight, AEweight, zwe, nedim, iff1, i
   
   do is=1,iso
      Asc(:,:) = As(:n0-nnlo,:DM_nemaxx,is)
-     CALL zgemm('N','N',n0-nnlo,nbandsx,nbands,(1.d0,0.d0),As(1,DM_nemin,is),nmat,Aweight,nbands,(0.d0,0.d0),Asc(1,DM_nemin),n0-nnlo)
+     CALL zgemm('N','N',n0-nnlo,nbandsx,nbands,cone,As(1,DM_nemin,is),nmat,Aweight,nbands,czero,Asc(1,DM_nemin),n0-nnlo)
 
      if (Qforce) then
         Asq(:,:) = As(:n0-nnlo,1:DM_nemaxx,is)
-        CALL zgemm('N','N',n0-nnlo,nbandsx,nbands,(1.d0,0.d0),As(1,DM_nemin,is),nmat,AEweight,nbands,(0.d0,0.d0),Asq(1,DM_nemin),n0-nnlo)
+        CALL zgemm('N','N',n0-nnlo,nbandsx,nbands,cone,As(1,DM_nemin,is),nmat,AEweight,nbands,czero,Asq(1,DM_nemin),n0-nnlo)
      endif
      
      DO num=nemin,DM_nemaxx

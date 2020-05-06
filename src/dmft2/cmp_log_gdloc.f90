@@ -1,7 +1,6 @@
 ! @Copyright 2007 Kristjan Haule
 ! 
-
-SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc)
+SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, Edimp, s_oo, DM, Nds, Temperature, Sigind, Sigind_orig, cixdim, ncix, maxdim, maxsize, ntcix, sigma, nomega, csize, fh_sig, nipc, SOlapm)
   USE defs,  ONLY: pi, IMAG
   USE splines, ONLY: zspline3, zspline3der
   USE muzero,ONLY: nomq, jomq, iomq, womq, n0_om
@@ -16,6 +15,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
   INTEGER, intent(in)    :: maxsize, ncix, maxdim, ntcix
   COMPLEX*16, intent(in) :: sigma(maxsize,ncix,nomega)
   INTEGER, intent(in)    :: nomega, nipc, fh_sig
+  COMPLEX*16, intent(in) :: SOlapm(maxdim,maxdim,ncix)
   REAL*8 :: Temperature
   ! Functions
   Interface
@@ -42,7 +42,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
   INTEGER, allocatable     :: Sigini(:,:), Sigini_orig(:,:)
   INTEGER, allocatable     :: icx_ind(:), it_ind(:)
   COMPLEX*16 :: omn, sec, df2, df3
-  REAL*8     :: tlogGD, tlogG0, tlogGX, A, C, A2, C2, correct, GDd, C0, second_order_correction
+  REAL*8     :: tlogGD, tlogG0, tlogGX, A, C, A2, C2, correct, GDd, C0, second_order_correction, renormalize
   INTEGER    :: deg(ntcix), id
   INTEGER    :: icix, ip, iq, ndim, cixdm, it, it2, iom, cixdms, im, nom_all, iatm, icase, lcase, jatom, latom
   LOGICAL    :: DIAGONAL
@@ -51,6 +51,8 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
   REAL*8      :: GS_dynamic(0:3,ntcix), GS_static(0:3,ntcix)
   COMPLEX*16  :: sigma0(maxsize,ncix,nomega)
   CHARACTER*1 :: label(0:3)=['c', 'x','y','z']
+  LOGICAL,parameter :: Olap_Renormalize=.True.
+  !LOGICAL,parameter :: Olap_Renormalize=.False.
   
   TrGSigVdc = 0.d0
   
@@ -129,6 +131,8 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
      
      do it2=1,ntcix
         if (deg(it2)==0) CYCLE
+        icix = icx_ind(it2)
+        it = it_ind(it2)
 
         ! Interpolating Gdloc on all Matsubara points ( stored in Gdloc_ )
         Gdloc_(:n0_om)=Gdloc(it2,:n0_om,1) ! The first few points should not be interpolated
@@ -152,7 +156,7 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
               do ip=1,nipc
                  write(999,'(2F18.12,3x)', advance='no') Gdloc(it2,iom,ip)/Ry2eV
               enddo
-              write(999,'(2F18.12,3x)', advance='no') sigma(it2,1,iom)*Ry2eV
+              write(999,'(2F18.12,3x)', advance='no') sigma(it,icix,iom)*Ry2eV
               write(999,*)
            enddo
            close(999)
@@ -175,10 +179,10 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
         eimp_nd = eimp_nd + Edimp(it2)*ndtot(it2)     ! Tr(eimp*n)
         eimp_nd2 = eimp_nd2 + epsinf(it2)*ndtot(it2)  ! Tr((eimp+s_oo)*n)
         !print *, 'sginf=', second_order_correction*deg(it2)*Ry2eV
-        WRITE(*,'(I3,1x,8F22.14)') it2, tlogGD, tlogG0, dble(sec), tlogGX, second_order_correction, logG, Edimp(it2), ndtot(it2)
-
-        icix = icx_ind(it2)
-        it = it_ind(it2)
+        if (.false.) then
+           WRITE(6,'(I3,1x,A,F13.8,1x,A,F13.8,1x,A,F13.8,1x,A,F13.8,1x,A,F13.8,1x,A,F13.8,1x,A,F16.8,1x,A,F16.8,1x,A,F13.8)') it2,'logG=', logG, 'ndtot=', ndtot(it2),'F0=', tlogGX, 'Eimp+soo=', epsinf(it2), 'Edimp=', Edimp(it2), 'sndocor=', second_order_correction, 'tlogGD=', tlogGD, 'tlogG0=', tlogG0, 'sec=', dble(sec)
+        endif
+        
         do iom=1,nomega
            im=jomq(iom)
            omn = IMAG*(2*im-1)*pi*Temperature 
@@ -212,7 +216,6 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
            open(999,file=TRIM('sig_debug.')//trim(ADJUSTL(sitx)),status='unknown')
            write(999,'(A,F12.8,1x,A,F12.8)') '# A=', A, 'C=', C
            do iom=1,nom_all
-              !write(999,'(F18.12,1x,2F18.12,2x)') omega_all(iom)*Ry2eV, sigma_(iom)*Ry2eV
               write(999,'(F18.12,1x,2F18.12,2x)') omega_all(iom), sigma_(iom)
            enddo
            close(999)
@@ -237,14 +240,14 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
            correct = ReturnHighFrequency(A*A2, C, C2, Temperature)
            
            GS_dynamic(ip-1,it2) = GS_dynamic(ip-1,it2) + ( 2*Temperature*dble(sum(GDC)) + correct )*deg(it2)*2./iso
-           GS_static(ip-1,it2) = GS_static(ip-1,it2) + Nds(ip,it2)*dble(s_oo(it,icix))
+           GS_static (ip-1,it2) = GS_static(ip-1,it2)  + Nds(ip,it2)*dble(s_oo(it,icix))
            
            if (.false.) then
               write(sitx,'(I1,A,I1)') it2,'.',ip
               open(999,file=TRIM('gd3_debug.')//trim(ADJUSTL(sitx)),status='unknown')
-              write(999,*) '#  nipc=', nipc, 'deg=', deg(it2), 'A=', A2, 'C=', C2
+              write(999,*) '#  nipc=', nipc, 'deg=', deg(it2), 'A=', A2, 'C=', C2, 'correct=', correct, 'dynamic=', GS_dynamic(ip-1,it2), 'static=', GS_static (ip-1,it2)
               do iom=1,nom_all
-                 write(999,'(F18.12,1x,2F18.12,2x)') omega_all(iom)*Ry2eV, Gdloc_(iom)/Ry2eV
+                 write(999,'(F18.12,1x,2F18.12,2x,F18.12)') omega_all(iom)*Ry2eV, Gdloc_(iom)/Ry2eV, dble(GDC(iom))
               enddo
               close(999)
            endif
@@ -262,60 +265,73 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
            close(888+it2)
         endif
      enddo
-
+     ! GS_dynamic(1:3,it2)
+     ! GS_static (1:3,it2)
      TrGSigVdc = sum(GS_static(0,:)+GS_dynamic(0,:))
 
      WRITE(6,*) 'Nds for each orbital:'
      WRITE(6,'(A)',advance='no') '   c:'
      do it2=1,ntcix
-        WRITE(6,'(f13.8,1x)',advance='no') Nds(1,it2)
+        WRITE(6,'(f14.7,1x)',advance='no') Nds(1,it2)
      enddo
      WRITE(6,*)
      if (nipc.eq.4) then
         WRITE(6,'(A)',advance='no') '   x:'
         do it2=1,ntcix
-           WRITE(6,'(f13.8,1x)',advance='no') Nds(2,it2)
+           WRITE(6,'(f14.7,1x)',advance='no') Nds(2,it2)
         enddo
         WRITE(6,*)
         WRITE(6,'(A)',advance='no') '   y:'
         do it2=1,ntcix
-           WRITE(6,'(f13.8,1x)',advance='no') Nds(3,it2)
+           WRITE(6,'(f14.7,1x)',advance='no') Nds(3,it2)
         enddo
         WRITE(6,*)
         WRITE(6,'(A)',advance='no') '   z:'
         do it2=1,ntcix
-           WRITE(6,'(f13.8,1x)',advance='no') Nds(4,it2)
+           WRITE(6,'(f14.7,1x)',advance='no') Nds(4,it2)
         enddo
         WRITE(6,*)
      endif
-     WRITE(6,*) 'Tr(G*(s_oo-Vdc)) for each orbital in eV:'
+     WRITE(6,*) '-Tr(G*(s_oo-Vdc)) for each orbital in mRy/Br:'
      do ip=1,nipc
         WRITE(6,'(A,A,A)',advance='no') '   ',label(ip-1),':'
         do it2=1,ntcix
-           WRITE(6,'(f13.8,1x)',advance='no') GS_static(ip-1,it2)*Ry2eV
+           WRITE(6,'(f14.7,1x)',advance='no') -GS_static(ip-1,it2)*1000
         enddo
         WRITE(6,*)
      enddo
-     WRITE(6,'(A)') 'Tr(G*(Sigma-s_oo)) for each orbital in eV:'
+     WRITE(6,'(A)') '-Tr(G*(Sigma-s_oo)) for each orbital in mRy/Br:'
      do ip=1,nipc
         WRITE(6,'(A,A,A)',advance='no') '   ',label(ip-1),':'
         do it2=1,ntcix
-           WRITE(6,'(f13.8,1x)',advance='no') GS_dynamic(ip-1,it2)*Ry2eV
+           WRITE(6,'(f14.7,1x)',advance='no') -GS_dynamic(ip-1,it2)*1000
         enddo
         WRITE(6,*)
      enddo
-     WRITE(6,'(A)') 'Tr(G*(Sigma-Vdc)) for each orbital in Ry:'
+     WRITE(6,'(A)') '-Tr(G*(Sigma-Vdc)) for each orbital in mRy/Br:'
      do ip=1,nipc
         WRITE(6,'(A,A,A)',advance='no') '   ',label(ip-1),':'
         do it2=1,ntcix
-           WRITE(6,'(f13.8,1x)',advance='no') GS_static(ip-1,it2)+GS_dynamic(ip-1,it2)
+           WRITE(6,'(f14.7,1x)',advance='no') -(GS_static(ip-1,it2)+GS_dynamic(ip-1,it2))*1000
         enddo
         WRITE(6,*)
      enddo
-
+     if (Olap_Renormalize) then
+     WRITE(6,'(A)') '-Tr(G*(Sigma-Vdc))*Olap for each orbital in mRy/Br:'
+     do ip=1,nipc
+        WRITE(6,'(A,A,A)',advance='no') '   ',label(ip-1),':'
+        do it2=1,ntcix
+           icix = icx_ind(it2)
+           it = it_ind(it2)
+           renormalize = 1/(SOlapm(it,it,icix)*SOlapm(it,it,icix))
+           WRITE(6,'(f14.7,1x)',advance='no') -(GS_static(ip-1,it2)+GS_dynamic(ip-1,it2))*renormalize*1000
+        enddo
+        WRITE(6,*)
+     enddo
+     endif
      
      if (nipc.eq.4) then
-        DO icase=1,natom
+        DO icase=1,natom ! correlated atoms only
            latom = iatom(icase)   ! The succesive number of atom (all atoms counted)
            jatom = isort(latom)   ! The sort of the atom  ( == w_jatom(iucase) )
            do lcase=1,nl(icase) 
@@ -323,20 +339,22 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
               if ( icix.EQ.0 ) CYCLE
               do ip=1,cixdim(icix)
                  do iq=1,cixdim(icix)
+                    renormalize = 1.d0
+                    if (Olap_Renormalize) renormalize = 1/(SOlapm(ip,ip,icix)*SOlapm(iq,iq,icix))
                     it2 = Sigind_orig(ip,iq,icix)
                     if (it2.gt.0) then
-                       forb(1:3,latom) = forb(1:3,latom) - (GS_static(1:3,it2)+GS_dynamic(1:3,it2))/deg(it2)
+                       forb(1:3,latom) = forb(1:3,latom) - (GS_static(1:3,it2)+GS_dynamic(1:3,it2))*renormalize/deg(it2)
                     endif
                  enddo
               enddo
            enddo
         ENDDO
         
-        WRITE(6,*) 'forb[eV]='
+        WRITE(6,*) 'forb[mRy/Br]='
         do ip=1,3
            WRITE(6,'(A,A,A)',advance='no') '    ',label(ip),':'
            do iatm=1,natom
-              WRITE(6,'(f16.10,1x)',advance='no') forb(ip,iatm)*Ry2eV
+              WRITE(6,'(f16.10,1x)',advance='no') forb(ip,iatm)*1000
            enddo
            WRITE(6,*)
         enddo

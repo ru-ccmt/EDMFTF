@@ -26,11 +26,11 @@ SUBROUTINE PrintForces2(forcea,fsph,fsph2,fnsp,fvdrho,forb,fextra)
         fsph_nrm = sqrt(dot_product(fsph(:,ia),fsph(:,ia)))     ! Force1
         fsph2_nrm= sqrt(dot_product(fsph2(:,ia),fsph2(:,ia)))   ! Force3
         forb_nrm = sqrt(dot_product(forb(:,ia),forb(:,ia)))     ! ForceU
-        write(6,77) jatom,ia-ia1+1,'+ SPH', fsph_nrm,  (fsph(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'+ SP2', fsph2_nrm, (fsph2(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'+ ORB', forb_nrm,  (forb(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'+ NSP', fnsp_nrm,  (fnsp(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'> EQU', fequ_nrm,  (fequ(ik),ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ SPH', fsph_nrm*1000,  (fsph(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ SP2', fsph2_nrm*1000, (fsph2(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ ORB', forb_nrm*1000,  (forb(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ NSP', fnsp_nrm*1000,  (fnsp(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'> EQU', fequ_nrm*1000,  (fequ(ik)*1000,ik=1,3)
      ENDDO
      !     calculate partial forces 
      ftot(:,jatom) = fvdrho(:,jatom) + fpsi(:,jatom) + fextra(:,jatom)
@@ -38,15 +38,15 @@ SUBROUTINE PrintForces2(forcea,fsph,fsph2,fnsp,fvdrho,forb,fextra)
      fpsi_nrm      = sqrt(dot_product(fpsi(:,jatom),fpsi(:,jatom)))
      fextra_nrm    = sqrt(dot_product(fextra(:,jatom),fextra(:,jatom)))  ! Extra force due to discountinuity of the basis functions
      ftot_nrm      = sqrt(dot_product(ftot(:,jatom),ftot(:,jatom)))
-     write(6,77) jatom,1,'= PSI', fpsi_nrm,   (fpsi(ik,jatom),ik=1,3)
-     write(6,77) jatom,1,'+ VDR', fvdrho_nrm, (fvdrho(ik,jatom),ik=1,3)
-     write(6,77) jatom,1,'+ EXT', fextra_nrm, (fextra(ik,jatom),ik=1,3)
-     write(6,77) jatom,1,'> TOT', ftot_nrm,   (ftot(ik,jatom),ik=1,3)
+     write(6,77) jatom,1,'= PSI', fpsi_nrm*1000,   (fpsi(ik,jatom)*1000,ik=1,3)
+     write(6,77) jatom,1,'+ VDR', fvdrho_nrm*1000, (fvdrho(ik,jatom)*1000,ik=1,3)
+     write(6,77) jatom,1,'+ EXT', fextra_nrm*1000, (fextra(ik,jatom)*1000,ik=1,3)
+     write(6,77) jatom,1,'> TOT', ftot_nrm*1000,   (ftot(ik,jatom)*1000,ik=1,3)
      write(21,78) 
      write(21,79) jatom,jatom, ftot_nrm*1000, (ftot(ik,jatom)*1000,ik=1,3)
      write(6,*)
      
-77   format(2i3,a7,4e15.7)
+77   format(2i3,a7,4f17.9)
 78   FORMAT (7x,'VALENCE-FORCE IN mRy/a.u. = |F|',3x,'Fx',13x,'Fy',13x,'Fz')
 79   FORMAT (':FVA',i3.3,':',1x,i3,'.ATOM',4f17.9)
   ENDDO
@@ -81,25 +81,25 @@ SUBROUTINE PrintForces(forcea,fsph,fsph2,fnsp,fvdrho,forb)
         fsph_nrm = sqrt(dot_product(fsph(:,ia),fsph(:,ia)))     ! Force1
         fsph2_nrm= sqrt(dot_product(fsph2(:,ia),fsph2(:,ia)))   ! Force3
         forb_nrm = sqrt(dot_product(forb(:,ia),forb(:,ia)))     ! ForceU
-        write(6,77) jatom,ia-ia1+1,'+ SPH', fsph_nrm,  (fsph(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'+ SP2', fsph2_nrm, (fsph2(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'+ ORB', forb_nrm,  (forb(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'+ NSP', fnsp_nrm,  (fnsp(ik,ia),ik=1,3)
-        write(6,77) jatom,ia-ia1+1,'> EQU', fequ_nrm,  (fequ(ik),ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ SPH', fsph_nrm*1000,  (fsph(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ SP2', fsph2_nrm*1000, (fsph2(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ ORB', forb_nrm*1000,  (forb(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'+ NSP', fnsp_nrm*1000,  (fnsp(ik,ia)*1000,ik=1,3)
+        write(6,77) jatom,ia-ia1+1,'> EQU', fequ_nrm*1000,  (fequ(ik)*1000,ik=1,3)
      ENDDO
      !     calculate partial forces 
      ftot(:,jatom) = fvdrho(:,jatom) + fpsi(:,jatom)
      fvdrho_nrm    = sqrt(dot_product(fvdrho(:,jatom),fvdrho(:,jatom)))  ! Force4
      fpsi_nrm      = sqrt(dot_product(fpsi(:,jatom),fpsi(:,jatom)))
      ftot_nrm      = sqrt(dot_product(ftot(:,jatom),ftot(:,jatom)))
-     write(6,77) jatom,1,'= PSI', fpsi_nrm,   (fpsi(ik,jatom),ik=1,3)
-     write(6,77) jatom,1,'+ VDR', fvdrho_nrm, (fvdrho(ik,jatom),ik=1,3)
-     write(6,77) jatom,1,'> TOT', ftot_nrm,   (ftot(ik,jatom),ik=1,3)
+     write(6,77) jatom,1,'= PSI', fpsi_nrm*1000,   (fpsi(ik,jatom)*1000,ik=1,3)
+     write(6,77) jatom,1,'+ VDR', fvdrho_nrm*1000, (fvdrho(ik,jatom)*1000,ik=1,3)
+     write(6,77) jatom,1,'> TOT', ftot_nrm*1000,   (ftot(ik,jatom)*1000,ik=1,3)
      write(21,78) 
      write(21,79) jatom,jatom, ftot_nrm*1000, (ftot(ik,jatom)*1000,ik=1,3)
      write(6,*)
      
-77   format(2i3,a7,4e15.7)
+77   format(2i3,a7,4f15.7)
 78   FORMAT (7x,'VALENCE-FORCE IN mRy/a.u. = |F|',3x,'Fx',13x,'Fy',13x,'Fz')
 79   FORMAT (':FVA',i3.3,':',1x,i3,'.ATOM',4f17.9)
   ENDDO

@@ -85,7 +85,7 @@ def StopStructureOptimization(case,info=sys.stdout):
     fw = open(case+'.inm','r')
     data = fw.readlines()   # reads the entire case.inm file
     fw.close()              # needs to close to safely reopen
-    data[0] = re.sub('MSR1a', 'MSR1 ', data[0])    # change MSR1a to MSR1
+    data[0] = re.sub('MSR1a', 'MSR1', data[0])    # change MSR1a to MSR1
     data[0] = re.sub('MSECa', 'MSEC3', data[0])    # change MSECa to MSEC3
     data[3] = re.sub('(9999\s*)8', '\\1 10', data[3]) # change 8 to 10 in history
     fw = open(case+'.inm','w')     # now rewriting it

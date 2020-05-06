@@ -37,6 +37,10 @@ contains
     LOGICAL :: nonzero_shft
     REAL*8  :: rotloc_x_BR1(3,3), rotloc_x_BR1_x_rotij(3,3)
     INTEGER :: j
+    complex*16 :: cone, czero
+    cone  = cmplx(1.d0, 0.d0, 8)
+    czero = cmplx(0.d0, 0.d0, 8)
+  
     
     CALL cputim(time1)
     CALL walltim(time1_w)
@@ -147,8 +151,8 @@ contains
           !---- alm[lm,iband][1,is] = sum_G Apw(lm,is,K+G) * C(k+G,iband,is)
           !---- alm[lm,iband][2,is] = sum_G Bpw(lm,is,K+G) * C(k+G,iband,is)
           !---- Where C(k+G,iband,is) are eigenvectors, and Apw and Bpw are expansion coefficients defined in Shick et.al., PRB 60, 10763 (1999).
-          CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,(1.d0,0.d0),h_alyl,lda,As(ii,nemin,is),ldb,(1.d0,0.d0),alm(1,nemin),ldc)
-          CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,(1.d0,0.d0),h_blyl,lda,As(ii,nemin,is),ldb,(1.d0,0.d0),blm(1,nemin),ldc)
+          CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,cone,h_alyl,lda,As(ii,nemin,is),ldb,cone,alm(1,nemin),ldc)
+          CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,cone,h_blyl,lda,As(ii,nemin,is),ldb,cone,blm(1,nemin),ldc)
           IF (Qforce_j) THEN 
              do i_h_k=1,3
                 !$OMP PARALLEL DO SHARED(h_ablyl_hk,h_alyl,h_k) SCHEDULE(STATIC)
@@ -156,7 +160,7 @@ contains
                    h_ablyl_hk(:,i3) = h_alyl(:,i3)*h_k(i3,i_h_k)   ! h_ablyl <-  alm(lm,K)*K
                 enddo
                 !$OMP END PARALLEL DO
-                CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,(1.d0,0.d0),h_ablyl_hk,lda,As(ii,nemin,is),ldb,(1.d0,0.d0),aalm(1,1,i_h_k),ldc)
+                CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,cone,h_ablyl_hk,lda,As(ii,nemin,is),ldb,cone,aalm(1,1,i_h_k),ldc)
              enddo
              do i_h_k=1,3
                 !$OMP PARALLEL DO SHARED(h_ablyl_hk,h_blyl,h_k) SCHEDULE(STATIC)
@@ -164,7 +168,7 @@ contains
                    h_ablyl_hk(:,i3) = h_blyl(:,i3)*h_k(i3,i_h_k)   ! h_ablyl <-  blm(lm,K)*K
                 enddo
                 !$OMP END PARALLEL DO
-                CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,(1.d0,0.d0),h_ablyl_hk,lda,As(ii,nemin,is),ldb,(1.d0,0.d0),bblm(1,1,i_h_k),ldc)
+                CALL zgemm('N','N',lmax2lmax2,nemax-nemin+1,ibb,cone,h_ablyl_hk,lda,As(ii,nemin,is),ldb,cone,bblm(1,1,i_h_k),ldc)
              enddo
           ENDIF
        endif
@@ -223,29 +227,29 @@ contains
     !   clm_{lm,i,jlo} <--  clm_{lm,j,jlo} * A^{DMFT}_{ji}
     !
     ALLOCATE( xlm_tmp(lmax2lmax2,nbandsx) )
-    CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,(1.d0,0.d0),alm(1,DM_nemin),lmax2lmax2,Aweight,nbands,(0.d0,0.d0),xlm_tmp,lmax2lmax2)
+    CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,cone,alm(1,DM_nemin),lmax2lmax2,Aweight,nbands,czero,xlm_tmp,lmax2lmax2)
     alm(:,DM_nemin:DM_nemaxx)=xlm_tmp(:,:)
-    CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,(1.d0,0.d0),blm(1,DM_nemin),lmax2lmax2,Aweight,nbands,(0.d0,0.d0),xlm_tmp,lmax2lmax2)
+    CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,cone,blm(1,DM_nemin),lmax2lmax2,Aweight,nbands,czero,xlm_tmp,lmax2lmax2)
     blm(:,DM_nemin:DM_nemaxx)=xlm_tmp(:,:)
     IF (Qforce_j) THEN
        ! Chenging aalm,bblm,cclm to make them DMFT-like
        do ik=1,3
-          CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,(1.d0,0.d0),aalm(1,1+DM_nemin-nemin,ik),lmax2lmax2,Aweight,nbands,(0.d0,0.d0),xlm_tmp,lmax2lmax2)
+          CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,cone,aalm(1,1+DM_nemin-nemin,ik),lmax2lmax2,Aweight,nbands,czero,xlm_tmp,lmax2lmax2)
           aalm(:,DM_nemin-nemin+1:DM_nemaxx-nemin+1,ik)=xlm_tmp(:,:)
-          CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,(1.d0,0.d0),bblm(1,1+DM_nemin-nemin,ik),lmax2lmax2,Aweight,nbands,(0.d0,0.d0),xlm_tmp,lmax2lmax2)
+          CALL zgemm('N','N',lmax2lmax2,nbandsx,nbands,cone,bblm(1,1+DM_nemin-nemin,ik),lmax2lmax2,Aweight,nbands,czero,xlm_tmp,lmax2lmax2)
           bblm(:,DM_nemin-nemin+1:DM_nemaxx-nemin+1,ik)=xlm_tmp(:,:)
        enddo
     ENDIF
     DEALLOCATE( xlm_tmp )
     ALLOCATE( xlm_tmp(lomaxlomax,nbandsx) )
     DO jlo=1,ilo_max
-       CALL zgemm('N','N',lomaxlomax,nbandsx,nbands,(1.d0,0.d0),clm(1,DM_nemin,jlo),lomaxlomax,Aweight,nbands,(0.d0,0.d0),xlm_tmp,lomaxlomax)
+       CALL zgemm('N','N',lomaxlomax,nbandsx,nbands,cone,clm(1,DM_nemin,jlo),lomaxlomax,Aweight,nbands,czero,xlm_tmp,lomaxlomax)
        clm(:,DM_nemin:DM_nemaxx,jlo)=xlm_tmp(:,:)
     ENDDO
     IF (Qforce_j) THEN
        do ik=1,3
           DO jlo=1,ilo_max
-             CALL zgemm('N','N',lomaxlomax,nbandsx,nbands,(1.d0,0.d0),cclm(1,1+DM_nemin-nemin,jlo,ik),lomaxlomax,Aweight,nbands,(0.d0,0.d0),xlm_tmp,lomaxlomax)
+             CALL zgemm('N','N',lomaxlomax,nbandsx,nbands,cone,cclm(1,1+DM_nemin-nemin,jlo,ik),lomaxlomax,Aweight,nbands,czero,xlm_tmp,lomaxlomax)
              cclm(:,DM_nemin-nemin+1:DM_nemaxx-nemin+1,jlo,ik)=xlm_tmp(:,:)
           ENDDO
        enddo

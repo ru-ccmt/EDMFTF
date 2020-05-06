@@ -229,11 +229,11 @@ PROGRAM DMFT2
      nvector=1
   endif
 
-  !!!! Begining of DMFT specific reading !!!!!
+!!!! Begining of DMFT specific reading !!!!!
   ! Reading case.indmf2
   call Read_indmf2(2)
   ! Reading case.indmfl
-  call Read_indmfl(7, 6, nemin0, nemax0, loro, rotloc, mult, nat, natm, Qprint )
+  call Read_indmfl(7, 6, nemin0, nemax0, loro, rotloc, mult, nat, natm, (modus.eq.'FOR '), Qprint )
 
   ! For spin-orbit coupling crates transformation "rot_spin_quantization", which rotates from spin quantization axis to global cartesian coordinate system
   !....reading *.inso

@@ -190,9 +190,9 @@ SUBROUTINE CompressSigmaTransformation2(STrans, lgTrans, lg_deg, DMFTU, Sigind, 
   INTEGER, intent(in)     :: natom, iso, ncix, maxdim, maxdim2, lmaxp, norbitals, nbands, maxsize, ntcix, nipc
   !----- locals                                                                                                                                                                                                                               
   INTEGER    :: i, j, icase, jcase, l1case, l2case, iorb1, iorb2, it, ind1, nind1, ind2, nind2, icix, l1, l2, it2
-  COMPLEX*16 :: cc, dd(3)
+  COMPLEX*16 :: cc, dd(3), imag
   ! lgTrans(nbands,nbands,ntcix,nipc)
-
+  imag = cmplx(0.d0,1.d0,8)
   STrans=0
   lgTrans=0
   lg_deg=0
@@ -223,7 +223,7 @@ SUBROUTINE CompressSigmaTransformation2(STrans, lgTrans, lg_deg, DMFTU, Sigind, 
                              lgTrans(i,j,it2,1) = lgTrans(i,j,it2,1) + conjg(cc)
                              if (nipc.eq.4) then
                                 !!! Condensed index for computing force
-                                dd(1:3) = (conjg(DMFTU(i,ind1,iorb1,2:4))*DMFTU(j,ind2,iorb2,1) - conjg(DMFTU(i,ind1,iorb1,1))*DMFTU(j,ind2,iorb2,2:4))*dcmplx(0.d0,1.d0)
+                                dd(1:3) = (conjg(DMFTU(i,ind1,iorb1,2:4))*DMFTU(j,ind2,iorb2,1) - conjg(DMFTU(i,ind1,iorb1,1))*DMFTU(j,ind2,iorb2,2:4))*imag
                                 lgTrans(i,j,it2,2:4) = lgTrans(i,j,it2,2:4) + dd(1:3)
                              endif
                           enddo
@@ -238,6 +238,21 @@ SUBROUTINE CompressSigmaTransformation2(STrans, lgTrans, lg_deg, DMFTU, Sigind, 
      enddo
   ENDDO
 
+  if (.False.) then
+     do it2=1,ntcix
+        dd=0
+        do i=1,nbands
+           dd(:) = dd(:) + lgTrans(i,i,it2,2:4)
+        enddo
+        write(6,'(A,I3,1x,A,I2,1x,A,3F10.4)') 'ic=', it2, 'lg_deg=', lg_deg(it2), 'sum=', dble(dd(:))
+     enddo
+     !DO i=1,nbands
+     !   DO it2=1,ntcix
+     !      write(6,'(A,I3,1x,A,I4,1x,A,2F10.4,1x,A,2F10.4,1x,A,2F10.4,1x,A,2F10.4)') 'ic=', it2, 'ib=', i, 'c=', lgTrans(i,i,it2,1), 'x=', lgTrans(i,i,it2,2), 'y=', lgTrans(i,i,it2,3), 'z=', lgTrans(i,i,it2,4)
+     !   ENDDO
+     !ENDDO
+  endif
+  
   do it=1,ntcix
      if (lg_deg(it).NE.0) lgTrans(:,:,it,:) = lgTrans(:,:,it,:)/lg_deg(it)
   enddo
@@ -428,11 +443,14 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
   complex*16, allocatable :: h_ablyl_hk(:,:), aalm(:,:,:), bblm(:,:,:), cclm(:,:,:,:)
   LOGICAL :: nonzero_shft, Qforce_j
   REAL*8  :: rotloc_x_BR1(3,3), rotloc_x_BR1_x_rotij(3,3), crotloc_x_BR1(3,3)
-
+  complex*16 :: czero, cone
+  
   TWOPI=2.0*PI
   lmaxplmaxp = (lmaxp+1)*(lmaxp+1)
   lomaxlomax = (lomax+1)*(lomax+1)
-  
+  cone  = cmplx(1.d0,0.d0, 8)
+  czero = cmplx(0.d0,0.d0, 8)
+
   allocate( alm(lmaxplmaxp,nume), blm(lmaxplmaxp,nume), clm(lomaxlomax, nume, nloat) )
 
   if (nipc.eq.4) then
@@ -582,13 +600,13 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
               lda=2*lmaxp+1
               ldc=2*lmaxp+1          
               isize_ = (2*l+1)
-              CALL zgemm('N','N',isize_,nbands,ibb,(1.d0,0.d0),h_alyl,lda,As(ii,DM_nemin,is),ldb,(0.d0,0.d0),alm0,ldc) ! Here was bug, 12/28/2013!
+              CALL zgemm('N','N',isize_,nbands,ibb,cone,h_alyl,lda,As(ii,DM_nemin,is),ldb,czero,alm0,ldc) ! Here was bug, 12/28/2013!
               !$OMP PARALLEL DO PRIVATE(m) SHARED(alm,alm0) SCHEDULE(STATIC)
               DO m=1,2*l+1
                  alm(l*l+m,DM_nemin:DM_nemax) = alm(l*l+m,DM_nemin:DM_nemax) + alm0(m,:nbands)
               ENDDO
               !$OMP END PARALLEL DO
-              CALL zgemm('N','N',isize_,nbands,ibb,(1.d0,0.d0),h_blyl,lda,As(ii,DM_nemin,is),ldb,(0.d0,0.d0),alm0,ldc) ! Here was bug, 12/28/2013!
+              CALL zgemm('N','N',isize_,nbands,ibb,cone,h_blyl,lda,As(ii,DM_nemin,is),ldb,czero,alm0,ldc) ! Here was bug, 12/28/2013!
               !$OMP PARALLEL DO PRIVATE(m) SHARED(blm,alm0) SCHEDULE(STATIC)
               DO m=1,2*l+1
                  blm(l*l+m,DM_nemin:DM_nemax)=blm(l*l+m,DM_nemin:DM_nemax)+alm0(m,:nbands) ! Here was bug, 12/28/2013!
@@ -596,7 +614,7 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
               !$OMP END PARALLEL DO
               !! The new
               if (abs(projector).ge.5 .and. nonzero_interst) then 
-                 call zgemm('N','N',isize_,nbands,ibb,(1.d0,0.d0),h_interstitial,lda,As(ii,DM_nemin,is),ldb,(1.d0,0.d0), al_interstitial(:,:,lcase,1),ldc)
+                 call zgemm('N','N',isize_,nbands,ibb,cone,h_interstitial,lda,As(ii,DM_nemin,is),ldb,cone, al_interstitial(:,:,lcase,1),ldc)
               endif
               !! The new
               
@@ -608,7 +626,7 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
                     enddo
                     !$OMP END PARALLEL DO
                     
-                    CALL zgemm('N','N',isize_,nbands,ibb,(1.d0,0.d0),h_ablyl_hk,lda,As(ii,DM_nemin,is),ldb,(0.d0,0.d0),alm0,ldc)
+                    CALL zgemm('N','N',isize_,nbands,ibb,cone,h_ablyl_hk,lda,As(ii,DM_nemin,is),ldb,czero,alm0,ldc)
                     !$OMP PARALLEL DO PRIVATE(m) SHARED(aalm,alm0) SCHEDULE(STATIC)
                     DO m=1,2*l+1
                        aalm(l*l+m,:nbands,i_h_k) = aalm(l*l+m,:nbands,i_h_k) + alm0(m,:nbands)
@@ -621,7 +639,7 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
                     enddo
                     !$OMP END PARALLEL DO
 
-                    CALL zgemm('N','N',isize_,nbands,ibb,(1.d0,0.d0),h_ablyl_hk,lda,As(ii,DM_nemin,is),ldb,(0.d0,0.d0),alm0,ldc)
+                    CALL zgemm('N','N',isize_,nbands,ibb,cone,h_ablyl_hk,lda,As(ii,DM_nemin,is),ldb,czero,alm0,ldc)
                     !$OMP PARALLEL DO PRIVATE(m) SHARED(bblm,alm0) SCHEDULE(STATIC)
                     DO m=1,2*l+1
                        bblm(l*l+m,:nbands,i_h_k) = bblm(l*l+m,:nbands,i_h_k) + alm0(m,:nbands)
@@ -635,7 +653,7 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
                           h_ablyl_hk(m,:ibb) = h_interstitial(m,:ibb)*h_k(:ibb,i_h_k)    ! h_ablyl <-  alm(lm,K)*K
                        enddo
                        !$OMP END PARALLEL DO
-                       call zgemm('N','N',isize_,nbands,ibb,(1.d0,0.d0),h_ablyl_hk,lda,As(ii,DM_nemin,is),ldb,(1.d0,0.d0), al_interstitial(:,:,lcase,i_h_k+1),ldc)
+                       call zgemm('N','N',isize_,nbands,ibb,cone,h_ablyl_hk,lda,As(ii,DM_nemin,is),ldb,cone, al_interstitial(:,:,lcase,i_h_k+1),ldc)
                     endif
                     !! The new
                  enddo
@@ -813,7 +831,7 @@ SUBROUTINE Build_DMFT_Projector(DMFTU, cfX, Rspin, iorbital, norbitals, nipc, n0
         if ( cix_orb(iorb2).NE. icix ) CYCLE
         nind2 = nindo(iorb2)
         do ip=1,nipc
-           call zgemm('N','C', nbands, nind2, nind1, (1.d0,0.d0), URx(:,:,iorb1,ip), nbands, cfX(:,:,iorb2,iorb1),maxdim2, (0.d0,0.d0), tmp, nbands)
+           call zgemm('N','C', nbands, nind2, nind1, cone, URx(:,:,iorb1,ip), nbands, cfX(:,:,iorb2,iorb1),maxdim2,czero, tmp, nbands)
            DMFTU(:,:nind2,iorb2,ip) = DMFTU(:,:nind2,iorb2,ip) + conjg(tmp(:,:nind2))
         enddo
      ENDDO
@@ -998,7 +1016,10 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
   !
   INTEGER, allocatable :: cind(:), cini(:)
   INTEGER :: cixdms
+  complex*16 :: czero, cone
 
+  cone  = cmplx(1.d0, 0.d0, 8)
+  czero = cmplx(0.d0, 0.d0, 8)
   allocate( Olapmk(maxdim,maxdim,ncix), olp(maxdim2,maxdim2) )
   Olapm=0
 
@@ -1096,7 +1117,7 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
               if ( icix.NE.cix_orb(iorb2) ) CYCLE
               nind2 = nindo(iorb2)
               olp=0
-              call zgemm('C','N', nind1, nind2, nbands, (1.d0,0.d0), DMFTU(:,:,iorb1,1),nbands, DMFTU(:,:,iorb2,1),nbands, (0.d0,0.d0), olp,maxdim2)
+              call zgemm('C','N', nind1, nind2, nbands, cone, DMFTU(:,:,iorb1,1),nbands, DMFTU(:,:,iorb2,1),nbands, czero, olp,maxdim2)
               do ind1=1,nind1
                  do ind2=1,nind2
                     Olapmk( iSx(ind1,iorb1), iSx(ind2,iorb2), icix ) = olp(ind1,ind2)
@@ -1182,7 +1203,7 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
         !do ip=1,cixdm
         !   tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
         !enddo
-        !call zgemm('N','C', cixdm, cixdm, cixdm, (1.d0,0.d0), tmp1, cixdm, olocf, cixdm, (0.d0,0.d0), SOlapm(:,:,icix), maxdim)
+        !call zgemm('N','C', cixdm, cixdm, cixdm, cone, tmp1, cixdm, olocf, cixdm, czero, SOlapm(:,:,icix), maxdim)
 
         allocate( olocf(cixdms,cixdms), ws(cixdms), tmp1(cixdms,cixdms), solap(cixdms,cixdms) )
         do ip=1,cixdms
@@ -1197,7 +1218,7 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
         do ip=1,cixdms
            tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
         enddo
-        call zgemm('N','C', cixdms, cixdms, cixdms, (1.d0,0.d0), tmp1, cixdms, olocf, cixdms, (0.d0,0.d0), solap, cixdms)
+        call zgemm('N','C', cixdms, cixdms, cixdms, cone, tmp1, cixdms, olocf, cixdms, czero, solap, cixdms)
 
 
         do ip=1,cixdm
@@ -1253,7 +1274,7 @@ SUBROUTINE cmp_overlap(Olapm, SOlapm, max_nbands, nnlo, norbitals, natom, maxdim
         do ip=1,nind1
            tmp1(:,ip) = olocf(:,ip)*(1./sqrt(abs(ws(ip))))
         enddo
-        call zgemm('N','C', nind1, nind1, nind1, (1.d0,0.d0), tmp1, maxdim, olocf,maxdim, (0.d0,0.d0), SOlapm(:,:,icix),maxdim)
+        call zgemm('N','C', nind1, nind1, nind1, cone, tmp1, maxdim, olocf,maxdim, czero, SOlapm(:,:,icix),maxdim)
 
         if (myrank.eq.master) then
            WRITE(*,*) 'Z due to missing-interstitials=', ws(:nind1)
@@ -1332,7 +1353,10 @@ SUBROUTINE RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, 
   INTEGER :: iorb1, icix, nind1, ind1, ip, cixdm
   REAL*8  :: olocef
   COMPLEX*16, allocatable :: tmp3(:,:), Ucix(:,:), Ucix2(:,:)
-  
+  complex*16 :: cone, czero
+  cone  = cmplx(1.d0, 0.d0, 8)
+  czero = cmplx(0.d0, 0.d0, 8)
+
   if (SIMPLE) then
      do ip=1,nipc
         DO iorb1=1,norbitals
@@ -1359,7 +1383,7 @@ SUBROUTINE RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, 
                  Ucix(:,iSx(ind1,iorb1)) = DMFTU(:,ind1,iorb1,ip)
               enddo
            ENDDO
-           call zgemm('N','N', nbands, cixdm, cixdm, (1.d0,0.d0), Ucix, nbands, SOlapm(:,:,icix), maxdim, (0.d0,0.d0), Ucix2, nbands)
+           call zgemm('N','N', nbands, cixdm, cixdm, cone, Ucix, nbands, SOlapm(:,:,icix), maxdim, czero, Ucix2, nbands)
            DO iorb1=1,norbitals
               if ( cix_orb(iorb1).NE.icix ) CYCLE
               nind1 = nindo(iorb1)
@@ -1377,7 +1401,7 @@ SUBROUTINE RenormalizeTrans(DMFTU, Olapm0, SOlapm, cix_orb, cixdim, nindo, iSx, 
            icix = cix_orb(iorb1)
            if ( icix.EQ.0 ) CYCLE
            nind1 = nindo(iorb1)
-           call zgemm('N','N', nbands, nind1, nind1, (1.d0,0.d0), DMFTU(:,:,iorb1,ip),nbands, SOlapm(:,:,icix),maxdim, (0.d0,0.d0), tmp3, nbands)
+           call zgemm('N','N', nbands, nind1, nind1, cone, DMFTU(:,:,iorb1,ip),nbands, SOlapm(:,:,icix),maxdim, czero, tmp3, nbands)
            DMFTU(:,:nind1,iorb1,ip) = tmp3(:,:nind1)
         ENDDO
      enddo
@@ -1398,6 +1422,9 @@ SUBROUTINE RenormalizeTransK(DMFTU, cix_orb, cixdim, nindo, iSx, Sigind, project
   INTEGER,    allocatable :: cind(:), cini(:), iwork(:)
   COMPLEX*16, allocatable :: Ucix(:,:), Ucix2(:,:), UU(:,:), work(:), Uw(:,:), Vw(:,:), Vw2(:,:)
   REAL*8,     allocatable :: rwork(:), ws(:)
+  complex*16 :: cone, czero
+  cone  = cmplx(1.d0, 0.d0, 8)
+  czero = cmplx(0.d0, 0.d0, 8)
   !
   DO icix=1,ncix
      cixdm = cixdim(icix)
@@ -1457,7 +1484,7 @@ SUBROUTINE RenormalizeTransK(DMFTU, cix_orb, cixdim, nindo, iSx, Sigind, project
         if (info.lt.0) print *, 'The ', abs(info),' th argument had an illegal value.'
         if (info.gt.0) print *, 'The updating process of DBDSDC did not converge.'
      endif
-     call zgemm('N', 'N', nbands, cixdms, cixdms_m, (1.d0,0.d0), Uw, nbands, Vw, cixdms_m, (0.d0,0.d0), Ucix2, nbands)
+     call zgemm('N', 'N', nbands, cixdms, cixdms_m, cone, Uw, nbands, Vw, cixdms_m, czero, Ucix2, nbands)
 
 
      !WRITE(6,*)
@@ -1493,7 +1520,7 @@ SUBROUTINE RenormalizeTransK(DMFTU, cix_orb, cixdim, nindo, iSx, Sigind, project
               Vw2(ip,:) = 1./ws(ip) * Vw(ip,:)
            endif
         enddo
-        call zgemm('C', 'N', cixdms, cixdms, cixdms_m, (1.d0,0.d0), Vw, cixdms_m, Vw2, cixdms_m, (0.d0,0.d0), UU, cixdms)
+        call zgemm('C', 'N', cixdms, cixdms, cixdms_m, cone, Vw, cixdms_m, Vw2, cixdms_m, czero, UU, cixdms)
         deallocate(Vw2)
         
         do ipc=2,nipc
@@ -1508,7 +1535,7 @@ SUBROUTINE RenormalizeTransK(DMFTU, cix_orb, cixdim, nindo, iSx, Sigind, project
            ENDDO
 
            ! Ucix2 = dot(Ucix,UU)
-           call zgemm('N', 'N', nbands, cixdms, cixdms, (1.d0,0.d0), Ucix, nbands, UU, cixdms, (0.d0,0.d0), Ucix2, nbands)
+           call zgemm('N', 'N', nbands, cixdms, cixdms, cone, Ucix, nbands, UU, cixdms, czero, Ucix2, nbands)
            
            DO iorb1=1,norbitals
               if ( cix_orb(iorb1).NE.icix ) CYCLE
@@ -2560,6 +2587,9 @@ SUBROUTINE GetLocalDensityMatrix(DM, DMFTU, Aweight, vnorm1, iorbital, iSx, nban
   INTEGER :: icase, jcase, l1case, l2case, icix, l1, l2, nind1, nind2, iorb1, iorb2, ind1, ind2!, i
   !INTEGER, allocatable :: cind(:), cini(:)
   COMPLEX*16, allocatable :: tmp(:,:), tdens(:,:)
+  complex*16 :: cone, czero
+  cone  = cmplx(1.d0, 0.d0, 8)
+  czero = cmplx(0.d0, 0.d0, 8)
   DM=0
   allocate( tmp(maxdim2,nbands), tdens(maxdim2,maxdim2) )
   DO icase=1,natom
@@ -2575,8 +2605,8 @@ SUBROUTINE GetLocalDensityMatrix(DM, DMFTU, Aweight, vnorm1, iorbital, iSx, nban
               l2 = ll(jcase,l2case)
               nind2 = (2*l2+1)*iso
               iorb2 = iorbital(jcase,l2case)
-              call zgemm('C','N', nind1, nbands, nbands, (1.d0,0.d0), DMFTU(:,:,iorb1), nbands, Aweight(:,:),nbands, (0.d0,0.d0), tmp(:,:),maxdim2)
-              call zgemm('N','N', nind1, nind2, nbands, (1.d0,0.d0), tmp,maxdim2, DMFTU(:,:,iorb2),nbands, (0.d0,0.d0), tdens,maxdim2)
+              call zgemm('C','N', nind1, nbands, nbands, cone, DMFTU(:,:,iorb1), nbands, Aweight(:,:),nbands, czero, tmp(:,:),maxdim2)
+              call zgemm('N','N', nind1, nind2, nbands, cone, tmp,maxdim2, DMFTU(:,:,iorb2),nbands, czero, tdens,maxdim2)
               do ind1=1,nind1
                  do ind2=1,nind2
                     DM( iSx(ind1,iorb1), iSx(ind2,iorb2), icix ) = tdens(ind1,ind2)*vnorm1
@@ -2690,6 +2720,9 @@ SUBROUTINE GetAEweight(wEpsw, Aweight, AEweight, zw2, nbands, nbands_dft, nemin,
   COMPLEX*16 :: tmp(nbands,nbands), tmp2(nbands,nbands)!, tmp3(nbands,nbands)
   !REAL*8  :: sqt(nbands)!, diff
   INTEGER :: i, nbandsx
+  complex*16 :: cone, czero
+  cone  = cmplx(1.d0, 0.d0, 8)
+  czero = cmplx(0.d0, 0.d0, 8)
   !
   ! Here we calculate Eps, which is defined by the density matrix :
   !                rho=\sum_iw A^R 1/(iw + mu - eps_w) A^L ,
@@ -2701,8 +2734,8 @@ SUBROUTINE GetAEweight(wEpsw, Aweight, AEweight, zw2, nbands, nbands_dft, nemin,
   !   (rho*E) = Aweight * wEpsw * Aweight^C
   ! Both rho and (rho*E) are Hermitian, hence Eps is Hermitian too
   ! 
-  call zgemm('C','N', nbands, nbands, nbands, (1.d0,0.d0), Aweight, nbands, AEweight, nbands, (0.d0,0.d0), tmp2, nbands)
-  call zgemm('N','N', nbands, nbands, nbands, (1.d0,0.d0), tmp2, nbands, Aweight, nbands, (0.d0,0.d0), tmp, nbands)
+  call zgemm('C','N', nbands, nbands, nbands, cone, Aweight, nbands, AEweight, nbands, czero, tmp2, nbands)
+  call zgemm('N','N', nbands, nbands, nbands, cone, tmp2, nbands, Aweight, nbands, czero, tmp, nbands)
 
   nbandsx = DM_nemaxx-DM_nemin+1
   

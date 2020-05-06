@@ -776,10 +776,6 @@ CONTAINS
     REAL*8     :: fri(3), fra(3), fsur(3)
     REAL*8     :: dlts(0:1), yTy(-1:1,-1:1)
     REAL*8     :: GR
-!!! BRISI
-    !COMPLEX*16, allocatable :: drho_part2(:), drho_part3(:)
-    !REAL*8, allocatable     :: drholm(:)
-!!! BRISI
     REAL*8     :: VFA, VFF
     !*******************Statement Functions***************************
     VFA(L,M) = SQRT((L+M+1.)*(L+M+2.)/((2.*L+3.)*(2.*L+1.)))
@@ -787,10 +783,10 @@ CONTAINS
     !*****************************************************************
     imag=dcmplx(0.d0,1.d0)
 
-    write(6,'(A,F7.4,A)') 'Density at the MT-boundary r=', Rmt, ' from augmented PW:'
-    DO lm1=0,lmmax-1
-       write(6,'(I3,1x,I3,1x,F20.10)') lm(1,lm1), lm(2,lm1), rhoalm(lm1)
-    END DO
+    !write(6,'(A,F7.4,A)') 'Density at the MT-boundary r=', Rmt, ' from augmented PW:'
+    !DO lm1=0,lmmax-1
+    !   write(6,'(I3,1x,I3,1x,F20.10)') lm(1,lm1), lm(2,lm1), rhoalm(lm1)
+    !END DO
     
     l_max = maxval(abs(lm(1,0:lmmax-1)))
 
@@ -886,10 +882,10 @@ CONTAINS
     fsur(:) = fsur(:)*(4.d0*pi*Rmt**2)
     fkdc(:) = fkdc(:)*(0.5*Rmt**2)
     
-    write(6,'(A,F7.4,A)') 'Density at the MT-boundary r=', Rmt, ' from interstitial PW:'
-    DO lm1=0,lmmax_ext-1
-       write(6,'(I3,1x,I3,1x,F20.10)') lm_ext(1,lm1), lm_ext(2,lm1), dble(rholm(lm1))
-    END DO
+    !write(6,'(A,F7.4,A)') 'Density at the MT-boundary r=', Rmt, ' from interstitial PW:'
+    !DO lm1=0,lmmax_ext-1
+    !   write(6,'(I3,1x,I3,1x,F20.10)') lm_ext(1,lm1), lm_ext(2,lm1), dble(rholm(lm1))
+    !END DO
     !********** Finished density in the interstitials ************!
 
     
