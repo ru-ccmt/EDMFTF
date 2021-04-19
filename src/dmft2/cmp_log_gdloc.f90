@@ -353,8 +353,9 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
         WRITE(6,*) 'forb[mRy/Br]='
         do ip=1,3
            WRITE(6,'(A,A,A)',advance='no') '    ',label(ip),':'
-           do iatm=1,natom
-              WRITE(6,'(f16.10,1x)',advance='no') forb(ip,iatm)*1000
+           DO icase=1,natom
+              latom = iatom(icase)
+              WRITE(6,'(f16.10,1x)',advance='no') forb(ip,latom)*1000
            enddo
            WRITE(6,*)
         enddo

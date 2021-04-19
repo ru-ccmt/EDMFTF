@@ -939,6 +939,8 @@ SUBROUTINE INIT_ENERGY_FILE(nkpt, nmat, nume, maxbands,projector,Qcomplex)
            nmat=MAX(n,nmat)
            nume=MAX(nen,nume)
            READ(itape) (wkx,wky,wkz,i=1,N)
+           NEMIN=1   ! bug 2021
+           NEMAX=0   ! bug 2021
            DO ii=1,NEn 
               READ(itape) NUM,E1
               if (abs(projector).LT.4) then
