@@ -63,4 +63,5 @@ install :
 	cp dftso/lapwso ${DESTDIR}
 	cp exactDC/*.py ${DESTDIR}
 	cp exactDC/*.so ${DESTDIR}
+	cp phonon/*.py ${DESTDIR}
 
