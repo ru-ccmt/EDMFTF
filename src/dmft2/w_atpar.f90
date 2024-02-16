@@ -375,7 +375,7 @@ CONTAINS
     ! Here we reread non-spherical potential to store it in Vts(:,:,:,:)
     allocate( Vts(3,3,ngau,nat) )      ! non-spherical potential matrix elements
     allocate( lpv(ngau,nat), lv(ngau,nat), mpv(ngau,nat), mv(ngau,nat) )
-    allocate( Nhmx(jatom) )
+    allocate( Nhmx(nat) )
     CALL init_V_nsh(filename_V_nsh, 9902) 
     !WRITE(6,*) 'Second read_V_nsh'
     do jatom=1,nat

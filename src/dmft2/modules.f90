@@ -8,7 +8,7 @@ MODULE param
   ! for ncom parameter check format 1003 in l2main.frc
   INTEGER,PARAMETER :: NLOAT=    3
   INTEGER,PARAMETER :: NRAD=   881
-  INTEGER           :: NGAU=  2350     ! 3200
+  INTEGER           :: NGAU=  23500     ! 3200 CAREFUL: This was incresed for factor of 10 by email Rishi Rao. Check
   INTEGER           :: LXDOS=    1
 
   INTEGER           :: NMAT=     0
