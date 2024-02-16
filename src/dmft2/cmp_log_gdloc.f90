@@ -95,6 +95,8 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
   forb(:,:)=0.d0
   logG=0
   DeltaG=0
+  eimp_nd=0
+  eimp_nd2=0
   if (DIAGONAL) then
 
      allocate( Gdloc_(nom_all) )
@@ -105,8 +107,6 @@ SUBROUTINE cmpLogGdloc(logG, eimp_nd, eimp_nd2, DeltaG, forb, TrGSigVdc, Gdloc, 
      allocate( icx_ind(ntcix), it_ind(ntcix) )
      epsinf=0
      deg=0
-     eimp_nd=0
-     eimp_nd2=0
      ndtot=0
      do icix=1,ncix
         do ip=1,cixdim(icix)
