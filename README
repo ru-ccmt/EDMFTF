@@ -39,3 +39,11 @@ and by support of A. P. Sloan Foundation, Simons foundation, and Blavatnik found
 
 The documentation at "http://hauleweb.rutgers.edu/tutorials/" is developed by the 
 support of DOE.
+
+New in 2024:
+- cif2struct.py added, which converts cif files to struct as needed by wien2k.
+ This code takes care of monoclinic structures in which cif2struct in wien code
+ fails, and converts any cif setting into wien accepted setting (for example CXZ,gamma!=90)
+- added run_dft.py, which is similar to run_lapw, but uses internal lapw1, and lapwso, 
+  which are faster than wien/lapw[1|so] on parallel machines.
+
