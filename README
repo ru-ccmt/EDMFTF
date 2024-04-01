@@ -1,3 +1,5 @@
+Newer Python3 code is now available at https://github.com/ru-ccmt/eDMFT
+
 DMFT installation instructions:
 
   1. From provided configuration files create your own "configure.py". You can start by
